@@ -73,6 +73,7 @@ interface Settings {
   sidebarHidden: boolean;
   modifierHints: boolean;
   language: LangPref;
+  resumeSession: boolean;
 }
 
 const CONFIG_PATHS: Record<keyof Settings, string[]> = {
@@ -87,6 +88,7 @@ const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   sidebarHidden: ["sidebar", "hidden"],
   modifierHints: ["shortcuts", "showModifierHoldHints"],
   language: ["app", "language"],
+  resumeSession: ["agent", "resumeSession"],
 };
 
 interface LoadedConfig {
@@ -142,6 +144,7 @@ const DEFAULTS: Settings = {
   sidebarHidden: false,
   modifierHints: false,
   language: "auto",
+  resumeSession: true,
 };
 
 // Same palette names as cmux's workspace colors.
@@ -519,7 +522,7 @@ function validSessionId(id: unknown): id is string {
 }
 
 function canResume(tab: Tab) {
-  return !!tab.agentSession && !tab.agentLive;
+  return settings.resumeSession && !!tab.agentSession && !tab.agentLive;
 }
 
 function resumeAgent(tab: Tab) {
@@ -1276,6 +1279,7 @@ function fillSettings() {
   $<HTMLInputElement>("s-blink").checked = settings.cursorBlink;
   $<HTMLInputElement>("s-smart").checked = settings.smartCopyPaste;
   $<HTMLInputElement>("s-hints").checked = settings.modifierHints;
+  $<HTMLInputElement>("s-resume").checked = settings.resumeSession;
   $<HTMLInputElement>("s-scrollback").value = String(settings.scrollback);
   $("cfg-path").textContent = configPath;
   renderKeys();
@@ -1453,6 +1457,10 @@ $<HTMLInputElement>("s-font-family").oninput = (e) => {
 $<HTMLInputElement>("s-font-family").onchange = (e) =>
   updateSettings({ fontFamily: (e.target as HTMLInputElement).value.trim() || DEFAULTS.fontFamily });
 $<HTMLInputElement>("s-blink").onchange = (e) => updateSettings({ cursorBlink: (e.target as HTMLInputElement).checked });
+$<HTMLInputElement>("s-resume").onchange = (e) => {
+  updateSettings({ resumeSession: (e.target as HTMLInputElement).checked });
+  scheduleRender();
+};
 $<HTMLInputElement>("s-smart").onchange = (e) => updateSettings({ smartCopyPaste: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-hints").onchange = (e) => updateSettings({ modifierHints: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-scrollback").onchange = (e) => {

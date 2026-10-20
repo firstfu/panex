@@ -87,6 +87,17 @@
         }
       }
     },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resumeSession": {
+          "type": "boolean",
+          "default": true,
+          "description": "Claude Code 結束後（或重開 panex 後），在終端機下方與側欄顯示「恢復」，一鍵執行 claude --resume。關掉後不顯示，已記下的 session id 仍保留。"
+        }
+      }
+    },
     "sidebar": {
       "type": "object",
       "additionalProperties": false,

@@ -167,6 +167,8 @@ const EN: Record<string, string> = {
   "恢復": "Resume",
   "略過": "Dismiss",
   "恢復上次的 Claude Code session": "Resume the last Claude Code session",
+  "恢復 Claude Code session": "Resume Claude Code sessions",
+  "Claude Code 結束後，在終端機下方與側欄提供一鍵 claude --resume": "After Claude Code exits, offer a one-click claude --resume under the terminal and in the sidebar",
 };
 
 let lang: Lang = "zh-Hant";
