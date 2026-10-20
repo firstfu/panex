@@ -19,7 +19,8 @@
 - 使用者想在 Mac 上裝；並要求字型、快捷鍵依平台不同，視窗預設大一點且可調。
 
 **下一步**
-- 尚未 commit。Windows 端未實測：需在 Windows 建置確認 tauri-build 接受 macOS 專屬的 tauri feature、以及「不再記住視窗大小」這個行為改變使用者是否接受。
+- 已 commit（6a4cc56、CI 修正 0091714），tag v0.3.0；新增 `.github/workflows/release.yml`：推 tag 就在 windows-latest／macos-latest 建置並附到草稿 release，發布草稿仍手動。v0.3.0 已由 CI 建置兩平台並發布（Windows 由 CI 編譯通過，執行面仍未在 Windows 實測）。推 workflow 檔需要 gh 權杖有 `workflow` scope。本機打包 macOS 要用系統的 `/usr/bin/xattr`（pyenv 的 xattr 不支援 `-r`，ad-hoc 簽章步驟會失敗）。
+- Windows 端未實測：需在 Windows 建置確認 tauri-build 接受 macOS 專屬的 tauri feature、以及「不再記住視窗大小」這個行為改變使用者是否接受。
 - 未做：Mac 版 GitHub release（未簽章，使用者第一次開要右鍵「打開」）、README 的 Mac 說明、fish shell 的 cwd 回報。測試實例的 session 寫在正式的 `~/Library/Application Support/dev.panex.terminal/`（這台 Mac 原本沒裝 panex）。
 
 ## 2026-10-20 — 一鍵恢復 Claude Code session（提示列＋側欄 ↻）
