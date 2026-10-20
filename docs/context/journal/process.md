@@ -7,6 +7,7 @@
 ## 2026-10-20 — 一鍵恢復 Claude Code session（提示列＋側欄 ↻）
 
 **變更**
+- 事後加開關 `agent.resumeSession`（預設開；設定頁「終端機」、panex.json、schema 同步，`f1a27de`）。關掉只是不顯示，不刪已記的 id。用測試實例驗過開／關都即時生效並寫回設定檔。
 - `panex-cli` 多帶 hook 的 `session_id`；前端存成每個分頁的 `agentSession`（`session.json` 新增選填欄位 `agentSession`），Claude 結束（下個 shell prompt）後在終端機下方顯示「恢復／略過」提示列，側欄工作區名稱旁顯示 `↻`。按恢復就把 `claude --resume <id>` 送進分頁。機制已歸檔在 `overview.md`。
 - 用測試實例＋CDP＋`panex-cli` 模擬 hook 驗證：hook 進來時提示列隱藏、回到 prompt 後出現、按恢復真的啟動 claude、重開 panex 後仍顯示、略過會清掉 session 檔裡的 id。測試資料已清除。README 兩版同步。
 
