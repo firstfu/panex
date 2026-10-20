@@ -154,6 +154,15 @@ const EN: Record<string, string> = {
   "，{key} 關閉分頁": ", {key} to close the tab",
   "已完成": "Done",
   "需要你的回應": "Needs your response",
+  "建立 worktree": "Create worktree",
+  "分支名稱": "Branch name",
+  "從哪個分支開始（分支已存在時忽略）": "Start from (ignored if the branch exists)",
+  "取消": "Cancel",
+  "建立": "Create",
+  "目前的工作目錄不在 git repo 裡": "The current folder is not inside a git repository",
+  "已複製：{files}": "Copied: {files}",
+  "用新 worktree 開新工作區…": "New workspace in a new worktree…",
+  "用新 git worktree 開新工作區": "New workspace in a new git worktree",
 };
 
 let lang: Lang = "zh-Hant";

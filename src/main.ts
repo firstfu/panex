@@ -9,6 +9,7 @@ import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { resolveLang, setLang, getLang, t as tr, translateDom, type LangPref } from "./i18n";
 import { getCurrentWindow, Effect } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   ACTIONS,
   GROUPS,
@@ -113,6 +114,7 @@ interface Tab {
   dirty: boolean; // output since the last scrollback snapshot
   status: Status;
   note?: string;
+  initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
 }
 
 /** A sidebar entry (cmux's workspace) holding one or more tabs. */
@@ -189,6 +191,7 @@ const shellMenuEl = $("shell-menu");
 const hooksEl = $("hooks-row");
 const ctxEl = $("ctx");
 const settingsEl = $("settings");
+const wtEl = $("wt");
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const newWsId = () => `w${newId().slice(0, 11)}`;
@@ -529,6 +532,11 @@ async function spawn(tab: Tab) {
       rows: tab.term.rows,
       onData,
     });
+    if (tab.initialInput) {
+      // The pty queues input until the shell starts reading, so no need to wait for the prompt.
+      invoke("pty_write", { id: tab.id, data: `${tab.initialInput}\r` }).catch(() => {});
+      tab.initialInput = undefined;
+    }
   } catch (e) {
     tab.running = false;
     tab.exited = true;
@@ -628,6 +636,78 @@ function newWorkspace(shell = settings.defaultShell) {
   ws.tabs.push(tab.id);
   showTab(tab.id);
 }
+
+// ── New worktree ────────────────────────────────────────────────────────────
+
+const wtBranchEl = $<HTMLInputElement>("wt-branch");
+const wtBaseEl = $<HTMLInputElement>("wt-base");
+const wtErrEl = $("wt-err");
+const wtOkEl = $<HTMLButtonElement>("wt-ok");
+let wtCwd: string | undefined;
+
+function openWorktreeDialog() {
+  const tab = activeTab();
+  wtCwd = tab?.cwd;
+  hideCtx();
+  wtBranchEl.value = "";
+  wtBaseEl.value = tab?.branch ?? "";
+  wtErrEl.textContent = wtCwd && tab?.branch ? "" : tr("目前的工作目錄不在 git repo 裡");
+  wtOkEl.disabled = false;
+  wtEl.hidden = false;
+  wtBranchEl.focus();
+  // Existing branches as suggestions for both fields; typing a new name still works.
+  $("wt-branches").replaceChildren();
+  if (wtCwd) {
+    invoke<string[]>("git_branches", { cwd: wtCwd })
+      .then((list) => $("wt-branches").replaceChildren(...list.map((b) => Object.assign(document.createElement("option"), { value: b }))))
+      .catch(() => {});
+  }
+}
+
+function closeWorktreeDialog() {
+  wtEl.hidden = true;
+  activeTab()?.term.focus();
+}
+
+async function createWorktree() {
+  const branch = wtBranchEl.value.trim();
+  if (!wtCwd || !branch) return;
+  wtOkEl.disabled = true;
+  wtErrEl.textContent = "";
+  const copyFiles = Array.isArray(rawConfig.worktree?.copyFiles) ? rawConfig.worktree.copyFiles : [".env", ".env.local"];
+  try {
+    const wt = await invoke<{ path: string; copied: string[] }>("git_worktree_add", {
+      cwd: wtCwd,
+      branch,
+      base: wtBaseEl.value.trim() || null,
+      copyFiles,
+    });
+    wtEl.hidden = true;
+    const ws: Workspace = { id: newWsId(), tabs: [], customTitle: branch };
+    workspaces.set(ws.id, ws);
+    wsOrder.push(ws.id);
+    const tab = createTab({ id: newId(), shell: settings.defaultShell, cwd: wt.path }, ws.id);
+    const setup = rawConfig.worktree?.setupCommand;
+    if (typeof setup === "string" && setup.trim()) tab.initialInput = setup.trim();
+    if (wt.copied.length) tab.term.write(`\x1b[90m${tr("已複製：{files}", { files: wt.copied.join(", ") })}\x1b[0m\r\n`);
+    ws.tabs.push(tab.id);
+    showTab(tab.id);
+  } catch (e) {
+    wtErrEl.textContent = String(e);
+    wtOkEl.disabled = false;
+  }
+}
+
+$("wt-cancel").onclick = closeWorktreeDialog;
+wtEl.addEventListener("mousedown", (e) => e.target === wtEl && closeWorktreeDialog());
+wtEl.querySelector("form")!.addEventListener("submit", (e) => {
+  e.preventDefault();
+  createWorktree();
+});
+wtEl.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Escape") closeWorktreeDialog();
+});
 
 /** New tab in the current workspace, right after the visible one, in the same folder. */
 function newTab(shell = settings.defaultShell) {
@@ -855,7 +935,6 @@ function renderSidebar() {
       const d = document.createElement("div");
       d.className = `tab ws st-${status}${wid === activeWsId ? " active" : ""}`;
       d.dataset.ws = wid;
-      d.draggable = renaming?.id !== wid;
       const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
       const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
       const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
@@ -883,7 +962,6 @@ function renderTabbar() {
     const d = document.createElement("div");
     d.className = `htab st-${t.status}${tid === visibleTabId ? " active" : ""}`;
     d.dataset.tab = tid;
-    d.draggable = renaming?.id !== tid;
     if (t.note) d.title = t.note;
     const num = i < 8 ? i + 1 : i === ws.tabs.length - 1 ? 9 : 0;
     const hint = num ? digitHint("selectTabByNumber", num) : "";
@@ -951,6 +1029,7 @@ function wsMenu(ws: Workspace): MenuItem[] {
     { colors: ws },
     "-",
     { label: tr("新分頁"), keys: keyLabel("newTab"), run: () => (showWorkspace(ws.id), newTab()) },
+    { label: tr("用新 worktree 開新工作區…"), keys: keyLabel("newWorktree"), run: () => (showWorkspace(ws.id), openWorktreeDialog()) },
     "-",
     { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveWorkspace(ws.id, i - 1), disabled: i === 0 },
     { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveWorkspace(ws.id, i + 1), disabled: i === wsOrder.length - 1 },
@@ -1364,6 +1443,7 @@ function runAction(id: string, digit = 0) {
   switch (id) {
     case "newWorkspace": return newWorkspace();
     case "newWorkspaceWithShell": return shells[digit - 1] && newWorkspace(shells[digit - 1].id);
+    case "newWorktree": return openWorktreeDialog();
     case "closeWorkspace": return activeWsId && closeWorkspaces([activeWsId]);
     case "renameWorkspace": return activeWsId && startRename("ws", activeWsId);
     case "selectWorkspaceByNumber": { const w = nth(wsOrder, digit); return w && showWorkspace(w); }
@@ -1412,7 +1492,7 @@ document.addEventListener(
   "keydown",
   (e) => {
     if (e.key === "Control" || e.key === "Alt") document.body.classList.add("show-nums");
-    if (renaming) return;
+    if (renaming || !wtEl.hidden) return;
     if (capturingId) return stop(e, () => captureKey(e));
     const combo = eventCombo(e);
     if (!settingsEl.hidden || !ctxEl.hidden) {
@@ -1517,47 +1597,81 @@ tabbarEl.addEventListener("auxclick", (e) => {
 });
 
 // Drag to reorder: workspaces vertically in the sidebar, tabs horizontally in the bar.
+// Pointer events rather than HTML5 drag-and-drop: the window must keep native file drop on
+// (dragDropEnabled), and WebView2 then no longer delivers HTML5 drag events to the page.
 function clearDropMarks() {
   document.querySelectorAll(".drop-before, .drop-after").forEach((el) => el.classList.remove("drop-before", "drop-after"));
 }
 function wireDrag(container: HTMLElement, kind: "ws" | "tab", attr: string, horizontal: boolean) {
-  const itemOf = (e: Event) => (e.target as HTMLElement).closest<HTMLElement>(`[data-${attr}]`);
-  container.addEventListener("dragstart", (e) => {
-    const el = itemOf(e);
-    if (!el) return;
-    drag = { kind, id: el.dataset[attr]! };
-    el.classList.add("dragging");
-    e.dataTransfer!.effectAllowed = "move";
-    e.dataTransfer!.setData("text/plain", drag.id);
-  });
-  container.addEventListener("dragover", (e) => {
-    const el = itemOf(e);
-    if (drag?.kind !== kind || !el) return;
-    e.preventDefault();
-    clearDropMarks();
-    const r = el.getBoundingClientRect();
-    const after = horizontal ? e.clientX > r.left + r.width / 2 : e.clientY > r.top + r.height / 2;
-    el.classList.add(after ? "drop-after" : "drop-before");
-  });
-  container.addEventListener("drop", (e) => {
-    const el = itemOf(e);
-    const target = el?.dataset[attr];
-    if (drag?.kind !== kind || !target) return;
-    e.preventDefault();
-    const list = kind === "ws" ? wsOrder : workspaces.get(tabs.get(drag.id)?.wsId ?? "")?.tabs;
-    if (!list) return;
-    const from = list.indexOf(drag.id);
-    let to = list.indexOf(target) + (el!.classList.contains("drop-after") ? 1 : 0);
-    if (from < to) to--;
-    if (kind === "ws") moveWorkspace(drag.id, to);
-    else moveTab(drag.id, to);
-  });
-  container.addEventListener("dragend", () => {
-    drag = undefined;
-    clearDropMarks();
-    scheduleRender();
+  const itemOf = (t: EventTarget | null) => ((t as HTMLElement | null)?.closest?.(`[data-${attr}]`) as HTMLElement | null | undefined) ?? null;
+  container.addEventListener("pointerdown", (e) => {
+    const el = itemOf(e.target);
+    const id = el?.dataset[attr];
+    if (e.button !== 0 || !id || renaming || (e.target as HTMLElement).closest("input")) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let target: { id: string; after: boolean } | undefined;
+
+    const onMove = (m: PointerEvent) => {
+      if (!drag) {
+        if (Math.hypot(m.clientX - startX, m.clientY - startY) < 5) return;
+        drag = { kind, id };
+        document.body.classList.add("reordering");
+        el!.classList.add("dragging");
+      }
+      clearDropMarks();
+      target = undefined;
+      const over = itemOf(document.elementFromPoint(m.clientX, m.clientY));
+      const overId = over?.dataset[attr];
+      if (!over || !overId || !container.contains(over)) return;
+      const r = over.getBoundingClientRect();
+      const after = horizontal ? m.clientX > r.left + r.width / 2 : m.clientY > r.top + r.height / 2;
+      over.classList.add(after ? "drop-after" : "drop-before");
+      target = { id: overId, after };
+    };
+    const end = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", end);
+      document.removeEventListener("pointercancel", end);
+      if (!drag) return;
+      const moved = drag;
+      drag = undefined;
+      document.body.classList.remove("reordering");
+      clearDropMarks();
+      // The release would otherwise count as a click and switch to the dragged item.
+      const swallow = (c: Event) => c.stopPropagation();
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      window.setTimeout(() => window.removeEventListener("click", swallow, true), 100);
+      const list = kind === "ws" ? wsOrder : workspaces.get(tabs.get(moved.id)?.wsId ?? "")?.tabs;
+      if (target && list) {
+        const from = list.indexOf(moved.id);
+        let to = list.indexOf(target.id) + (target.after ? 1 : 0);
+        if (from < to) to--;
+        if (kind === "ws") moveWorkspace(moved.id, to);
+        else moveTab(moved.id, to);
+      }
+      scheduleRender();
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", end);
+    document.addEventListener("pointercancel", end);
   });
 }
+// Files dragged in from Explorer: type their paths into the current terminal, quoted when they
+// contain spaces (what Windows Terminal does). Goes through paste, so a program that asked for
+// bracketed paste (Claude Code) sees one paste and can pick up image paths.
+getCurrentWebview()
+  .onDragDropEvent((e) => {
+    const p = e.payload;
+    document.body.classList.toggle("file-over", p.type === "over" || p.type === "enter");
+    if (p.type !== "drop" || !p.paths.length) return;
+    const tab = activeTab();
+    if (!tab) return;
+    tab.term.paste(p.paths.map((f) => (/\s/.test(f) ? `"${f}"` : f)).join(" ") + " ");
+    tab.term.focus();
+  })
+  .catch(() => {});
+
 wireDrag(wsListEl, "ws", "ws", false);
 wireDrag(tabbarEl, "tab", "tab", true);
 

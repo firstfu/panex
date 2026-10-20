@@ -31,6 +31,7 @@ panex：開源、跨平台（Windows 優先）的多 agent 終端機 App，模�
 | `src-tauri/src/config.rs` + `schemas/panex.schema.json` | 使用者設定檔 `~/.config/panex/panex.json`（仿 cmux 的 `cmux.json`）：只寫改過的鍵、旁邊放 schema 供編輯器補完、`notify` 監看目錄、最後一次寫入後 300 ms 發 `config-changed`。`config_set` 只改單一鍵、檔案壞掉時拒寫。目前 `schemaVersion` 2；讀到 1 時先備份 `panex.json.v1.bak` 再依 `V1_RENAMES` 改名快捷鍵 id（v1 的「分頁」＝現在的工作區）。 |
 | `src/i18n.ts` | 介面語言。以繁中原文當 key、`t("原文", {var})` 查英文（找不到就回原文）；靜態 HTML 用 `data-i18n`／`-title`／`-aria`／`-ph` 標記，`translateDom()` 首次記下原文後可來回切換。新增任何使用者看得到的字串都要同時加進 `EN` 字典；`keys.ts` 的動作 label 維持繁中，顯示時才 `t()`。Rust 端錯誤訊息一律英文。 |
 | `src-tauri/src/git.rs` | `git_branch(cwd)`：往上找 `.git`（目錄或 worktree 的 `gitdir:` 檔）直接讀 `HEAD`，不開 git 程序；detached 回 7 碼 hash。前端在每次 cwd 回報（每個 prompt）重查，同分頁 1 秒內不重複，所以原地 `git checkout` 下個 prompt 就更新。 |
+| 一鍵 worktree | 側欄右鍵「用新 worktree 開新工作區…」（或可綁定的 `newWorktree`）開對話框，分支名與起點分支兩欄都有本機分支下拉（`git_branches`，datalist）。`git.rs::git_worktree_add` 以 `git worktree add` 建在主 repo 同層的 `<repo>-worktrees/<分支，非字母數字改 ->`（從 worktree 內再開也找回主 repo）；分支已存在就直接簽出，否則從起點建；路徑已存在就拒絕。接著依 `panex.json` 的 `worktree.copyFiles`（預設 `.env`、`.env.local`，只複製檔案、不覆蓋、相對路徑且不得含 `..`）從目前 worktree 根目錄複製過去，並開以分支命名的新工作區；`worktree.setupCommand` 存在就在 shell 啟動後（`spawn` 內）自動送入。git 不追蹤的檔案（.env、node_modules）不會自動出現在 worktree，這是兩個設定存在的原因。不做移除 worktree（可能有未提交內容）。 |
 | `src/keys.ts` | 快捷鍵：`ACTIONS`／`GROUPS`（工作區、分頁、編輯、檢視、設定）。綁定格式與 cmux 相容：字串＝單一組合、字串陣列＝連續按鍵、陣列裡放陣列＝多組任選一組、`null`/`"none"`＝取消。以 `KeyboardEvent.code` 比對實體按鍵；`digits` 動作以 `…+1` 代表 1–9 整組。 |
 | 外觀 | 視窗 `transparent: true`，透明度靠 CSS `--alpha`，xterm 背景全透明；Mica／Acrylic 用 `setEffects`。 |
 

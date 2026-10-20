@@ -39,3 +39,13 @@ lto = true
 codegen-units = 1
 strip = true
 opt-level = 3
+
+# Fast iteration build (`cargo tauri build --no-bundle -- --profile test-build`): release without LTO
+# and with parallel codegen. Shipped installers still use [profile.release].
+[profile.test-build]
+inherits = "release"
+lto = false
+codegen-units = 16
+strip = false
+opt-level = 1
+incremental = true

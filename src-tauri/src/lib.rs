@@ -47,6 +47,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             git::git_branch,
+            git::git_worktree_add,
+            git::git_branches,
             pty::shells_list,
             pty::pty_spawn,
             pty::pty_write,

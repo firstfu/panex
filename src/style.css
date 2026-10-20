@@ -413,3 +413,26 @@ body.no-hints .t-num { display: none; }
 }
 #notice[hidden] { display: none; }
 #notice button { border: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.1); color: inherit; padding: 3px 8px; cursor: pointer; }
+
+/* New-worktree dialog */
+#wt { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
+  font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif; }
+.wt-panel {
+  display: flex; flex-direction: column; gap: 12px; width: min(420px, calc(100vw - 32px)); padding: 20px 22px;
+  background: var(--s-panel); color: var(--s-text); border: 1px solid #34343c; border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
+}
+.wt-panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+.wt-panel label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--s-muted); }
+.wt-err { margin: 0; min-height: 1.4em; font-size: 12.5px; color: #f87171; white-space: pre-wrap; word-break: break-word; }
+.wt-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.wt-actions button { font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
+.wt-actions .primary { border: 0; background: var(--s-accent); color: #fff; }
+.wt-actions .primary:hover { background: #2f74e6; }
+.wt-actions .primary:disabled { opacity: 0.6; cursor: default; }
+.wt-actions .ghost { border: 1px solid var(--s-line); background: none; color: var(--s-text); }
+.wt-actions .ghost:hover { background: rgba(255, 255, 255, 0.05); }
+
+/* Reordering workspaces/tabs by pointer: no text selection, grabbing cursor */
+body.reordering { user-select: none; cursor: grabbing; }
+body.reordering * { cursor: grabbing; }

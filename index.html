@@ -27,6 +27,20 @@
 
     <div id="ctx" hidden></div>
 
+    <div id="wt" class="overlay" hidden>
+      <form class="wt-panel" role="dialog" aria-modal="true" aria-labelledby="wt-title" autocomplete="off">
+        <h2 id="wt-title" data-i18n>建立 worktree</h2>
+        <label><span data-i18n>分支名稱</span><input id="wt-branch" class="field" type="text" spellcheck="false" list="wt-branches" placeholder="feature/xxx" /></label>
+        <label><span data-i18n>從哪個分支開始（分支已存在時忽略）</span><input id="wt-base" class="field" type="text" spellcheck="false" list="wt-branches" /></label>
+        <datalist id="wt-branches"></datalist>
+        <p id="wt-err" class="wt-err" aria-live="polite"></p>
+        <div class="wt-actions">
+          <button type="button" id="wt-cancel" class="ghost" data-i18n>取消</button>
+          <button type="submit" id="wt-ok" class="primary" data-i18n>建立</button>
+        </div>
+      </form>
+    </div>
+
     <div id="settings" class="overlay" hidden>
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <nav class="s-nav">

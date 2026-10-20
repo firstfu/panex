@@ -97,6 +97,23 @@
         }
       }
     },
+    "worktree": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "copyFiles": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [".env", ".env.local"],
+          "description": "建立 worktree 時，從目前工作目錄所在的 repo 複製過去的檔案（相對路徑）。git 不追蹤的檔案（如 .env）不會自動出現在新 worktree。不存在的檔案會略過，目的地已有同名檔案不會覆蓋。"
+        },
+        "setupCommand": {
+          "type": "string",
+          "default": "",
+          "description": "建好 worktree 後，在新工作區的終端機自動執行的指令，例如 \"npm install\"。留空就不執行。"
+        }
+      }
+    },
     "shortcuts": {
       "type": "object",
       "additionalProperties": false,
@@ -114,6 +131,7 @@
             "enum": [
               "newWorkspace",
               "newWorkspaceWithShell",
+              "newWorktree",
               "closeWorkspace",
               "renameWorkspace",
               "selectWorkspaceByNumber",

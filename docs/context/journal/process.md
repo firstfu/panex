@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-20 — 一鍵 worktree、修復拖檔進終端機（排序改 pointer 事件）
+
+**變更**
+- 一鍵 worktree：`git.rs` 新增 `git_worktree_add`／`git_branches`，側欄右鍵與 `newWorktree` 動作開對話框（分支欄與起點欄皆為本機分支下拉）；建在 `<repo>-worktrees/`，複製 `worktree.copyFiles`、自動跑 `worktree.setupCommand`。schema 與 i18n 同步。機制已歸檔在 `overview.md`。
+- 拖檔進終端機失效：上一輪為了讓排序可用把 `dragDropEnabled` 設成 false，同時殺掉了原生檔案拖放。改回預設 true，列表排序從 HTML5 拖曳改成 pointer 事件（`wireDrag`），拖入檔案由 `onDragDropEvent` 把路徑 paste 進目前分頁。雷已更正在 `boundaries.md`。
+- 用測試實例驗證：建立（新分支／既有分支／被佔用報錯／非 git 目錄）、`.env` 複製與 setup 指令、縱向與橫向排序、點擊仍可切換。
+
+**為什麼**
+- 使用者要求 worktree 並要能帶 .env；回報 session 無法拖檔案與圖片進終端機（含 Claude Code）。
+
+**下一步**
+- 使用者的 panex 還是舊版：安裝會關掉他執行中的 panex（裡面有進行中的 Claude Code 分頁），要等他同意再裝。
+- 真正從檔案總管拖檔：有一次真實 OLE 拖放成功把路徑貼進終端機，之後的自動化重試誤打到使用者桌面而中止（雷已記進 `operations.md`）。請使用者安裝後實測拖檔案與圖片檔。
+- 新增 `[profile.test-build]`（不 LTO）加速驗證建置；錯誤訊息濾掉 git 的 `Preparing worktree` 進度行。
+
 ## 2026-10-20 — 還原後大片空白：還原時壓縮連續空行
 
 **變更**

@@ -21,6 +21,7 @@ const TAB = GROUPS[1];
 export const ACTIONS: ActionDef[] = [
   { id: "newWorkspace", group: WS, label: "新工作區", default: "ctrl+n" },
   { id: "newWorkspaceWithShell", group: WS, label: "用 ⌄ 選單第 N 個 shell 開新工作區", default: "ctrl+shift+1", digits: true },
+  { id: "newWorktree", group: WS, label: "用新 git worktree 開新工作區", default: null },
   { id: "closeWorkspace", group: WS, label: "關閉工作區（含裡面所有分頁）", default: null },
   { id: "renameWorkspace", group: WS, label: "重新命名工作區（也可雙擊）", default: "ctrl+shift+r" },
   { id: "selectWorkspaceByNumber", group: WS, label: "跳到第 1–8 個工作區，9 = 最後一個", default: "ctrl+1", digits: true },
