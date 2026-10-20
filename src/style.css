@@ -61,8 +61,13 @@ body.resizing-sidebar #sidebar-resizer { pointer-events: auto; }
 .tab.st-attention { border-left-color: var(--attention); box-shadow: inset 0 0 0 1px var(--attention); }
 .tab.st-done { border-left-color: var(--done); }
 .tab.st-running { border-left-color: var(--running); }
-.tab.drop-before { box-shadow: 0 -2px 0 var(--attention); }
-.tab.drop-after { box-shadow: 0 2px 0 var(--attention); }
+/* Drop marker while reordering: a short soft-white bar in the gap, not a coloured border. */
+.tab.drop-before::before, .tab.drop-after::after {
+  content: ""; position: absolute; left: 10px; right: 10px; height: 2px; border-radius: 1px;
+  background: rgba(255, 255, 255, 0.55); pointer-events: none;
+}
+.tab.drop-before::before { top: -3px; }
+.tab.drop-after::after { bottom: -3px; }
 .tab.dragging { opacity: 0.4; }
 
 .t-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
@@ -129,10 +134,7 @@ button { font: inherit; }
   border: 1px solid transparent; border-bottom: 0;
 }
 .htab:hover { background: var(--side-hover); color: var(--fg); }
-.htab.active {
-  background: var(--side-active); color: #fff; font-weight: 600; margin-bottom: -1px;
-  border-color: var(--line); box-shadow: inset 0 2px 0 var(--attention);
-}
+.htab.active { background: rgba(255, 255, 255, 0.13); color: #fff; font-weight: 600; }
 .h-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .h-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: transparent; }
 .htab.st-attention .h-dot { background: var(--attention); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); }
@@ -151,8 +153,12 @@ button { font: inherit; }
   background: none; color: var(--dim); font-size: 14px; cursor: pointer; flex: none;
 }
 .h-add:hover { background: var(--side-hover); color: var(--fg); }
-.htab.drop-before { box-shadow: -2px 0 0 var(--attention); }
-.htab.drop-after { box-shadow: 2px 0 0 var(--attention); }
+.htab.drop-before::before, .htab.drop-after::after {
+  content: ""; position: absolute; top: 9px; bottom: 5px; width: 2px; border-radius: 1px;
+  background: rgba(255, 255, 255, 0.55); pointer-events: none;
+}
+.htab.drop-before::before { left: -2px; }
+.htab.drop-after::after { right: -2px; }
 .htab.dragging { opacity: 0.4; }
 .htab .rename-input { width: 150px; }
 
