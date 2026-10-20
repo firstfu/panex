@@ -112,9 +112,16 @@ button { font: inherit; }
 #terms { flex: 1; position: relative; min-height: 0; }
 
 /* Horizontal tabs of the current workspace */
+#topbar { display: flex; align-items: stretch; flex: none; height: 34px; border-bottom: 1px solid var(--line); }
+#sidebar-toggle {
+  align-self: center; flex: none; width: 26px; height: 24px; margin-left: 6px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 5px; background: none; color: var(--dim); cursor: pointer;
+}
+#sidebar-toggle:hover { background: var(--side-hover); color: var(--fg); }
 #tabbar {
-  display: flex; align-items: stretch; gap: 2px; height: 34px; flex: none;
-  padding: 4px 6px 0; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none;
+  display: flex; align-items: stretch; gap: 2px; flex: 1; min-width: 0;
+  padding: 4px 6px 0; overflow-x: auto; scrollbar-width: none;
 }
 .htab {
   position: relative; display: flex; align-items: center; gap: 7px; max-width: 220px; min-width: 0;
@@ -122,7 +129,10 @@ button { font: inherit; }
   border: 1px solid transparent; border-bottom: 0;
 }
 .htab:hover { background: var(--side-hover); color: var(--fg); }
-.htab.active { background: var(--bg); color: var(--fg); border-color: var(--line); margin-bottom: -1px; }
+.htab.active {
+  background: var(--side-active); color: #fff; font-weight: 600; margin-bottom: -1px;
+  border-color: var(--line); box-shadow: inset 0 2px 0 var(--attention);
+}
 .h-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .h-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: transparent; }
 .htab.st-attention .h-dot { background: var(--attention); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); }

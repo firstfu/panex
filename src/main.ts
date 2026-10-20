@@ -869,6 +869,7 @@ function renderShellMenu() {
     }),
   );
   $("new-tab").title = withKey("新工作區", "newWorkspace");
+  $("sidebar-toggle").title = withKey("顯示 / 隱藏側欄", "toggleSidebar");
 }
 
 async function refreshHooks() {
@@ -1499,7 +1500,7 @@ wireDrag(wsListEl, "ws", "ws", false);
 wireDrag(tabbarEl, "tab", "tab", true);
 
 // Drag the sidebar's right edge to resize it; the width is a per-machine UI preference.
-const SIDEBAR_W = { min: 160, max: 360, def: 220 };
+const SIDEBAR_W = { min: 160, max: 280, def: 220 };
 const sidebarResizer = $("sidebar-resizer");
 function setSidebarWidth(w: number, save = false) {
   const px = Math.round(Math.min(SIDEBAR_W.max, Math.max(SIDEBAR_W.min, w)));
@@ -1528,6 +1529,7 @@ sidebarResizer.addEventListener("pointerup", (e) => {
 });
 sidebarResizer.addEventListener("dblclick", () => setSidebarWidth(SIDEBAR_W.def, true));
 
+$("sidebar-toggle").onclick = () => updateSettings({ sidebarHidden: !settings.sidebarHidden });
 $("new-tab").onclick = () => newWorkspace();
 $("shell-menu-btn").onclick = () => (shellMenuEl.hidden = !shellMenuEl.hidden);
 $("settings-btn").onclick = openSettings;

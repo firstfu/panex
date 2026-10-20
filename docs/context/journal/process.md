@@ -7,7 +7,7 @@
 ## 2026-10-20 — 側欄可拖曳寬度、拖曳排序修復、圖示改 SVG、快捷鍵提示預設關
 
 **變更**
-- 側欄右緣加拖曳把手（`#sidebar-resizer`）：寬度 160–360px（原 520 被嫌太寬）、存 `localStorage` 的 `panex.sidebarWidth`、雙擊還原 220px。
+- 側欄右緣加拖曳把手（`#sidebar-resizer`）：寬度 160–280px（520、360 都被嫌太寬）、存 `localStorage` 的 `panex.sidebarWidth`、雙擊還原 220px。
 - 側欄工作區與分頁列的拖曳排序原本程式就有，但在 Windows 完全沒反應：`tauri.conf.json` 主視窗加 `"dragDropEnabled": false`（雷已記進 `boundaries.md`）。
 - 側欄底部三顆按鈕的 `＋`／`⌄`／`⚙` 文字符號改成內嵌 SVG，按鈕改 `inline-flex`。使用者回報「1 個 icon 跑版」，但截圖太小、沒確認是哪顆，也沒確認修好沒，屬預防性處理。
 - 「快捷鍵提示」（按住 Ctrl／Alt 顯示編號）：`modifierHints` 預設改 `false`（schema 同步），設定面板「外觀」頁新增「快捷鍵提示」開關。原本只有 `panex.json` 的 `shortcuts.showModifierHoldHints` 能關。
