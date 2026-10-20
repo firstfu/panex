@@ -83,6 +83,24 @@ fn with_header(mut v: Value) -> Value {
     Value::Object(out)
 }
 
+/// Opening window size (logical px) when panex.json doesn't set `app.windowWidth/Height`.
+/// Keep in sync with DEFAULTS in main.ts and tauri.conf.json.
+const DEFAULT_WINDOW: (f64, f64) = (1400.0, 820.0);
+
+/// Sizes the window from `app.windowWidth` / `app.windowHeight`, shrunk to fit its monitor.
+/// The window-state plugin restores position only, so this is the size every launch opens at.
+pub fn apply_window_size(w: &tauri::WebviewWindow) {
+    let cfg = read(&path()).unwrap_or_default();
+    let get = |k: &str, d: f64| cfg.pointer(&format!("/app/{k}")).and_then(Value::as_f64).unwrap_or(d);
+    let (mut width, mut height) = (get("windowWidth", DEFAULT_WINDOW.0), get("windowHeight", DEFAULT_WINDOW.1));
+    if let Ok(Some(m)) = w.current_monitor() {
+        let area = m.work_area().size.to_logical::<f64>(m.scale_factor());
+        width = width.min(area.width);
+        height = height.min(area.height);
+    }
+    let _ = w.set_size(tauri::LogicalSize::new(width.max(480.0), height.max(300.0)));
+}
+
 /// Creates the config dir, refreshes the bundled schema, migrates the old
 /// app-data `settings.json` once, and starts the file watcher.
 pub fn init(app: &AppHandle, old_settings: PathBuf) {

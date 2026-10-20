@@ -41,6 +41,20 @@
           ],
           "default": "auto",
           "description": "介面語言：auto 跟隨系統（中文系統用繁體中文，其他用英文）、en 英文、zh-Hant 繁體中文。"
+        },
+        "windowWidth": {
+          "type": "integer",
+          "minimum": 480,
+          "maximum": 10000,
+          "default": 1400,
+          "description": "每次開啟時的視窗寬度（邏輯像素），超過螢幕會自動縮小。"
+        },
+        "windowHeight": {
+          "type": "integer",
+          "minimum": 300,
+          "maximum": 10000,
+          "default": 820,
+          "description": "每次開啟時的視窗高度（邏輯像素），超過螢幕會自動縮小。"
         }
       }
     },
@@ -57,7 +71,7 @@
         "fontFamily": {
           "type": "string",
           "default": "'Cascadia Mono', Consolas, 'Microsoft JhengHei', monospace",
-          "description": "CSS font-family 字串，可列多個字型做備援。"
+          "description": "CSS font-family 字串，可列多個字型做備援。預設依平台而定：Windows 如上，macOS 為 ui-monospace, Menlo, 'PingFang TC', monospace。"
         },
         "cursorBlink": {
           "type": "boolean",
@@ -95,6 +109,11 @@
           "type": "boolean",
           "default": true,
           "description": "Claude Code 結束後（或重開 panex 後），在終端機下方與側欄顯示「恢復」，一鍵執行 claude --resume。關掉後不顯示，已記下的 session id 仍保留。"
+        },
+        "askToEnableHooks": {
+          "type": "boolean",
+          "default": true,
+          "description": "Claude Code hooks 尚未啟用時，開啟 panex 就詢問要不要啟用。在對話框按「不用了」會設成 false。"
         }
       }
     },
@@ -137,7 +156,7 @@
         "bindings": {
           "type": "object",
           "default": {},
-          "description": "快捷鍵覆寫，鍵是動作 id。字串是單一組合鍵（如 \"ctrl+shift+t\"），陣列是連續按鍵（如 [\"ctrl+k\", \"ctrl+r\"]），陣列裡放陣列代表多組任選一組（如 [[\"ctrl+n\"], [\"ctrl+t\"]]）；null、\"\"、\"none\"、\"clear\"、\"unbound\"、\"disabled\" 代表取消綁定。修飾鍵：ctrl、shift、alt、meta（Windows 鍵）。selectWorkspaceByNumber、selectTabByNumber 與 newWorkspaceWithShell 寫數字 1，代表 1–9 整組。",
+          "description": "快捷鍵覆寫，鍵是動作 id。字串是單一組合鍵（如 \"ctrl+shift+t\"），陣列是連續按鍵（如 [\"ctrl+k\", \"ctrl+r\"]），陣列裡放陣列代表多組任選一組（如 [[\"ctrl+n\"], [\"ctrl+t\"]]）；null、\"\"、\"none\"、\"clear\"、\"unbound\"、\"disabled\" 代表取消綁定。修飾鍵：ctrl、shift、alt、meta（Windows 鍵；macOS 為 ⌘，也可寫 cmd）。macOS 的預設快捷鍵以 ⌘ 取代 Ctrl。selectWorkspaceByNumber、selectTabByNumber 與 newWorkspaceWithShell 寫數字 1，代表 1–9 整組。",
           "propertyNames": {
             "enum": [
               "newWorkspace",

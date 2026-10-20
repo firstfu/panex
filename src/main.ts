@@ -8,7 +8,8 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { resolveLang, setLang, getLang, t as tr, translateDom, type LangPref } from "./i18n";
-import { getCurrentWindow, Effect } from "@tauri-apps/api/window";
+import { getCurrentWindow, Effect, LogicalSize } from "@tauri-apps/api/window";
+import { IS_MAC } from "./platform";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   ACTIONS,
@@ -74,6 +75,9 @@ interface Settings {
   modifierHints: boolean;
   language: LangPref;
   resumeSession: boolean;
+  askEnableHooks: boolean; // offer to enable the Claude Code hooks at startup while they're off
+  windowWidth: number; // size the window opens at (logical px)
+  windowHeight: number;
 }
 
 const CONFIG_PATHS: Record<keyof Settings, string[]> = {
@@ -89,6 +93,9 @@ const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   modifierHints: ["shortcuts", "showModifierHoldHints"],
   language: ["app", "language"],
   resumeSession: ["agent", "resumeSession"],
+  askEnableHooks: ["agent", "askToEnableHooks"],
+  windowWidth: ["app", "windowWidth"],
+  windowHeight: ["app", "windowHeight"],
 };
 
 interface LoadedConfig {
@@ -136,7 +143,8 @@ const DEFAULTS: Settings = {
   opacity: 100,
   effect: "none",
   fontSize: 14,
-  fontFamily: "'Cascadia Mono', Consolas, 'Microsoft JhengHei', monospace",
+  // Per platform: a missing font makes xterm measure cells wider than the glyphs it draws.
+  fontFamily: IS_MAC ? "ui-monospace, Menlo, 'PingFang TC', monospace" : "'Cascadia Mono', Consolas, 'Microsoft JhengHei', monospace",
   defaultShell: "cmd",
   cursorBlink: false,
   scrollback: 3000,
@@ -145,6 +153,10 @@ const DEFAULTS: Settings = {
   modifierHints: false,
   language: "auto",
   resumeSession: true,
+  askEnableHooks: true,
+  // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
+  windowWidth: 1400,
+  windowHeight: 820,
 };
 
 // Same palette names as cmux's workspace colors.
@@ -200,6 +212,7 @@ const resumeBarEl = $("resume-bar");
 const ctxEl = $("ctx");
 const settingsEl = $("settings");
 const wtEl = $("wt");
+const askEl = $("hooks-ask");
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const newWsId = () => `w${newId().slice(0, 11)}`;
@@ -295,6 +308,8 @@ function settingsFrom(cfg: any): Settings {
   }
   s.opacity = Math.min(100, Math.max(30, s.opacity));
   s.fontSize = Math.min(32, Math.max(8, s.fontSize));
+  s.windowWidth = Math.min(10000, Math.max(480, Math.round(s.windowWidth)));
+  s.windowHeight = Math.min(10000, Math.max(300, Math.round(s.windowHeight)));
   if (!["none", "mica", "acrylic"].includes(s.effect)) s.effect = "none";
   if (!["auto", "en", "zh-Hant"].includes(s.language)) s.language = "auto";
   return s;
@@ -1051,7 +1066,8 @@ function renderShellMenu() {
   $("sidebar-toggle").title = withKey("顯示 / 隱藏側欄", "toggleSidebar");
 }
 
-async function refreshHooks() {
+/** Updates the sidebar's hook status line; resolves to whether the hooks are installed. */
+async function refreshHooks(): Promise<boolean> {
   const ok = await invoke<boolean>("hooks_status").catch(() => false);
   hooksEl.textContent = ok ? tr("Claude Code 通知：已啟用") : tr("Claude Code 通知：未啟用");
   if (!ok) {
@@ -1069,7 +1085,33 @@ async function refreshHooks() {
     };
     hooksEl.appendChild(b);
   }
+  return ok;
 }
+
+// Startup prompt for the hooks (without them there are no badges and no resume). Writing
+// ~/.claude/settings.json still only happens on the user's click.
+function closeHooksAsk() {
+  askEl.hidden = true;
+  activeTab()?.term.focus();
+}
+$("hooks-ask-ok").onclick = async () => {
+  try {
+    await invoke("hooks_install");
+  } catch (e) {
+    $("hooks-ask-err").textContent = tr("啟用失敗：{e}", { e: String(e) });
+    return;
+  }
+  closeHooksAsk();
+  refreshHooks();
+};
+$("hooks-ask-later").onclick = closeHooksAsk;
+$("hooks-ask-never").onclick = () => {
+  updateSettings({ askEnableHooks: false });
+  closeHooksAsk();
+};
+askEl.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeHooksAsk();
+});
 
 // ── Context menus ───────────────────────────────────────────────────────────
 
@@ -1281,6 +1323,8 @@ function fillSettings() {
   $<HTMLInputElement>("s-hints").checked = settings.modifierHints;
   $<HTMLInputElement>("s-resume").checked = settings.resumeSession;
   $<HTMLInputElement>("s-scrollback").value = String(settings.scrollback);
+  $<HTMLInputElement>("s-win-w").value = String(settings.windowWidth);
+  $<HTMLInputElement>("s-win-h").value = String(settings.windowHeight);
   $("cfg-path").textContent = configPath;
   renderKeys();
 }
@@ -1467,6 +1511,21 @@ $<HTMLInputElement>("s-scrollback").onchange = (e) => {
   const v = Math.min(100000, Math.max(500, Math.round(+(e.target as HTMLInputElement).value || DEFAULTS.scrollback)));
   updateSettings({ scrollback: v });
 };
+/** Saves the opening size and resizes the window to it right away. */
+function setWindowSize(width: number, height: number) {
+  const clamp = (v: number, min: number) => Math.min(10000, Math.max(min, Math.round(v)));
+  updateSettings({ windowWidth: clamp(width, 480), windowHeight: clamp(height, 300) });
+  fillSettings();
+  getCurrentWindow().setSize(new LogicalSize(settings.windowWidth, settings.windowHeight)).catch(() => {});
+}
+$<HTMLInputElement>("s-win-w").onchange = (e) => setWindowSize(+(e.target as HTMLInputElement).value || DEFAULTS.windowWidth, settings.windowHeight);
+$<HTMLInputElement>("s-win-h").onchange = (e) => setWindowSize(settings.windowWidth, +(e.target as HTMLInputElement).value || DEFAULTS.windowHeight);
+$("s-win-current").onclick = async () => {
+  const win = getCurrentWindow();
+  const size = (await win.innerSize()).toLogical(await win.scaleFactor());
+  updateSettings({ windowWidth: Math.round(size.width), windowHeight: Math.round(size.height) });
+  fillSettings();
+};
 settingsEl.addEventListener("mousedown", (e) => {
   if (e.target === settingsEl) closeSettings();
 });
@@ -1546,12 +1605,15 @@ function matchCombo(combo: string, step: number, prefix: string[]): { id: string
   }
 }
 
+// The modifiers of the default digit shortcuts (workspaces Ctrl/⌘+1–9, tabs Alt/⌥+1–9).
+const HINT_KEY = IS_MAC ? "Meta" : "Control";
+
 // Capture phase, so app shortcuts win over xterm.
 document.addEventListener(
   "keydown",
   (e) => {
-    if (e.key === "Control" || e.key === "Alt") document.body.classList.add("show-nums");
-    if (renaming || !wtEl.hidden) return;
+    if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.add("show-nums");
+    if (renaming || !wtEl.hidden || !askEl.hidden) return;
     if (capturingId) return stop(e, () => captureKey(e));
     const combo = eventCombo(e);
     if (!settingsEl.hidden || !ctxEl.hidden) {
@@ -1575,6 +1637,8 @@ document.addEventListener(
     if (m) return stop(e, () => runAction(m.id, m.digit));
     if (prefix.length) return stop(e, () => {}); // wrong second key: swallow it, like VS Code
 
+    // macOS copies and pastes with ⌘, so Ctrl+C / Ctrl+V always belong to the terminal there.
+    if (IS_MAC) return;
     const tab = activeTab();
     if (settings.smartCopyPaste && combo === "ctrl+c" && tab?.term.hasSelection()) return stop(e, () => copySelection(tab));
     // Keep xterm from sending ^V; the browser then fires a paste event that xterm handles.
@@ -1583,15 +1647,15 @@ document.addEventListener(
   true,
 );
 document.addEventListener("keyup", (e) => {
-  if (e.key === "Control" || e.key === "Alt") document.body.classList.remove("show-nums");
+  if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.remove("show-nums");
 });
 window.addEventListener("blur", () => document.body.classList.remove("show-nums"));
 
-// Ctrl+wheel zooms like a browser / Windows Terminal.
+// Ctrl+wheel (⌘+wheel on macOS) zooms like a browser / Windows Terminal.
 termsEl.addEventListener(
   "wheel",
   (e) => {
-    if (!e.ctrlKey) return;
+    if (!(IS_MAC ? e.metaKey : e.ctrlKey)) return;
     e.preventDefault();
     e.stopPropagation();
     setFontSize(settings.fontSize + (e.deltaY < 0 ? 1 : -1));
@@ -1803,6 +1867,8 @@ async function detectWindowsBuild() {
 }
 
 async function main() {
+  document.body.classList.toggle("mac", IS_MAC);
+  if (IS_MAC) translateDom(); // swaps Ctrl wording for ⌘ even when the language stays Chinese
   const win = getCurrentWindow();
   win.onFocusChanged(({ payload }) => {
     focused = payload;
@@ -1866,7 +1932,13 @@ async function main() {
   shells = shellList;
   applyConfig(loaded);
   renderShellMenu();
-  refreshHooks();
+  refreshHooks().then((ok) => {
+    if (ok || !settings.askEnableHooks) return;
+    askEl.hidden = false;
+    // Focus the panel, not "Enable": an Enter typed for the terminal must not write the user's
+    // global Claude settings.
+    askEl.querySelector<HTMLElement>(".wt-panel")!.focus();
+  });
 
   const saved = (session.workspaces ?? []).filter((w) => w.tabs?.length);
   const restored = await Promise.all(

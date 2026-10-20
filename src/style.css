@@ -283,6 +283,9 @@ button { font: inherit; }
 }
 .field:focus { border-color: var(--s-accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
 .field.num { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
+.field.num.win-size { width: 72px; }
+/* Platform-only rows and text (body.mac is set at startup). */
+body.mac .win-only, body:not(.mac) .mac-only { display: none; }
 .unit { font-style: normal; font-size: 12.5px; color: var(--s-muted); }
 
 /* Slider with a filled track */
@@ -429,7 +432,7 @@ body.no-hints .t-num { display: none; }
 #notice button { border: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.1); color: inherit; padding: 3px 8px; cursor: pointer; }
 
 /* New-worktree dialog */
-#wt { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
+#wt, #hooks-ask { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
   font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif; }
 .wt-panel {
   display: flex; flex-direction: column; gap: 12px; width: min(420px, calc(100vw - 32px)); padding: 20px 22px;
@@ -439,6 +442,9 @@ body.no-hints .t-num { display: none; }
 .wt-panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
 .wt-panel label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--s-muted); }
 .wt-err { margin: 0; min-height: 1.4em; font-size: 12.5px; color: #f87171; white-space: pre-wrap; word-break: break-word; }
+#hooks-ask .wt-panel:focus { outline: none; }
+.ask-text { margin: 0; font-size: 13px; line-height: 1.6; color: var(--s-text); }
+.ask-text.muted { font-size: 12.5px; color: var(--s-muted); }
 .wt-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .wt-actions button { font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
 .wt-actions .primary { border: 0; background: var(--s-accent); color: #fff; }

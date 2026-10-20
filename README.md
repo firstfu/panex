@@ -8,6 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
+![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri)
 ![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust)
 [![Latest release](https://img.shields.io/github/v/release/firstfu/panex)](https://github.com/firstfu/panex/releases/latest)
@@ -16,14 +17,14 @@
 
 English · [繁體中文](translations/README.zh-Hant.md)
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>Download panex_0.2.1_x64-setup.exe</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>Download for Windows (panex_0.3.0_x64-setup.exe)</b></a> · <a href="https://github.com/firstfu/panex/releases/latest"><b>macOS (panex_0.3.0_aarch64.dmg)</b></a>
 
 <img src="assets/hero.png" width="860" alt="panex: three workspaces in the sidebar, one waiting for permission (blue), one finished (green), and a workspace with two tabs">
 
 </div>
 
 > [!NOTE]
-> panex targets **Windows 10 and 11** first. It builds for macOS and Linux too, but those builds aren't tested yet. The installer **isn't code-signed**, so Windows SmartScreen warns on the first run: click **More info → Run anyway** ([steps](#install)). All the code is here, and panex makes [no network connections](#privacy).
+> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The downloads **aren't code-signed**, so Windows SmartScreen and macOS Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex makes [no network connections](#privacy).
 
 ## Why panex
 
@@ -85,11 +86,20 @@ The only file it writes outside its own folders is `~/.claude/settings.json`, an
 
 ## Install
 
-1. Download `panex_0.2.1_x64-setup.exe` from [Releases](https://github.com/firstfu/panex/releases/latest).
+### Windows
+
+1. Download `panex_0.3.0_x64-setup.exe` from [Releases](https://github.com/firstfu/panex/releases/latest).
 2. Run it. Windows SmartScreen will warn you the first time, because the installer isn't code-signed: click **More info**, then **Run anyway**.
 3. panex installs for your user only (no administrator rights needed) and adds a Start menu entry.
 
 Requires **Windows 10 or 11** with WebView2 (already part of Windows 11 and up-to-date Windows 10).
+
+### macOS (Apple Silicon)
+
+1. Download `panex_0.3.0_aarch64.dmg` from [Releases](https://github.com/firstfu/panex/releases/latest), open it and drag **panex** into **Applications**.
+2. The app isn't notarized, so macOS blocks the first launch. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. If macOS says the app is damaged, run `xattr -cr /Applications/panex.app` in Terminal and open it again.
+
+Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘, settings.
 
 ### Updating
 
@@ -152,6 +162,12 @@ The schema lists every action id.
 <summary><b>Windows says "Windows protected your PC"</b></summary>
 
 The installer isn't code-signed yet. Click **More info**, then **Run anyway**. You only need to do this once per version.
+</details>
+
+<details>
+<summary><b>macOS says panex "can't be opened" or "is damaged"</b></summary>
+
+The app isn't notarized by Apple. Go to **System Settings → Privacy & Security** and click **Open Anyway**, or run `xattr -cr /Applications/panex.app` and open it again. You only need to do this once per version.
 </details>
 
 <details>

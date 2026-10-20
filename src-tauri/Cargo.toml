@@ -1,6 +1,6 @@
 [package]
 name = "panex"
-version = "0.2.1"
+version = "0.3.0"
 description = "Open-source, cross-platform terminal for running many AI coding agents"
 license = "MIT"
 edition = "2021"
@@ -23,7 +23,7 @@ path = "src/bin/panex-cli.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
@@ -32,7 +32,12 @@ serde_json = { version = "1", features = ["preserve_order"] }
 portable-pty = "0.9"
 tokio = { version = "1", features = ["net", "io-util", "rt", "macros"] }
 base64 = "0.22"
-notify = { version = "8", default-features = false }
+# kqueue: macOS backend without the extra fsevent-sys dependency (we watch one small dir).
+notify = { version = "8", default-features = false, features = ["macos_kqueue"] }
+
+# Transparent windows on macOS need the private API (enabled in tauri.macos.conf.json).
+[target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["macos-private-api"] }
 
 [profile.release]
 lto = true

@@ -1,0 +1,66 @@
+# Builds the Windows installer and the macOS (Apple Silicon) dmg for a version tag and
+# attaches both to a draft GitHub release. Publishing the draft stays a manual step.
+#
+# Trigger: push a tag like v0.3.0 (or re-run by hand with that tag).
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build, e.g. v0.3.0"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      # Create the draft once, before the platform jobs race to upload into it.
+      - run: gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "panex ${TAG#v}" --notes "Draft: notes pending."
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: src-tauri/target/release/bundle/nsis/*-setup.exe
+          - os: macos-latest # Apple Silicon runner
+            artifact: src-tauri/target/release/bundle/dmg/*.dmg
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      # RUST_MIN_STACK: rustc can overflow its stack compiling the windows/tokio crates
+      # from scratch (see docs/context/reference/operations.md).
+      - run: npx -y @tauri-apps/cli@2.12.3 build
+        env:
+          RUST_MIN_STACK: "134217728"
+      - run: gh release upload "$TAG" ${{ matrix.artifact }} --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}

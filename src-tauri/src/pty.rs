@@ -203,10 +203,86 @@ fn build_command(shell: &str) -> CommandBuilder {
 #[cfg(not(windows))]
 fn build_command(_shell: &str) -> CommandBuilder {
     let sh = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
-    let mut cmd = CommandBuilder::new(sh);
+    let mut cmd = CommandBuilder::new(&sh);
     cmd.arg("-l");
+    // Make every prompt report the cwd (OSC 9;9), like our cmd/PowerShell prompts do.
+    match Path::new(&sh).file_name().and_then(|n| n.to_str()) {
+        Some("zsh") => {
+            if let Some(dir) = ZSH_DIR.get() {
+                if let Some(user) = std::env::var_os("ZDOTDIR") {
+                    cmd.env("PANEX_USER_ZDOTDIR", user);
+                }
+                cmd.env("ZDOTDIR", dir);
+            }
+        }
+        // bash takes PROMPT_COMMAND from the environment; rc files that append to it keep ours.
+        Some("bash") => cmd.env("PROMPT_COMMAND", r#"printf '\033]9;9;%s\033\\' "$PWD""#),
+        _ => {}
+    }
     cmd
 }
+
+#[cfg(not(windows))]
+static ZSH_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// zsh has no env hook like PROMPT_COMMAND, so tabs start with ZDOTDIR pointing at these
+/// files: each one sources the user's own copy, and `.zshrc` then restores the user's
+/// ZDOTDIR (so `.zlogin` and child shells behave as usual) and adds a precmd hook.
+/// macOS's /etc/zshrc runs while ZDOTDIR is still ours and points HISTFILE here, so
+/// `.zshrc` moves it back before the user's own `.zshrc` gets a say.
+#[cfg(not(windows))]
+const ZSH_FILES: [(&str, &str); 3] = [
+    (
+        ".zshenv",
+        r#"_panex_zd=$ZDOTDIR
+ZDOTDIR=${PANEX_USER_ZDOTDIR:-$HOME}
+[[ -r $ZDOTDIR/.zshenv ]] && source $ZDOTDIR/.zshenv
+PANEX_USER_ZDOTDIR=$ZDOTDIR
+ZDOTDIR=$_panex_zd
+"#,
+    ),
+    (
+        ".zprofile",
+        r#"ZDOTDIR=$PANEX_USER_ZDOTDIR
+[[ -r $ZDOTDIR/.zprofile ]] && source $ZDOTDIR/.zprofile
+ZDOTDIR=$_panex_zd
+"#,
+    ),
+    (
+        ".zshrc",
+        r#"ZDOTDIR=$PANEX_USER_ZDOTDIR
+[[ $HISTFILE == $_panex_zd/.zsh_history ]] && HISTFILE=$ZDOTDIR/.zsh_history
+[[ -r $ZDOTDIR/.zshrc ]] && source $ZDOTDIR/.zshrc
+[[ $ZDOTDIR == $HOME ]] && unset ZDOTDIR
+unset PANEX_USER_ZDOTDIR _panex_zd
+_panex_cwd() { printf '\e]9;9;%s\e\\' "$PWD" }
+autoload -Uz add-zsh-hook && add-zsh-hook precmd _panex_cwd
+"#,
+    ),
+];
+
+/// Writes the zsh startup files under `<app data>/shell/zsh`. Without them zsh tabs still
+/// work, they just don't report their cwd.
+#[cfg(not(windows))]
+pub fn init_shell_integration(app_data: &Path) {
+    let dir = app_data.join("shell").join("zsh");
+    let write = || -> std::io::Result<()> {
+        std::fs::create_dir_all(&dir)?;
+        for (name, body) in ZSH_FILES {
+            std::fs::write(dir.join(name), body)?;
+        }
+        Ok(())
+    };
+    match write() {
+        Ok(()) => {
+            let _ = ZSH_DIR.set(dir);
+        }
+        Err(e) => eprintln!("panex: zsh integration unavailable: {e}"),
+    }
+}
+
+#[cfg(windows)]
+pub fn init_shell_integration(_app_data: &Path) {}
 
 /// When panex itself was started from inside a Claude Code session, the tabs would
 /// inherit that session's identity and its tool-shell settings (NO_COLOR=1 turns every

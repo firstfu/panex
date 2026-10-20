@@ -2,6 +2,8 @@
 // t("新分頁") returns the English text when the language is English, otherwise the key itself.
 // Placeholders are {name}. A missing entry falls back to the key, so a forgotten string stays readable.
 
+import { IS_MAC } from "./platform";
+
 export type Lang = "en" | "zh-Hant";
 export type LangPref = "auto" | Lang;
 
@@ -10,6 +12,7 @@ const EN: Record<string, string> = {
   "新工作區": "New workspace",
   "選擇 shell": "Choose shell",
   "設定（Ctrl+,）": "Settings (Ctrl+,)",
+  "設定（⌘,）": "Settings (⌘,)",
   "設定": "Settings",
   "拖曳調整側邊欄寬度（雙擊還原）": "Drag to resize the sidebar (double-click to reset)",
   "顯示 / 隱藏側欄": "Show / hide sidebar",
@@ -29,10 +32,24 @@ const EN: Record<string, string> = {
   "無": "None",
   "字型大小": "Font size",
   "也可以用 Ctrl+滾輪調整": "Also adjustable with Ctrl+scroll",
+  "也可以用 ⌘+滾輪調整": "Also adjustable with ⌘+scroll",
+  "視窗大小": "Window size",
+  "啟用 Claude Code 通知？": "Enable Claude Code notifications?",
+  "Claude Code 需要你處理或做完時，分頁會亮起；關掉重開後也能一鍵恢復 session。":
+    "Tabs light up when Claude Code needs you or finishes, and you can resume its session with one click after reopening panex.",
+  "會在 ~/.claude/settings.json 加入 panex 的 hooks，寫入前先備份，你原本的 hooks 都會保留。":
+    "This adds panex's hooks to ~/.claude/settings.json. The file is backed up first and your existing hooks are kept.",
+  "不用了": "No thanks",
+  "以後再說": "Later",
+  "每次開啟時的寬 × 高，改了立刻套用": "Width × height the window opens at; applied right away",
+  "用目前大小": "Use current size",
+  "寬": "Width",
+  "高": "Height",
   "縮小": "Smaller",
   "放大": "Larger",
   "快捷鍵提示": "Shortcut hints",
   "按住 Ctrl 或 Alt 時，在工作區與分頁上顯示快捷鍵編號": "Show shortcut numbers on workspaces and tabs while holding Ctrl or Alt",
+  "按住 ⌘ 或 ⌥ 時，在工作區與分頁上顯示快捷鍵編號": "Show shortcut numbers on workspaces and tabs while holding ⌘ or ⌥",
   "字型": "Font",
   "可以列多個字型，前面的找不到就用下一個": "List several fonts; the next one is used if an earlier one isn't found",
   "新分頁用的 shell": "Shell for new tabs",
@@ -120,6 +137,7 @@ const EN: Record<string, string> = {
   "滾輪": "Scroll wheel",
   "顯示工作區與分頁編號": "Show workspace and tab numbers",
   "按住 Ctrl 或 Alt": "Hold Ctrl or Alt",
+  "按住 ⌘ 或 ⌥": "Hold ⌘ or ⌥",
   "重新命名": "Rename",
   "雙擊工作區或分頁": "Double-click a workspace or tab",
   "顏色、排序、關閉": "Color, reorder, close",
@@ -143,8 +161,12 @@ const EN: Record<string, string> = {
   "已移除「{name}」的一組快捷鍵。": "Removed a shortcut for \"{name}\".",
   "請加上 Ctrl、Alt 或 Win 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。":
     "Add Ctrl, Alt or Win (F1–F12 work alone); plain keys are reserved for terminal input.",
+  "請加上 ⌘、⌃ 或 ⌥ 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。":
+    "Add ⌘, ⌃ or ⌥ (F1–F12 work alone); plain keys are reserved for terminal input.",
   "這個動作要用「修飾鍵＋數字」，例如按 Ctrl+Alt+1 就代表 Ctrl+Alt+1–9。":
     "This action needs \"modifier + digit\"; for example Ctrl+Alt+1 stands for Ctrl+Alt+1–9.",
+  "這個動作要用「修飾鍵＋數字」，例如按 ⌘⌥1 就代表 ⌘⌥1–9。":
+    "This action needs \"modifier + digit\"; for example ⌘⌥1 stands for ⌘⌥1–9.",
   "已設定。「{names}」原本用這組按鍵，現在改為未設定。": "Set. \"{names}\" used this combo and is now unbound.",
   "、": ", ",
   "已移除一組快捷鍵。": "Removed a shortcut.",
@@ -186,7 +208,22 @@ export function setLang(next: Lang) {
   document.documentElement.lang = next;
 }
 
+// macOS wording for strings that name Windows modifier keys. Applied before the EN lookup,
+// so each Mac variant needs its own EN entry.
+const MAC: Record<string, string> = {
+  "設定（Ctrl+,）": "設定（⌘,）",
+  "也可以用 Ctrl+滾輪調整": "也可以用 ⌘+滾輪調整",
+  "按住 Ctrl 或 Alt 時，在工作區與分頁上顯示快捷鍵編號": "按住 ⌘ 或 ⌥ 時，在工作區與分頁上顯示快捷鍵編號",
+  "按住 Ctrl 或 Alt": "按住 ⌘ 或 ⌥",
+  "Ctrl": "⌘",
+  "請加上 Ctrl、Alt 或 Win 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。":
+    "請加上 ⌘、⌃ 或 ⌥ 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。",
+  "這個動作要用「修飾鍵＋數字」，例如按 Ctrl+Alt+1 就代表 Ctrl+Alt+1–9。":
+    "這個動作要用「修飾鍵＋數字」，例如按 ⌘⌥1 就代表 ⌘⌥1–9。",
+};
+
 export function t(key: string, vars?: Record<string, string | number>): string {
+  if (IS_MAC) key = MAC[key] ?? key;
   let s = lang === "en" ? (EN[key] ?? key) : key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(String(v));
   return s;

@@ -4,6 +4,24 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-20 — macOS 版：可編譯打包、平台預設字型／快捷鍵、視窗大小設定
+
+**變更**
+- 可在 Mac（Apple Silicon）編譯打包：`notify` 開 `macos_kqueue`（原本 `default-features = false` 把 macOS 後端也關了，編不過）；新增 `tauri.macos.conf.json`（`app`/`dmg`、`macOSPrivateApi` 讓透明視窗生效、把 `panex-cli` 放進 `Contents/MacOS/`）；Cargo 以 macOS 專屬依賴開 `macos-private-api`。
+- cwd 回報：zsh 用 ZDOTDIR 包一層（`<app data>/shell/zsh/`，各檔先 source 使用者原檔，`.zshrc` 還原 ZDOTDIR 並掛 precmd 送 OSC 9;9）；bash 用 `PROMPT_COMMAND`。macOS `/etc/zshrc` 會在 ZDOTDIR 還是我們的時候把 HISTFILE 指過來，`.zshrc` 先改回去（測試時踩到，歷史檔曾寫錯位置）。
+- 平台預設：字型（Windows 字型在 Mac 不存在時 xterm 量錯字寬、字距被拉開）；快捷鍵 `ActionDef.mac`，⌘ 取代 Ctrl（⌘T/⌘W/⌘N/⌘1–9/⌥1–9、工作區 ⌘↓/⌘↑、分頁 ⌘→/⌘←（使用者指定））；Mac 上 ⌘V 走原生 Edit 選單（WKWebView 讀剪貼簿會跳權限提示）、Ctrl+C/V 一律給終端機；顯示改 ⌃⌥⇧⌘；Mac 版說明文字用 i18n 的 `MAC` 對照表。
+- macOS 自訂選單：拿掉 Window › Close（會搶 ⌘W），Quit 改成關視窗以觸發存 scrollback。
+- 視窗大小：預設 1400×820（使用者指定），設定頁「外觀」可改寬高（立刻 `setSize`，需 `core:window:allow-set-size`）或「用目前大小」；存 `app.windowWidth/Height`，啟動時由 `config::apply_window_size` 套用並縮到螢幕內，window-state 不再還原大小（只還原位置）。
+- 開啟時若 hooks 未啟用就跳對話框（啟用／以後再說／不用了），「不用了」存 `agent.askToEnableHooks: false`。焦點刻意放在對話框本身而不是「啟用」：測試時連兩次在開啟後幾秒被寫入，判斷是使用者打給終端機的 Enter 觸發了已取得焦點的按鈕；改完後 Enter 不會寫入。測試實例用 `HOME` 指向 scratch，沒碰使用者的 `~/.claude/settings.json`。
+- 已用測試實例（scratch `XDG_CONFIG_HOME`、`PANEX_PIPE_NAME=/tmp/panex-t.sock`）實測：字型、cwd、通知、工作階段還原、⌘, ⌘T ⌘W、視窗大小即時套用。
+
+**為什麼**
+- 使用者想在 Mac 上裝；並要求字型、快捷鍵依平台不同，視窗預設大一點且可調。
+
+**下一步**
+- 尚未 commit。Windows 端未實測：需在 Windows 建置確認 tauri-build 接受 macOS 專屬的 tauri feature、以及「不再記住視窗大小」這個行為改變使用者是否接受。
+- 未做：Mac 版 GitHub release（未簽章，使用者第一次開要右鍵「打開」）、README 的 Mac 說明、fish shell 的 cwd 回報。測試實例的 session 寫在正式的 `~/Library/Application Support/dev.panex.terminal/`（這台 Mac 原本沒裝 panex）。
+
 ## 2026-10-20 — 一鍵恢復 Claude Code session（提示列＋側欄 ↻）
 
 **變更**

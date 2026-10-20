@@ -46,6 +46,20 @@
       </form>
     </div>
 
+    <div id="hooks-ask" class="overlay" hidden>
+      <div class="wt-panel" role="dialog" aria-modal="true" aria-labelledby="hooks-ask-title" tabindex="-1">
+        <h2 id="hooks-ask-title" data-i18n>啟用 Claude Code 通知？</h2>
+        <p class="ask-text" data-i18n>Claude Code 需要你處理或做完時，分頁會亮起；關掉重開後也能一鍵恢復 session。</p>
+        <p class="ask-text muted" data-i18n>會在 ~/.claude/settings.json 加入 panex 的 hooks，寫入前先備份，你原本的 hooks 都會保留。</p>
+        <p id="hooks-ask-err" class="wt-err" aria-live="polite"></p>
+        <div class="wt-actions">
+          <button type="button" id="hooks-ask-never" class="ghost" data-i18n>不用了</button>
+          <button type="button" id="hooks-ask-later" class="ghost" data-i18n>以後再說</button>
+          <button type="button" id="hooks-ask-ok" class="primary" data-i18n>啟用</button>
+        </div>
+      </div>
+    </div>
+
     <div id="settings" class="overlay" hidden>
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <nav class="s-nav">
@@ -78,7 +92,7 @@
                 <output id="s-opacity-v"></output>
               </div>
             </div>
-            <div class="row">
+            <div class="row win-only">
               <div class="row-text"><b data-i18n>背景效果</b><span data-i18n>透出桌面的模糊或色調，需要不透明度低於 100%</span></div>
               <div class="row-ctl">
                 <div class="seg" id="s-effect" role="radiogroup">
@@ -99,13 +113,22 @@
               </div>
             </div>
             <div class="row">
+              <div class="row-text"><b data-i18n>視窗大小</b><span data-i18n>每次開啟時的寬 × 高，改了立刻套用</span></div>
+              <div class="row-ctl">
+                <input id="s-win-w" class="field num win-size" type="number" min="480" max="10000" step="10" aria-label="寬" data-i18n-aria />
+                <em class="unit">×</em>
+                <input id="s-win-h" class="field num win-size" type="number" min="300" max="10000" step="10" aria-label="高" data-i18n-aria />
+                <button id="s-win-current" class="ghost" data-i18n>用目前大小</button>
+              </div>
+            </div>
+            <div class="row">
               <div class="row-text"><b data-i18n>快捷鍵提示</b><span data-i18n>按住 Ctrl 或 Alt 時，在工作區與分頁上顯示快捷鍵編號</span></div>
               <label class="row-ctl switch"><input id="s-hints" type="checkbox" /><i></i></label>
             </div>
             <div class="row stack">
               <div class="row-text"><b data-i18n>字型</b><span data-i18n>可以列多個字型，前面的找不到就用下一個</span></div>
               <input id="s-font-family" class="field" type="text" spellcheck="false" />
-              <div class="font-sample" id="font-sample">C:\Users\you&gt; claude　中文對齊 0O lI1</div>
+              <div class="font-sample" id="font-sample"><span class="win-only">C:\Users\you&gt;</span><span class="mac-only">~/projects %</span> claude　中文對齊 0O lI1</div>
             </div>
           </section>
 
@@ -114,7 +137,7 @@
               <div class="row-text"><b data-i18n>新分頁用的 shell</b><span data-i18n>⌄ 選單隨時可以開別的</span></div>
               <div class="row-ctl"><div class="seg" id="s-shell" role="radiogroup"></div></div>
             </div>
-            <div class="row">
+            <div class="row win-only">
               <div class="row-text"><b data-i18n>智慧複製貼上</b><span data-i18n>有選取時 Ctrl+C 複製，沒選取仍是中斷；Ctrl+V 貼上</span></div>
               <label class="row-ctl switch"><input id="s-smart" type="checkbox" /><i></i></label>
             </div>

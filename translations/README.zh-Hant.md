@@ -8,6 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
+![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri)
 ![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust)
 [![Latest release](https://img.shields.io/github/v/release/firstfu/panex)](https://github.com/firstfu/panex/releases/latest)
@@ -16,14 +17,14 @@
 
 [English](../README.md) · 繁體中文
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 panex_0.2.1_x64-setup.exe</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 Windows 版（panex_0.3.0_x64-setup.exe）</b></a> · <a href="https://github.com/firstfu/panex/releases/latest"><b>macOS 版（panex_0.3.0_aarch64.dmg）</b></a>
 
 <img src="../assets/hero.png" width="860" alt="panex：側欄三個工作區，一個在等待權限（藍色）、一個已完成（綠色），另一個工作區有兩個分頁">
 
 </div>
 
 > [!NOTE]
-> panex 以 **Windows 10 與 11** 為主。macOS 和 Linux 也能建置，但還沒測試過。安裝檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 會跳出警告，請按 **其他資訊 → 仍要執行**（[步驟](#安裝)）。原始碼全部在這裡，而且 panex [完全不連網](#隱私)。
+> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。下載檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 與 macOS Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex [完全不連網](#隱私)。
 
 ## 為什麼做 panex
 
@@ -85,11 +86,20 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 
 ## 安裝
 
-1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.2.1_x64-setup.exe`。
+### Windows
+
+1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.3.0_x64-setup.exe`。
 2. 執行它。因為安裝檔沒有程式碼簽章，第一次 Windows SmartScreen 會跳出警告：按 **其他資訊**，再按 **仍要執行**。
 3. panex 只安裝給目前使用者（不需要系統管理員權限），並在開始選單加入捷徑。
 
 需要 **Windows 10 或 11** 與 WebView2（Windows 11 與更新到最新的 Windows 10 都已內建）。
+
+### macOS（Apple Silicon）
+
+1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.3.0_aarch64.dmg`，打開後把 **panex** 拖進「應用程式」。
+2. App 沒有經過 Apple 公證，第一次開啟會被擋：先開一次，再到 **系統設定 → 隱私權與安全性** 按 **強制打開**。如果顯示「已損毀」，在終端機執行 `xattr -cr /Applications/panex.app` 後再開。
+
+分頁會啟動你的登入 shell（`$SHELL`，通常是 zsh）。預設快捷鍵用 ⌘：⌘T 新分頁、⌘W 關分頁、⌘N 新工作區、⌘1–9／⌥1–9 跳轉、⌘↑↓ 切工作區、⌘←→ 切分頁、⌘, 設定。
 
 ### 更新
 
@@ -152,6 +162,12 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 <summary><b>Windows 顯示「Windows 已保護您的電腦」</b></summary>
 
 安裝檔目前沒有程式碼簽章。按 **其他資訊**，再按 **仍要執行**。每個版本只需要做一次。
+</details>
+
+<details>
+<summary><b>macOS 說 panex「無法打開」或「已損毀」</b></summary>
+
+App 沒有經過 Apple 公證。到 **系統設定 → 隱私權與安全性** 按 **強制打開**，或執行 `xattr -cr /Applications/panex.app` 後再開。每個版本只需要做一次。
 </details>
 
 <details>

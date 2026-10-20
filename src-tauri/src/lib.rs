@@ -21,7 +21,18 @@ impl AppState {
 }
 
 pub fn run() {
-    tauri::Builder::default()
+    use tauri_plugin_window_state::StateFlags;
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(mac_menu).on_menu_event(|app, e| {
+        // Quit by closing the window, so the frontend's close handler saves scrollback first.
+        if e.id() == "quit" {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.close();
+            }
+        }
+    });
+    builder
         // Must be first: a second launch only focuses the running window, so two
         // instances never fight over the same session file.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -31,12 +42,17 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // Size comes from panex.json (config::apply_window_size); only position etc. are restored.
+        .plugin(tauri_plugin_window_state::Builder::default().with_state_flags(StateFlags::all() - StateFlags::SIZE).build())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
+            pty::init_shell_integration(&dir);
             let session = session::Store::open(dir)?;
             config::init(app.handle(), session.legacy_settings_path());
+            if let Some(w) = app.get_webview_window("main") {
+                config::apply_window_size(&w);
+            }
             app.manage(AppState {
                 ptys: Default::default(),
                 session,
@@ -74,4 +90,26 @@ pub fn run() {
                 pty::kill_all(&state);
             }
         });
+}
+
+/// The standard macOS menu minus Window › Close (⌘W closes a tab in panex). Edit keeps
+/// Cut/Copy/Paste so ⌘V and text fields work natively.
+#[cfg(target_os = "macos")]
+fn mac_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+    let quit = MenuItemBuilder::with_id("quit", "Quit panex").accelerator("Cmd+Q").build(app)?;
+    let app_menu = SubmenuBuilder::new(app, "panex")
+        .about(None)
+        .separator()
+        .services()
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .item(&quit)
+        .build()?;
+    let edit = SubmenuBuilder::new(app, "Edit").undo().redo().separator().cut().copy().paste().select_all().build()?;
+    let window = SubmenuBuilder::new(app, "Window").minimize().maximize().fullscreen().build()?;
+    MenuBuilder::new(app).items(&[&app_menu, &edit, &window]).build()
 }

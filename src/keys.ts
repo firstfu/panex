@@ -2,13 +2,17 @@
 // ["ctrl+k", "ctrl+r"] (a chord), or null / "" / "none" (unbound).
 // Keys are matched by physical key (KeyboardEvent.code), so layouts don't move them.
 
-export type Binding = string | string[] | null;
+import { IS_MAC } from "./platform";
+
+export type Binding = string | string[] | string[][] | null;
 
 export interface ActionDef {
   id: string;
   group: string;
   label: string;
   default: Binding;
+  /** macOS default when it differs: ⌘ takes Ctrl's place, so Ctrl keys reach the terminal. */
+  mac?: Binding;
   /** Binding's key "1" stands for the whole 1–9 row; the handler gets the digit. */
   digits?: boolean;
 }
@@ -19,35 +23,35 @@ const WS = GROUPS[0];
 const TAB = GROUPS[1];
 
 export const ACTIONS: ActionDef[] = [
-  { id: "newWorkspace", group: WS, label: "新工作區", default: "ctrl+n" },
-  { id: "newWorkspaceWithShell", group: WS, label: "用 ⌄ 選單第 N 個 shell 開新工作區", default: "ctrl+shift+1", digits: true },
+  { id: "newWorkspace", group: WS, label: "新工作區", default: "ctrl+n", mac: "meta+n" },
+  { id: "newWorkspaceWithShell", group: WS, label: "用 ⌄ 選單第 N 個 shell 開新工作區", default: "ctrl+shift+1", mac: "meta+shift+1", digits: true },
   { id: "newWorktree", group: WS, label: "用新 git worktree 開新工作區", default: null },
   { id: "closeWorkspace", group: WS, label: "關閉工作區（含裡面所有分頁）", default: null },
-  { id: "renameWorkspace", group: WS, label: "重新命名工作區（也可雙擊）", default: "ctrl+shift+r" },
-  { id: "selectWorkspaceByNumber", group: WS, label: "跳到第 1–8 個工作區，9 = 最後一個", default: "ctrl+1", digits: true },
-  { id: "nextWorkspace", group: WS, label: "下一個工作區", default: "ctrl+pagedown" },
-  { id: "prevWorkspace", group: WS, label: "上一個工作區", default: "ctrl+pageup" },
-  { id: "moveWorkspaceUp", group: WS, label: "工作區上移", default: "ctrl+shift+pageup" },
-  { id: "moveWorkspaceDown", group: WS, label: "工作區下移", default: "ctrl+shift+pagedown" },
-  { id: "jumpToUnread", group: WS, label: "跳到需要處理的分頁", default: "ctrl+shift+u" },
-  { id: "newTab", group: TAB, label: "在目前工作區開新分頁", default: "ctrl+t" },
-  { id: "closeTab", group: TAB, label: "關閉分頁（最後一個會連工作區一起關）", default: "ctrl+shift+w" },
-  { id: "renameTab", group: TAB, label: "重新命名分頁（也可雙擊）", default: "ctrl+alt+r" },
-  { id: "selectTabByNumber", group: TAB, label: "跳到第 1–8 個分頁，9 = 最後一個", default: "alt+1", digits: true },
-  { id: "nextTab", group: TAB, label: "下一個分頁", default: "ctrl+tab" },
-  { id: "prevTab", group: TAB, label: "上一個分頁", default: "ctrl+shift+tab" },
+  { id: "renameWorkspace", group: WS, label: "重新命名工作區（也可雙擊）", default: "ctrl+shift+r", mac: "meta+shift+r" },
+  { id: "selectWorkspaceByNumber", group: WS, label: "跳到第 1–8 個工作區，9 = 最後一個", default: "ctrl+1", mac: "meta+1", digits: true },
+  { id: "nextWorkspace", group: WS, label: "下一個工作區", default: "ctrl+pagedown", mac: "meta+down" },
+  { id: "prevWorkspace", group: WS, label: "上一個工作區", default: "ctrl+pageup", mac: "meta+up" },
+  { id: "moveWorkspaceUp", group: WS, label: "工作區上移", default: "ctrl+shift+pageup", mac: "meta+alt+up" },
+  { id: "moveWorkspaceDown", group: WS, label: "工作區下移", default: "ctrl+shift+pagedown", mac: "meta+alt+down" },
+  { id: "jumpToUnread", group: WS, label: "跳到需要處理的分頁", default: "ctrl+shift+u", mac: "meta+shift+u" },
+  { id: "newTab", group: TAB, label: "在目前工作區開新分頁", default: "ctrl+t", mac: "meta+t" },
+  { id: "closeTab", group: TAB, label: "關閉分頁（最後一個會連工作區一起關）", default: "ctrl+shift+w", mac: "meta+w" },
+  { id: "renameTab", group: TAB, label: "重新命名分頁（也可雙擊）", default: "ctrl+alt+r", mac: "meta+alt+r" },
+  { id: "selectTabByNumber", group: TAB, label: "跳到第 1–8 個分頁，9 = 最後一個", default: "alt+1", mac: "alt+1", digits: true },
+  { id: "nextTab", group: TAB, label: "下一個分頁", default: "ctrl+tab", mac: "meta+right" },
+  { id: "prevTab", group: TAB, label: "上一個分頁", default: "ctrl+shift+tab", mac: "meta+left" },
   { id: "moveTabLeft", group: TAB, label: "分頁左移", default: null },
   { id: "moveTabRight", group: TAB, label: "分頁右移", default: null },
-  { id: "toggleSidebar", group: "檢視", label: "顯示 / 隱藏側欄", default: "ctrl+alt+h" },
-  { id: "clearScrollback", group: "編輯", label: "清除捲動歷史", default: "ctrl+shift+k" },
-  { id: "copy", group: "編輯", label: "複製選取文字", default: "ctrl+shift+c" },
-  { id: "paste", group: "編輯", label: "貼上", default: "ctrl+shift+v" },
-  { id: "increaseFontSize", group: "檢視", label: "放大字型", default: "ctrl+equal" },
-  { id: "decreaseFontSize", group: "檢視", label: "縮小字型", default: "ctrl+minus" },
-  { id: "resetFontSize", group: "檢視", label: "重設字型大小", default: "ctrl+0" },
-  { id: "openSettings", group: "設定", label: "設定", default: "ctrl+comma" },
+  { id: "toggleSidebar", group: "檢視", label: "顯示 / 隱藏側欄", default: "ctrl+alt+h", mac: "meta+b" },
+  { id: "clearScrollback", group: "編輯", label: "清除捲動歷史", default: "ctrl+shift+k", mac: "meta+k" },
+  { id: "copy", group: "編輯", label: "複製選取文字", default: "ctrl+shift+c", mac: "meta+c" },
+  { id: "paste", group: "編輯", label: "貼上", default: "ctrl+shift+v", mac: null },
+  { id: "increaseFontSize", group: "檢視", label: "放大字型", default: "ctrl+equal", mac: "meta+equal" },
+  { id: "decreaseFontSize", group: "檢視", label: "縮小字型", default: "ctrl+minus", mac: "meta+minus" },
+  { id: "resetFontSize", group: "檢視", label: "重設字型大小", default: "ctrl+0", mac: "meta+0" },
+  { id: "openSettings", group: "設定", label: "設定", default: "ctrl+comma", mac: "meta+comma" },
   { id: "openConfigFile", group: "設定", label: "用編輯器開啟 panex.json", default: null },
-  { id: "reloadConfiguration", group: "設定", label: "重新載入設定檔", default: "ctrl+shift+comma" },
+  { id: "reloadConfiguration", group: "設定", label: "重新載入設定檔", default: "ctrl+shift+comma", mac: "meta+shift+comma" },
 ];
 
 const UNBOUND = new Set(["", "none", "clear", "unbound", "disabled"]);
@@ -62,7 +66,7 @@ const ALIASES: Record<string, string> = {
 };
 
 const DISPLAY: Record<string, string> = {
-  ctrl: "Ctrl", alt: "Alt", shift: "Shift", meta: "Win",
+  ...(IS_MAC ? { ctrl: "⌃", alt: "⌥", shift: "⇧", meta: "⌘" } : { ctrl: "Ctrl", alt: "Alt", shift: "Shift", meta: "Win" }),
   equal: "=", minus: "-", comma: ",", period: ".", slash: "/", semicolon: ";", quote: "'",
   backquote: "`", bracketleft: "[", bracketright: "]", backslash: "\\",
   pageup: "PgUp", pagedown: "PgDn", up: "↑", down: "↓", left: "←", right: "→",
@@ -140,8 +144,11 @@ export function formatCombo(c: string): string {
   return c
     .split("+")
     .map((p) => DISPLAY[p] ?? (p.length === 1 ? p.toUpperCase() : p[0].toUpperCase() + p.slice(1)))
-    .join("+");
+    .join(IS_MAC ? "" : "+"); // macOS writes ⌘⇧T, not ⌘+⇧+T
 }
+
+/** This platform's default binding of an action. */
+export const defaultBinding = (a: ActionDef): Binding => (IS_MAC && a.mac !== undefined ? a.mac : a.default);
 
 export function formatBinding(alts: Steps[], digits = false): string {
   return alts
@@ -154,7 +161,7 @@ export function resolveBindings(overrides: Record<string, unknown> | undefined):
   const out = new Map<string, Steps[]>();
   for (const a of ACTIONS) {
     const has = overrides && Object.prototype.hasOwnProperty.call(overrides, a.id);
-    out.set(a.id, parseBinding(has ? overrides![a.id] : a.default));
+    out.set(a.id, parseBinding(has ? overrides![a.id] : defaultBinding(a)));
   }
   return out;
 }
@@ -167,8 +174,10 @@ export function digitFamily(combo: string): { family: string; digit: number } | 
 
 const key = (alts: Steps[]) => JSON.stringify(alts);
 
-export const isDefault = (id: string, alts: Steps[]) =>
-  key(parseBinding(ACTIONS.find((a) => a.id === id)?.default ?? null)) === key(alts);
+export const isDefault = (id: string, alts: Steps[]) => {
+  const a = ACTIONS.find((x) => x.id === id);
+  return key(parseBinding(a ? defaultBinding(a) : null)) === key(alts);
+};
 
 /** Value to store: a string for one combo, an array for one chord, an array of arrays for alternatives, "none" when cleared. */
 export function toConfigValue(alts: Steps[]): unknown {
