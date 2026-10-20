@@ -14,7 +14,7 @@ panex：開源、跨平台（Windows 優先）的多 agent 終端機 App，模�
 
 ## 專案狀態
 
-- 已公開發佈：https://github.com/firstfu/panex（public、MIT），v0.1.0 release 附 NSIS 安裝檔。
+- 已公開發佈：https://github.com/firstfu/panex（public、MIT），最新 release v0.2.0 附 NSIS 安裝檔（v0.1.0 為首發）。
 - README 仿使用者另一個專案 Liftoff 的寫法（置中頂部、Why／Features／Performance／Privacy／FAQ…），英文版在根目錄、繁中版在 `translations/README.zh-Hant.md`，截圖在 `assets/`。
 - 介面有英文與繁體中文（`app.language`：`auto` 依 webview 的 `navigator.language`，`zh*` 用繁中、其餘用英文）。發布與重拍截圖的做法見 `operations.md`。
 

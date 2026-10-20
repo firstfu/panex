@@ -14,7 +14,7 @@
 - 使用者每天更新 Claude Code 都要退出再重進；原本想的「當機後接回」場景太少見，改成涵蓋每日更新。
 
 **下一步**
-- 尚未 commit、未重新打包安裝；使用者的 panex 還是舊版。
+- 已 commit（0f12e57）、發佈 v0.2.0 release、使用者的 panex 已裝新版。注意：功能從安裝後的第一個 hook 才開始記錄，安裝前就在跑的 Claude Code 沒有 session id 可恢復（使用者以為壞掉，其實是沒資料）；可考慮後備方案讀 `~/.claude/projects/` 最新 session，但會依賴 Claude Code 內部檔案格式。
 - 已知取捨：刻意結束的 session 也會一直顯示提示列，要按「略過」才消失；`--resume` 只在同一個專案目錄下找得到 session，tab 的 cwd 若已改掉會找不到。
 - 「整批更新並恢復」尚未做，等使用者確認真的想要這個流程。
 
@@ -56,7 +56,7 @@
 - 使用者要求把這兩項從投票清單提前做掉（英文介面為開源推廣所需，分支顯示對多 agent 並行最有用）。
 
 **下一步**
-- 尚未 commit、未重新打包安裝；使用者的 panex 還是舊版。
+- 已 commit（0f12e57）、發佈 v0.2.0 release、使用者的 panex 已裝新版。注意：功能從安裝後的第一個 hook 才開始記錄，安裝前就在跑的 Claude Code 沒有 session id 可恢復（使用者以為壞掉，其實是沒資料）；可考慮後備方案讀 `~/.claude/projects/` 最新 session，但會依賴 Claude Code 內部檔案格式。
 - 沒做的：port 偵測、一鍵 worktree、搜尋捲動歷史、分割窗格。
 - 從零編譯會遇到 rustc 崩潰，解法記在 `operations.md`。
 
