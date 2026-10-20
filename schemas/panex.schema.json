@@ -94,8 +94,8 @@
       "properties": {
         "showModifierHoldHints": {
           "type": "boolean",
-          "default": true,
-          "description": "按住 Ctrl 時在分頁上顯示編號提示。"
+          "default": false,
+          "description": "按住 Ctrl 或 Alt 時在工作區與分頁上顯示快捷鍵編號提示。"
         },
         "bindings": {
           "type": "object",

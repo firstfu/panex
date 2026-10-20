@@ -4,6 +4,22 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-20 — 側欄可拖曳寬度、拖曳排序修復、圖示改 SVG、快捷鍵提示預設關
+
+**變更**
+- 側欄右緣加拖曳把手（`#sidebar-resizer`）：寬度 160–360px（原 520 被嫌太寬）、存 `localStorage` 的 `panex.sidebarWidth`、雙擊還原 220px。
+- 側欄工作區與分頁列的拖曳排序原本程式就有，但在 Windows 完全沒反應：`tauri.conf.json` 主視窗加 `"dragDropEnabled": false`（雷已記進 `boundaries.md`）。
+- 側欄底部三顆按鈕的 `＋`／`⌄`／`⚙` 文字符號改成內嵌 SVG，按鈕改 `inline-flex`。使用者回報「1 個 icon 跑版」，但截圖太小、沒確認是哪顆，也沒確認修好沒，屬預防性處理。
+- 「快捷鍵提示」（按住 Ctrl／Alt 顯示編號）：`modifierHints` 預設改 `false`（schema 同步），設定面板「外觀」頁新增「快捷鍵提示」開關。原本只有 `panex.json` 的 `shortcuts.showModifierHoldHints` 能關。
+- 重新 `cargo tauri build` 並靜默安裝到 `%LOCALAPPDATA%\panex`（第一個重裝時 panex 正在跑，安裝程式把它關掉）。
+
+**為什麼**
+- 使用者要側欄能拖曳、icon 跑版要修、Alt+Shift 的提示太吵要能關且預設關。
+
+**下一步**
+- 快捷鍵提示預設改關後還沒重新打包安裝；拖曳排序、寬度把手、圖示都還沒經使用者確認，要請使用者開新版實測。
+- 跑版圖示若仍存在，請對方提供整排三顆按鈕的大張截圖再查。
+
 ## 2026-10-20 — 公開發佈到 GitHub + v0.1.0 release + README 改版
 
 **變更**

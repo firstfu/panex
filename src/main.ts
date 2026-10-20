@@ -129,7 +129,7 @@ const DEFAULTS: Settings = {
   scrollback: 3000,
   smartCopyPaste: true,
   sidebarHidden: false,
-  modifierHints: true,
+  modifierHints: false,
 };
 
 // Same palette names as cmux's workspace colors.
@@ -1090,6 +1090,7 @@ function fillSettings() {
   setSeg("s-shell", settings.defaultShell);
   $<HTMLInputElement>("s-blink").checked = settings.cursorBlink;
   $<HTMLInputElement>("s-smart").checked = settings.smartCopyPaste;
+  $<HTMLInputElement>("s-hints").checked = settings.modifierHints;
   $<HTMLInputElement>("s-scrollback").value = String(settings.scrollback);
   $("cfg-path").textContent = configPath;
   renderKeys();
@@ -1260,6 +1261,7 @@ $<HTMLInputElement>("s-font-family").onchange = (e) =>
   updateSettings({ fontFamily: (e.target as HTMLInputElement).value.trim() || DEFAULTS.fontFamily });
 $<HTMLInputElement>("s-blink").onchange = (e) => updateSettings({ cursorBlink: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-smart").onchange = (e) => updateSettings({ smartCopyPaste: (e.target as HTMLInputElement).checked });
+$<HTMLInputElement>("s-hints").onchange = (e) => updateSettings({ modifierHints: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-scrollback").onchange = (e) => {
   const v = Math.min(100000, Math.max(500, Math.round(+(e.target as HTMLInputElement).value || DEFAULTS.scrollback)));
   updateSettings({ scrollback: v });
@@ -1495,6 +1497,36 @@ function wireDrag(container: HTMLElement, kind: "ws" | "tab", attr: string, hori
 }
 wireDrag(wsListEl, "ws", "ws", false);
 wireDrag(tabbarEl, "tab", "tab", true);
+
+// Drag the sidebar's right edge to resize it; the width is a per-machine UI preference.
+const SIDEBAR_W = { min: 160, max: 360, def: 220 };
+const sidebarResizer = $("sidebar-resizer");
+function setSidebarWidth(w: number, save = false) {
+  const px = Math.round(Math.min(SIDEBAR_W.max, Math.max(SIDEBAR_W.min, w)));
+  document.documentElement.style.setProperty("--sidebar-w", `${px}px`);
+  if (save) {
+    try { localStorage.setItem("panex.sidebarWidth", String(px)); } catch { /* storage unavailable */ }
+  }
+}
+try {
+  const saved = Number(localStorage.getItem("panex.sidebarWidth"));
+  if (saved) setSidebarWidth(saved);
+} catch { /* storage unavailable */ }
+sidebarResizer.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  sidebarResizer.setPointerCapture(e.pointerId);
+  document.body.classList.add("resizing-sidebar");
+});
+sidebarResizer.addEventListener("pointermove", (e) => {
+  if (sidebarResizer.hasPointerCapture(e.pointerId)) setSidebarWidth(e.clientX);
+});
+sidebarResizer.addEventListener("pointerup", (e) => {
+  if (!sidebarResizer.hasPointerCapture(e.pointerId)) return;
+  sidebarResizer.releasePointerCapture(e.pointerId);
+  document.body.classList.remove("resizing-sidebar");
+  setSidebarWidth($("sidebar").getBoundingClientRect().width, true);
+});
+sidebarResizer.addEventListener("dblclick", () => setSidebarWidth(SIDEBAR_W.def, true));
 
 $("new-tab").onclick = () => newWorkspace();
 $("shell-menu-btn").onclick = () => (shellMenuEl.hidden = !shellMenuEl.hidden);

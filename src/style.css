@@ -30,14 +30,21 @@ html, body {
 body { display: flex; }
 
 #sidebar {
-  width: 220px;
+  width: var(--sidebar-w, 220px);
   flex: none;
   display: flex;
   flex-direction: column;
   background: var(--side);
   border-right: 1px solid var(--line);
 }
-body.no-sidebar #sidebar { display: none; }
+body.no-sidebar #sidebar, body.no-sidebar #sidebar-resizer { display: none; }
+
+/* Drag handle on the sidebar's right edge; the wide hit area overlaps the border. */
+#sidebar-resizer { flex: none; width: 7px; margin: 0 -4px 0 -3px; position: relative; z-index: 5; cursor: col-resize; }
+#sidebar-resizer:hover, body.resizing-sidebar #sidebar-resizer { background: rgba(59, 130, 246, 0.45); }
+body.resizing-sidebar { cursor: col-resize; }
+body.resizing-sidebar * { pointer-events: none; }
+body.resizing-sidebar #sidebar-resizer { pointer-events: auto; }
 
 #tabs { flex: 1; overflow-y: auto; padding: 6px; }
 
@@ -89,7 +96,10 @@ button { font: inherit; }
   padding: 6px 8px; cursor: pointer;
 }
 #new-row button:hover, #shell-menu button:hover, #hooks-row button:hover { background: rgba(255, 255, 255, 0.14); }
-#new-tab { flex: 1; text-align: left; }
+#new-tab { flex: 1; text-align: left; min-width: 0; white-space: nowrap; overflow: hidden; }
+#new-row button { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+#new-row #new-tab { flex: 1; }
+.ico { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 #shell-menu { display: flex; flex-direction: column; gap: 2px; padding: 0 6px 6px; }
 #shell-menu[hidden] { display: none; }
