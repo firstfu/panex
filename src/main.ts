@@ -199,6 +199,11 @@ const activeTab = () => (visibleTabId ? tabs.get(visibleTabId) : undefined);
 const activeWs = () => (activeWsId ? workspaces.get(activeWsId) : undefined);
 const wsActiveTab = (ws: Workspace) => tabs.get(ws.activeTab ?? "") ?? tabs.get(ws.tabs[0] ?? "");
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+/**
+ * A TUI (Claude Code) pads its screen with blank rows to park the input box at the bottom. Those rows
+ * only make sense while it runs; replayed as history they become a big gap, so cap blank runs at 2.
+ */
+const squeezeBlankRuns = (snapshot: string) => snapshot.replace(/(?:[ \t]*\r?\n){4,}/g, "\n\n\n");
 
 function autoTabTitle(tab: Tab): string {
   const t = tab.progTitle?.trim();
@@ -449,7 +454,7 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
   refreshBranch(tab);
 
   if (restored) {
-    term.write(restored, () => {
+    term.write(squeezeBlankRuns(restored), () => {
       // The snapshot leaves the cursor wherever the program had it (TUIs park it mid-screen),
       // so move below the last non-empty line before printing the marker.
       const b = term.buffer.active;

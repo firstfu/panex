@@ -39,4 +39,5 @@ panex：開源、跨平台（Windows 優先）的多 agent 終端機 App，模�
 - cwd 來源：cmd 啟動時設 `PROMPT=$e]9;9;$P$e\<原 PROMPT>`；PowerShell 用 `-NoExit -EncodedCommand` 包一層 `prompt` 函式送 OSC 9;9。前端解析後更新分頁 cwd，500 ms 防抖後整份存 session。
 - scrollback：有輸出才標 dirty，4 秒後用 `@xterm/addon-serialize`（最後 1000 行、排除 alt buffer）存檔；關窗時 `onCloseRequested` 再 flush 一次。crash 最多掉約 4 秒。
 - 重開：先把快照寫回 xterm，游標移到最後一行非空白之下再印「已還原」分隔線。還原的分頁要點開才啟動 shell（lazy spawn）。
+- 還原時先過 `squeezeBlankRuns`（`src/main.ts`）：連續 3 行以上的空行壓成 2 行。原因：Claude Code 這類全螢幕 TUI 會用大量空行把輸入框墊到視窗底部，快照把這些空行原樣存下，還原後被當成歷史輸出，夾在舊畫面與「已還原」分隔線之間變成一大片空白、把內容往上擠（2026-10-20 使用者回報）。一般終端輸出的空行不受影響。
 - 單一實例（single-instance plugin）避免兩個 panex 互相覆寫 session；視窗大小位置由 window-state plugin 還原。
