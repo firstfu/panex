@@ -16,7 +16,7 @@
 
 English · [繁體中文](translations/README.zh-Hant.md)
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>Download panex_0.2.0_x64-setup.exe</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>Download panex_0.2.1_x64-setup.exe</b></a>
 
 <img src="assets/hero.png" width="860" alt="panex: three workspaces in the sidebar, one waiting for permission (blue), one finished (green), and a workspace with two tabs">
 
@@ -85,7 +85,7 @@ The only file it writes outside its own folders is `~/.claude/settings.json`, an
 
 ## Install
 
-1. Download `panex_0.2.0_x64-setup.exe` from [Releases](https://github.com/firstfu/panex/releases/latest).
+1. Download `panex_0.2.1_x64-setup.exe` from [Releases](https://github.com/firstfu/panex/releases/latest).
 2. Run it. Windows SmartScreen will warn you the first time, because the installer isn't code-signed: click **More info**, then **Run anyway**.
 3. panex installs for your user only (no administrator rights needed) and adds a Start menu entry.
 

@@ -16,7 +16,7 @@
 
 [English](../README.md) · 繁體中文
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 panex_0.2.0_x64-setup.exe</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 panex_0.2.1_x64-setup.exe</b></a>
 
 <img src="../assets/hero.png" width="860" alt="panex：側欄三個工作區，一個在等待權限（藍色）、一個已完成（綠色），另一個工作區有兩個分頁">
 
@@ -85,7 +85,7 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 
 ## 安裝
 
-1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.2.0_x64-setup.exe`。
+1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.2.1_x64-setup.exe`。
 2. 執行它。因為安裝檔沒有程式碼簽章，第一次 Windows SmartScreen 會跳出警告：按 **其他資訊**，再按 **仍要執行**。
 3. panex 只安裝給目前使用者（不需要系統管理員權限），並在開始選單加入捷徑。
 
