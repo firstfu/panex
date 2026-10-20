@@ -56,7 +56,7 @@ fn read(path: &Path) -> Result<Value, String> {
         Ok(b) => {
             let b = b.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&b);
             let v: Value = serde_json::from_slice(b).map_err(|e| e.to_string())?;
-            if v.is_object() { Ok(v) } else { Err("最外層必須是物件 { }".into()) }
+            if v.is_object() { Ok(v) } else { Err("the top level must be an object { }".into()) }
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Value::Object(Map::new())),
         Err(e) => Err(e.to_string()),
@@ -192,7 +192,7 @@ pub fn config_load() -> Loaded {
 #[tauri::command]
 pub fn config_set(path: Vec<String>, value: Value) -> Result<(), String> {
     let file = self::path();
-    let mut root = read(&file).map_err(|e| format!("panex.json 有錯誤，未寫入：{e}"))?;
+    let mut root = read(&file).map_err(|e| format!("panex.json has an error, nothing written: {e}"))?;
     let Some((last, parents)) = path.split_last() else { return Err("empty path".into()) };
     let mut cur = &mut root;
     for k in parents {

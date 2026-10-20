@@ -1,4 +1,5 @@
 mod config;
+mod git;
 mod hooks;
 mod notify;
 mod pty;
@@ -45,6 +46,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            git::git_branch,
             pty::shells_list,
             pty::pty_spawn,
             pty::pty_write,

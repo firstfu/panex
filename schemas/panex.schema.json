@@ -32,6 +32,15 @@
           ],
           "default": "none",
           "description": "背景效果：none 無、mica（Windows 11）、acrylic 毛玻璃。要搭配 opacity < 100 才看得到。"
+        },
+        "language": {
+          "enum": [
+            "auto",
+            "en",
+            "zh-Hant"
+          ],
+          "default": "auto",
+          "description": "介面語言：auto 跟隨系統（中文系統用繁體中文，其他用英文）、en 英文、zh-Hant 繁體中文。"
         }
       }
     },

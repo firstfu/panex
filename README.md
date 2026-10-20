@@ -58,6 +58,8 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 - **cmd by default**, Windows PowerShell and PowerShell 7 (if installed) one click away
 - Transparency, plus Mica or Acrylic window backgrounds on Windows 11
 - One plain JSON config file with a schema, applied the moment you save it
+- Each workspace shows its git branch in the sidebar
+- English and Traditional Chinese interface, following your system language (switch in Settings)
 - Chinese and other wide characters line up correctly; Unicode 11 widths
 - Ctrl+C copies when text is selected and interrupts otherwise; Ctrl+V pastes
 - Single instance: opening panex again brings the existing window forward
@@ -186,9 +188,8 @@ I won't build these until real people ask for them. If one matters to you, [open
 
 - Split panes inside a tab
 - Search in the scrollback (Ctrl+Shift+F)
-- Git branch and listening ports in the sidebar
+- Listening ports in the sidebar
 - One click to create a git worktree and start an agent in it
-- English interface
 
 ## Build from source
 

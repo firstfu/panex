@@ -38,18 +38,18 @@ pub fn hooks_status() -> bool {
 
 #[tauri::command]
 pub fn hooks_install() -> Result<String, String> {
-    let path = settings_path().ok_or("找不到使用者目錄")?;
-    let cli = cli_path().ok_or("找不到 panex-cli 路徑")?;
+    let path = settings_path().ok_or("cannot find the user directory")?;
+    let cli = cli_path().ok_or("cannot find the panex-cli path")?;
     let mut root: Value = match fs::read(&path) {
-        Ok(b) => serde_json::from_slice(&b).map_err(|e| format!("settings.json 不是合法 JSON，未修改：{e}"))?,
+        Ok(b) => serde_json::from_slice(&b).map_err(|e| format!("settings.json is not valid JSON, left unchanged: {e}"))?,
         Err(_) => Value::Object(Map::new()),
     };
-    let obj = root.as_object_mut().ok_or("settings.json 頂層不是物件，未修改")?;
+    let obj = root.as_object_mut().ok_or("settings.json top level is not an object, left unchanged")?;
     let hooks = obj.entry("hooks").or_insert_with(|| Value::Object(Map::new()));
-    let hooks = hooks.as_object_mut().ok_or("settings.json 的 hooks 不是物件，未修改")?;
+    let hooks = hooks.as_object_mut().ok_or("hooks in settings.json is not an object, left unchanged")?;
     for e in EVENTS {
         let groups = hooks.entry(e).or_insert_with(|| Value::Array(vec![]));
-        let groups = groups.as_array_mut().ok_or(format!("hooks.{e} 不是陣列，未修改"))?;
+        let groups = groups.as_array_mut().ok_or(format!("hooks.{e} is not an array, left unchanged"))?;
         groups.retain(|g| !is_panex_group(g));
         // Exec form: no shell, so paths with spaces or backslashes need no quoting.
         groups.push(json!({ "hooks": [{ "type": "command", "command": cli, "args": ["notify"], "timeout": 10 }] }));

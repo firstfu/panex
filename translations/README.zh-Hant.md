@@ -58,6 +58,8 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 - **預設 cmd**，Windows PowerShell 和 PowerShell 7（有裝的話）點一下就能開
 - 可調透明度，Windows 11 上還能用 Mica 或 Acrylic 背景
 - 單一 JSON 設定檔，附 schema，存檔即套用
+- 側欄會顯示每個工作區目前的 git 分支
+- 介面有英文與繁體中文，預設跟隨系統語言（在設定裡切換）
 - 中文等全形字元對齊正確，採用 Unicode 11 字寬
 - 有選取文字時 Ctrl+C 是複製，沒選取時是中斷；Ctrl+V 貼上
 - 只會開一個實例：再開一次 panex 會把原本的視窗帶到前面
@@ -186,9 +188,8 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 
 - 分頁內分割窗格
 - 搜尋捲動歷史（Ctrl+Shift+F）
-- 側欄顯示 git 分支與監聽中的 port
+- 側欄顯示監聽中的 port
 - 一鍵建立 git worktree 並在裡面啟動 agent
-- 英文介面
 
 ## 從原始碼建置
 

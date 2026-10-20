@@ -7,6 +7,7 @@
 ## 建置
 
 - 開發：`cargo tauri dev`；正式：`cargo tauri build`，安裝檔在 `src-tauri/target/release/bundle/nsis/panex_<版本>_x64-setup.exe`。NSIS hook（`src-tauri/installer-hooks.nsh`）會把 `panex-cli.exe` 一起裝進去。
+- 從零編譯時 rustc 可能在 `windows`／`tokio` crate 崩潰（`STATUS_STACK_BUFFER_OVERRUN`），設 `RUST_MIN_STACK=134217728` 後重跑即過；`CARGO_TARGET_DIR` 換新目錄就是從零編譯，會碰到這個。
 - 使用者的 panex 開著時 `target/release/panex.exe` 被鎖住，可設 `CARGO_TARGET_DIR` 到別處建置。
 
 ## 獨立測試實例（不碰使用者正在用的 panex）

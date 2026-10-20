@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-20 — 側欄顯示 git 分支、英文介面（含語言設定）
+
+**變更**
+- 側欄每個工作區在 cwd 下方多一行 `⎇ <分支>`：新增 `src-tauri/src/git.rs`（`git_branch` 直接讀 `.git/HEAD`，支援 worktree、detached 顯示 7 碼 hash），前端 `refreshBranch` 在每次 cwd 回報時重查（同分頁 1 秒節流），非 git 目錄整行不顯示。
+- 英文介面：新增 `src/i18n.ts`（繁中原文當 key 的字典 + `translateDom`），`index.html` 以 `data-i18n*` 標記，`main.ts` 所有字串改走 `tr()`；設定「外觀」頁最上方新增「語言」（自動／English／繁體中文），存在 `app.language`，schema 同步。Rust 端的錯誤訊息（hooks.rs、config.rs）改成英文。README 兩版同步（移出投票清單、補功能條目）。
+- 驗證用獨立測試實例 + CDP：英文介面各頁、語言來回切換、`git checkout` 後下個 prompt 分支更新、detached、離開 repo 隱藏，都正常；測試資料已清除。
+
+**為什麼**
+- 使用者要求把這兩項從投票清單提前做掉（英文介面為開源推廣所需，分支顯示對多 agent 並行最有用）。
+
+**下一步**
+- 尚未 commit、未重新打包安裝；使用者的 panex 還是舊版。
+- 沒做的：port 偵測、一鍵 worktree、搜尋捲動歷史、分割窗格。
+- 從零編譯會遇到 rustc 崩潰，解法記在 `operations.md`。
+
 ## 2026-10-20 — 工作區狀態改底色（拿掉邊框）、側欄快捷鍵改 Ctrl+Alt+H
 
 **變更**

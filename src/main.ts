@@ -7,6 +7,7 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { resolveLang, setLang, getLang, t as tr, translateDom, type LangPref } from "./i18n";
 import { getCurrentWindow, Effect } from "@tauri-apps/api/window";
 import {
   ACTIONS,
@@ -68,6 +69,7 @@ interface Settings {
   smartCopyPaste: boolean;
   sidebarHidden: boolean;
   modifierHints: boolean;
+  language: LangPref;
 }
 
 const CONFIG_PATHS: Record<keyof Settings, string[]> = {
@@ -81,6 +83,7 @@ const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   smartCopyPaste: ["terminal", "smartCopyPaste"],
   sidebarHidden: ["sidebar", "hidden"],
   modifierHints: ["shortcuts", "showModifierHoldHints"],
+  language: ["app", "language"],
 };
 
 interface LoadedConfig {
@@ -95,6 +98,8 @@ interface Tab {
   wsId: string;
   shell: string;
   cwd?: string;
+  branch?: string; // git branch of cwd (not persisted; re-read from .git/HEAD)
+  branchAt?: number; // last refresh time, throttles the per-prompt lookup
   customTitle?: string;
   progTitle?: string;
   term: Terminal;
@@ -130,6 +135,7 @@ const DEFAULTS: Settings = {
   smartCopyPaste: true,
   sidebarHidden: false,
   modifierHints: false,
+  language: "auto",
 };
 
 // Same palette names as cmux's workspace colors.
@@ -187,7 +193,7 @@ const settingsEl = $("settings");
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const newWsId = () => `w${newId().slice(0, 11)}`;
 const basename = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
-const shellName = (id: string) => shells.find((s) => s.id === id)?.name ?? id;
+const shellName = (id: string) => tr(shells.find((s) => s.id === id)?.name ?? id);
 const shellTag = (id: string) => (id === "cmd" ? "cmd" : id === "default" ? "sh" : "PS");
 const activeTab = () => (visibleTabId ? tabs.get(visibleTabId) : undefined);
 const activeWs = () => (activeWsId ? workspaces.get(activeWsId) : undefined);
@@ -197,7 +203,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
 function autoTabTitle(tab: Tab): string {
   const t = tab.progTitle?.trim();
   // Shells set their title to an exe path or their own name; a cwd is more useful there.
-  if (t && !/^[A-Za-z]:\\/.test(t) && !/\.exe$/i.test(t) && !/^(Windows PowerShell|PowerShell|系統管理員)/.test(t)) {
+  if (t && !/^[A-Za-z]:\\/.test(t) && !/\.exe$/i.test(t) && !/^(Windows PowerShell|PowerShell|系統管理員|Administrator)/.test(t)) {
     return t;
   }
   return tab.cwd ? basename(tab.cwd) : shellName(tab.shell);
@@ -208,7 +214,7 @@ const tabTitle = (tab: Tab) => tab.customTitle || autoTabTitle(tab);
 function wsTitle(ws: Workspace): string {
   if (ws.customTitle) return ws.customTitle;
   const t = wsActiveTab(ws);
-  return t ? tabTitle(t) : "工作區";
+  return t ? tabTitle(t) : tr("工作區");
 }
 
 /** The loudest status among a workspace's tabs, with that tab's note. */
@@ -229,7 +235,21 @@ function termTheme() {
 }
 
 let appliedEffect: Settings["effect"] | undefined;
+/** Switches the UI language; static markup is retranslated, dynamic parts re-render. */
+function applyLanguage() {
+  const next = resolveLang(settings.language);
+  if (next === getLang()) return;
+  setLang(next);
+  translateDom();
+  renderShellMenu();
+  refreshHooks();
+  renderConfigNotice();
+  scheduleRender();
+  if (!settingsEl.hidden) fillSettings();
+}
+
 function applySettings() {
+  applyLanguage();
   // Effects need some transparency to show; Mica/Acrylic look best around 70–85%.
   document.documentElement.style.setProperty("--alpha", String(settings.opacity / 100));
   document.body.classList.toggle("no-sidebar", settings.sidebarHidden);
@@ -260,6 +280,7 @@ function settingsFrom(cfg: any): Settings {
   s.opacity = Math.min(100, Math.max(30, s.opacity));
   s.fontSize = Math.min(32, Math.max(8, s.fontSize));
   if (!["none", "mica", "acrylic"].includes(s.effect)) s.effect = "none";
+  if (!["auto", "en", "zh-Hant"].includes(s.language)) s.language = "auto";
   return s;
 }
 
@@ -323,7 +344,7 @@ function digitHint(id: string, n: number): string {
 }
 
 const keyLabel = (id: string) => formatBinding(bindings.get(id) ?? [], ACTIONS.find((a) => a.id === id)?.digits);
-const withKey = (text: string, id: string) => (keyLabel(id) ? `${text}（${keyLabel(id)}）` : text);
+const withKey = (text: string, id: string) => (keyLabel(id) ? `${tr(text)}（${keyLabel(id)}）` : tr(text));
 
 function showNotice(text: string, withOpen = false) {
   let el = document.getElementById("notice");
@@ -332,7 +353,7 @@ function showNotice(text: string, withOpen = false) {
     el.id = "notice";
     document.body.appendChild(el);
   }
-  el.innerHTML = `<span></span>${withOpen ? '<button data-open>開啟 panex.json</button>' : ""}<button data-dismiss>×</button>`;
+  el.innerHTML = `<span></span>${withOpen ? `<button data-open>${esc(tr("開啟 panex.json"))}</button>` : ""}<button data-dismiss>×</button>`;
   el.querySelector("span")!.textContent = text;
   el.hidden = false;
   el.onclick = (e) => {
@@ -343,7 +364,7 @@ function showNotice(text: string, withOpen = false) {
 }
 
 function renderConfigNotice() {
-  if (configError) showNotice(`panex.json 有錯誤，沿用上次的設定：${configError}`, true);
+  if (configError) showNotice(tr("panex.json 有錯誤，沿用上次的設定：{e}", { e: configError }), true);
   else document.getElementById("notice")?.setAttribute("hidden", "");
 }
 
@@ -425,6 +446,8 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
     status: "idle",
   };
 
+  refreshBranch(tab);
+
   if (restored) {
     term.write(restored, () => {
       // The snapshot leaves the cursor wherever the program had it (TUIs park it mid-screen),
@@ -434,7 +457,7 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
       while (last > 0 && !b.getLine(last)?.translateToString(true).trim()) last--;
       const row = Math.max(1, last - b.baseY + 1);
       const time = new Date().toLocaleString("zh-TW", { hour12: false });
-      term.write(`\x1b[0m\x1b[?25h\x1b[${row};1H\r\n\x1b[90m── 已還原工作階段（${time}）──\x1b[0m\r\n`);
+      term.write(`\x1b[0m\x1b[?25h\x1b[${row};1H\r\n\x1b[90m${tr("── 已還原工作階段（{time}）──", { time })}\x1b[0m\r\n`);
     });
   }
 
@@ -446,7 +469,7 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
     tab.progTitle = t;
     scheduleRender();
   });
-  term.onBell(() => notify(tab, "attention", "🔔 響鈴"));
+  term.onBell(() => notify(tab, "attention", tr("🔔 響鈴")));
   // OSC 9;9;<path> = cwd report (our cmd/PowerShell prompts emit it).
   // Other OSC 9 payloads are iTerm2-style notifications; "N;..." forms are ConEmu extras we ignore.
   term.parser.registerOscHandler(9, (data) => {
@@ -504,7 +527,7 @@ async function spawn(tab: Tab) {
   } catch (e) {
     tab.running = false;
     tab.exited = true;
-    tab.term.write(`\r\n\x1b[31m無法啟動 ${shellName(tab.shell)}：${e}\x1b[0m\r\n`);
+    tab.term.write(`\r\n\x1b[31m${tr("無法啟動 {shell}：{e}", { shell: shellName(tab.shell), e: String(e) })}\x1b[0m\r\n`);
   }
 }
 
@@ -699,10 +722,28 @@ function setColor(ws: Workspace, color?: string) {
 }
 
 function setCwd(tab: Tab, cwd: string) {
-  if (!cwd || cwd === tab.cwd) return;
+  if (!cwd) return;
+  // Every prompt reports the cwd, so this also catches `git checkout` in place.
+  refreshBranch(tab, cwd);
+  if (cwd === tab.cwd) return;
   tab.cwd = cwd;
   saveSessionSoon();
   scheduleRender();
+}
+
+function refreshBranch(tab: Tab, cwd = tab.cwd) {
+  if (!cwd) return;
+  const now = Date.now();
+  if (cwd === tab.cwd && tab.branchAt && now - tab.branchAt < 1000) return;
+  tab.branchAt = now;
+  invoke<string | null>("git_branch", { cwd })
+    .then((b) => {
+      const branch = b ?? undefined;
+      if (branch === tab.branch) return;
+      tab.branch = branch;
+      scheduleRender();
+    })
+    .catch(() => {});
 }
 
 function clearStatus(tab: Tab) {
@@ -813,7 +854,7 @@ function renderSidebar() {
       const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
       const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
       const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
-      const count = ws.tabs.length > 1 ? `<span class="t-count" title="${ws.tabs.length} 個分頁">${ws.tabs.length}</span>` : "";
+      const count = ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
       const title =
         renaming?.kind === "ws" && renaming.id === wid
           ? renameInput
@@ -821,6 +862,7 @@ function renderSidebar() {
       d.innerHTML =
         `<div class="t-title">${title}</div>` +
         (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.cwd ?? "")}</div>` : "") +
+        (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${esc(cur.branch)}</div>` : "") +
         (note ? `<div class="t-note">${esc(note)}</div>` : "") +
         `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
       return d;
@@ -860,7 +902,7 @@ function renderShellMenu() {
     ...shells.map((s, i) => {
       const b = document.createElement("button");
       const hint = i < 9 ? digitHint("newWorkspaceWithShell", i + 1) : "";
-      b.textContent = `${s.name}${hint ? `　${hint}` : ""}`;
+      b.textContent = `${tr(s.name)}${hint ? `　${hint}` : ""}`;
       b.onclick = () => {
         shellMenuEl.hidden = true;
         newWorkspace(s.id);
@@ -874,16 +916,16 @@ function renderShellMenu() {
 
 async function refreshHooks() {
   const ok = await invoke<boolean>("hooks_status").catch(() => false);
-  hooksEl.textContent = ok ? "Claude Code 通知：已啟用" : "Claude Code 通知：未啟用";
+  hooksEl.textContent = ok ? tr("Claude Code 通知：已啟用") : tr("Claude Code 通知：未啟用");
   if (!ok) {
     const b = document.createElement("button");
-    b.textContent = "啟用";
-    b.title = "在 ~/.claude/settings.json 加入 panex 的 hooks（會先備份）";
+    b.textContent = tr("啟用");
+    b.title = tr("在 ~/.claude/settings.json 加入 panex 的 hooks（會先備份）");
     b.onclick = async () => {
       try {
         await invoke("hooks_install");
       } catch (e) {
-        hooksEl.textContent = `啟用失敗：${e}`;
+        hooksEl.textContent = tr("啟用失敗：{e}", { e: String(e) });
         return;
       }
       refreshHooks();
@@ -900,19 +942,19 @@ function wsMenu(ws: Workspace): MenuItem[] {
   const i = wsOrder.indexOf(ws.id);
   const others = wsOrder.filter((id) => id !== ws.id);
   return [
-    { label: "重新命名工作區…", keys: keyLabel("renameWorkspace"), run: () => startRename("ws", ws.id) },
+    { label: tr("重新命名工作區…"), keys: keyLabel("renameWorkspace"), run: () => startRename("ws", ws.id) },
     { colors: ws },
     "-",
-    { label: "新分頁", keys: keyLabel("newTab"), run: () => (showWorkspace(ws.id), newTab()) },
+    { label: tr("新分頁"), keys: keyLabel("newTab"), run: () => (showWorkspace(ws.id), newTab()) },
     "-",
-    { label: "上移", keys: keyLabel("moveWorkspaceUp"), run: () => moveWorkspace(ws.id, i - 1), disabled: i === 0 },
-    { label: "下移", keys: keyLabel("moveWorkspaceDown"), run: () => moveWorkspace(ws.id, i + 1), disabled: i === wsOrder.length - 1 },
-    { label: "移到最上面", run: () => moveWorkspace(ws.id, 0), disabled: i === 0 },
+    { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveWorkspace(ws.id, i - 1), disabled: i === 0 },
+    { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveWorkspace(ws.id, i + 1), disabled: i === wsOrder.length - 1 },
+    { label: tr("移到最上面"), run: () => moveWorkspace(ws.id, 0), disabled: i === 0 },
     "-",
-    { label: "關閉工作區", keys: keyLabel("closeWorkspace"), run: () => closeWorkspaces([ws.id]) },
-    { label: "關閉其他工作區", run: () => closeWorkspaces(others), disabled: !others.length },
-    { label: "關閉下方工作區", run: () => closeWorkspaces(wsOrder.slice(i + 1)), disabled: i === wsOrder.length - 1 },
-    { label: "關閉上方工作區", run: () => closeWorkspaces(wsOrder.slice(0, i)), disabled: i === 0 },
+    { label: tr("關閉工作區"), keys: keyLabel("closeWorkspace"), run: () => closeWorkspaces([ws.id]) },
+    { label: tr("關閉其他工作區"), run: () => closeWorkspaces(others), disabled: !others.length },
+    { label: tr("關閉下方工作區"), run: () => closeWorkspaces(wsOrder.slice(i + 1)), disabled: i === wsOrder.length - 1 },
+    { label: tr("關閉上方工作區"), run: () => closeWorkspaces(wsOrder.slice(0, i)), disabled: i === 0 },
   ];
 }
 
@@ -921,14 +963,14 @@ function tabMenu(tab: Tab): MenuItem[] {
   const i = ws.tabs.indexOf(tab.id);
   const others = ws.tabs.filter((id) => id !== tab.id);
   return [
-    { label: "重新命名分頁…", keys: keyLabel("renameTab"), run: () => startRename("tab", tab.id) },
+    { label: tr("重新命名分頁…"), keys: keyLabel("renameTab"), run: () => startRename("tab", tab.id) },
     "-",
-    { label: "左移", keys: keyLabel("moveTabLeft"), run: () => moveTab(tab.id, i - 1), disabled: i === 0 },
-    { label: "右移", keys: keyLabel("moveTabRight"), run: () => moveTab(tab.id, i + 1), disabled: i === ws.tabs.length - 1 },
+    { label: tr("左移"), keys: keyLabel("moveTabLeft"), run: () => moveTab(tab.id, i - 1), disabled: i === 0 },
+    { label: tr("右移"), keys: keyLabel("moveTabRight"), run: () => moveTab(tab.id, i + 1), disabled: i === ws.tabs.length - 1 },
     "-",
-    { label: "關閉分頁", keys: keyLabel("closeTab"), run: () => closeTab(tab.id) },
-    { label: "關閉其他分頁", run: () => closeTabs(others), disabled: !others.length },
-    { label: "關閉右側分頁", run: () => closeTabs(ws.tabs.slice(i + 1)), disabled: i === ws.tabs.length - 1 },
+    { label: tr("關閉分頁"), keys: keyLabel("closeTab"), run: () => closeTab(tab.id) },
+    { label: tr("關閉其他分頁"), run: () => closeTabs(others), disabled: !others.length },
+    { label: tr("關閉右側分頁"), run: () => closeTabs(ws.tabs.slice(i + 1)), disabled: i === ws.tabs.length - 1 },
   ];
 }
 
@@ -942,7 +984,7 @@ function showCtx(x: number, y: number, items: MenuItem[]) {
         row.className = "colors";
         const none = document.createElement("span");
         none.className = `none${ws.color ? "" : " sel"}`;
-        none.title = "無顏色";
+        none.title = tr("無顏色");
         none.onclick = () => (setColor(ws, undefined), hideCtx());
         row.append(
           none,
@@ -959,7 +1001,7 @@ function showCtx(x: number, y: number, items: MenuItem[]) {
       }
       const d = document.createElement("div");
       d.className = `item${it.disabled ? " disabled" : ""}`;
-      d.innerHTML = `<span>${it.label}</span>${it.keys ? `<kbd>${esc(it.keys)}</kbd>` : ""}`;
+      d.innerHTML = `<span>${esc(it.label)}</span>${it.keys ? `<kbd>${esc(it.keys)}</kbd>` : ""}`;
       d.onclick = () => {
         hideCtx();
         it.run();
@@ -989,6 +1031,11 @@ const FIXED_KEYS: [string, string[]][] = [
   ["新分頁", ["雙擊分頁列空白處"]],
 ];
 
+// Notes that are warnings (shown red) rather than confirmations.
+const WARN_NOTES = [
+  "請加上 Ctrl、Alt 或 Win 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。",
+  "這個動作要用「修飾鍵＋數字」，例如按 Ctrl+Alt+1 就代表 Ctrl+Alt+1–9。",
+];
 let keysNote = "";
 let settingsPage = "look";
 
@@ -1003,7 +1050,7 @@ function keycaps(steps: Steps, digits = false): string {
       });
       return `<span class="combo">${caps.join("")}</span>`;
     })
-    .join('<span class="then">再按</span>');
+    .join(`<span class="then">${esc(tr("再按"))}</span>`);
 }
 
 function renderKeys() {
@@ -1013,18 +1060,18 @@ function renderKeys() {
     !q || label.toLowerCase().includes(q) || formatBinding(alts, digits).toLowerCase().includes(q);
 
   const groups = GROUPS.map((g) => {
-    const rows = ACTIONS.filter((a) => a.group === g && matches(a.label, bindings.get(a.id) ?? [], a.digits)).map((a) => {
+    const rows = ACTIONS.filter((a) => a.group === g && matches(tr(a.label), bindings.get(a.id) ?? [], a.digits)).map((a) => {
       const alts = bindings.get(a.id) ?? [];
       const changed = Object.prototype.hasOwnProperty.call(overrides, a.id);
       const capturing = capturingId === a.id;
-      const prompt = `<span class="capture">${a.digits ? "按修飾鍵＋任一數字" : "按下新的組合鍵"}</span>`;
+      const prompt = `<span class="capture">${esc(tr(a.digits ? "按修飾鍵＋任一數字" : "按下新的組合鍵"))}</span>`;
       // One chip per alternative; the one being re-recorded shows the prompt instead.
       const chips = alts.map((steps, i) => {
         const live = capturing && capturingAlt === i;
-        const label = `變更「${esc(a.label)}」的第 ${i + 1} 組快捷鍵`;
+        const label = esc(tr("變更「{name}」的第 {n} 組快捷鍵", { name: tr(a.label), n: i + 1 }));
         const x =
           alts.length > 1 && !live
-            ? `<button class="chip-x" data-remove="${a.id}" data-alt="${i}" title="移除這組" aria-label="移除這組">×</button>`
+            ? `<button class="chip-x" data-remove="${a.id}" data-alt="${i}" title="${esc(tr("移除這組"))}" aria-label="${esc(tr("移除這組"))}">×</button>`
             : "";
         return (
           `<span class="chip${live ? " live" : ""}">` +
@@ -1032,32 +1079,33 @@ function renderKeys() {
         );
       });
       if (capturing && capturingAlt >= alts.length) chips.push(`<span class="chip live"><span class="bind">${prompt}</span></span>`);
-      if (!chips.length) chips.push(`<button class="bind" data-bind="${a.id}" data-alt="0"><span class="unbound">未設定</span></button>`);
+      if (!chips.length) chips.push(`<button class="bind" data-bind="${a.id}" data-alt="0"><span class="unbound">${esc(tr("未設定"))}</span></button>`);
       const add =
         capturing || !alts.length
           ? ""
-          : `<button class="add" data-add="${a.id}" title="再加一組快捷鍵" aria-label="為「${esc(a.label)}」再加一組快捷鍵">＋</button>`;
+          : `<button class="add" data-add="${a.id}" title="${esc(tr("再加一組快捷鍵"))}" aria-label="${esc(tr("為「{name}」再加一組快捷鍵", { name: tr(a.label) }))}">＋</button>`;
       return (
         `<div class="krow${changed ? " changed" : ""}${capturing ? " capturing" : ""}">` +
-        `<span class="kname">${esc(a.label)}</span>` +
+        `<span class="kname">${esc(tr(a.label))}</span>` +
         `<span class="binds">${chips.join("")}${add}</span>` +
-        (changed ? `<button class="reset" data-reset="${a.id}" title="恢復預設" aria-label="恢復預設">↺</button>` : '<span class="reset-slot"></span>') +
+        (changed ? `<button class="reset" data-reset="${a.id}" title="${esc(tr("恢復預設"))}" aria-label="${esc(tr("恢復預設"))}">↺</button>` : '<span class="reset-slot"></span>') +
         `</div>`
       );
     });
-    return rows.length ? `<div class="kgroup"><h4>${g}</h4>${rows.join("")}</div>` : "";
+    return rows.length ? `<div class="kgroup"><h4>${esc(tr(g))}</h4>${rows.join("")}</div>` : "";
   }).join("");
 
-  const fixed = FIXED_KEYS.filter(([label, keys]) => !q || label.includes(q) || keys.join(" ").toLowerCase().includes(q))
+  const fixed = FIXED_KEYS.map(([label, keys]) => [tr(label), keys.map((k) => tr(k))] as [string, string[]])
+    .filter(([label, keys]) => !q || label.toLowerCase().includes(q) || keys.join(" ").toLowerCase().includes(q))
     .map(([label, keys]) => `<div class="krow fixed"><span class="kname">${label}</span><span class="bind">${keys.map((k) => `<kbd>${k}</kbd>`).join("")}</span><span class="reset-slot"></span></div>`)
     .join("");
 
   $("keys").innerHTML =
-    groups + (fixed ? `<div class="kgroup"><h4>滑鼠與固定操作</h4>${fixed}</div>` : "") ||
-    `<p class="empty">找不到「${esc(q)}」。試試動作名稱，例如「分頁」，或按鍵，例如「ctrl+shift」。</p>`;
-  const capHint = capturingId ? "Esc 取消，Backspace 移除這一組快捷鍵。" : "";
+    groups + (fixed ? `<div class="kgroup"><h4>${esc(tr("滑鼠與固定操作"))}</h4>${fixed}</div>` : "") ||
+    `<p class="empty">${esc(tr("找不到「{q}」。試試動作名稱，例如「分頁」，或按鍵，例如「ctrl+shift」。", { q }))}</p>`;
+  const capHint = capturingId ? tr("Esc 取消，Backspace 移除這一組快捷鍵。") : "";
   $("keys-note").textContent = keysNote || capHint;
-  $("keys-note").classList.toggle("warn", !!keysNote && !keysNote.startsWith("已"));
+  $("keys-note").classList.toggle("warn", WARN_NOTES.some((k) => tr(k) === keysNote));
 }
 
 function showSettingsPage(page: string) {
@@ -1081,13 +1129,14 @@ function fillSettings() {
   o.style.setProperty("--p", `${((settings.opacity - 30) / 70) * 100}%`);
   $("s-opacity-v").textContent = `${settings.opacity}%`;
   setSeg("s-effect", settings.effect);
+  setSeg("s-language", settings.language);
   $<HTMLInputElement>("s-font-size").value = String(settings.fontSize);
   const ff = $<HTMLInputElement>("s-font-family");
   if (document.activeElement !== ff) ff.value = settings.fontFamily;
   const sample = $("font-sample");
   sample.style.fontFamily = settings.fontFamily;
   sample.style.fontSize = `${settings.fontSize}px`;
-  $("s-shell").innerHTML = shells.map((s) => `<button data-v="${s.id}" role="radio">${esc(s.name)}</button>`).join("");
+  $("s-shell").innerHTML = shells.map((s) => `<button data-v="${s.id}" role="radio">${esc(tr(s.name))}</button>`).join("");
   setSeg("s-shell", settings.defaultShell);
   $<HTMLInputElement>("s-blink").checked = settings.cursorBlink;
   $<HTMLInputElement>("s-smart").checked = settings.smartCopyPaste;
@@ -1128,20 +1177,20 @@ function captureKey(e: KeyboardEvent) {
     capturingId = undefined;
     if (capturingAlt < alts.length) {
       setBinding(id, alts.filter((_, i) => i !== capturingAlt));
-      keysNote = `已移除「${def.label}」的一組快捷鍵。`;
+      keysNote = tr("已移除「{name}」的一組快捷鍵。", { name: tr(def.label) });
     }
     return renderKeys();
   }
   let combo = eventCombo(e);
   if (!combo) return; // lone modifier: keep waiting
   if (!/^(ctrl|alt|meta)\+/.test(combo) && !/^(shift\+)?f\d+$/.test(combo)) {
-    keysNote = "請加上 Ctrl、Alt 或 Win 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。";
+    keysNote = tr(WARN_NOTES[0]);
     return renderKeys();
   }
   if (def.digits) {
     const fam = digitFamily(combo);
     if (!fam) {
-      keysNote = "這個動作要用「修飾鍵＋數字」，例如按 Ctrl+Alt+1 就代表 Ctrl+Alt+1–9。";
+      keysNote = tr(WARN_NOTES[1]);
       return renderKeys();
     }
     combo = fam.family;
@@ -1168,7 +1217,9 @@ function captureKey(e: KeyboardEvent) {
   own.splice(Math.min(capturingAlt, own.length), 0, [c]);
   capturingId = undefined;
   setBinding(id, own);
-  keysNote = taken.length ? `已設定。「${taken.map((a) => a.label).join("、")}」原本用這組按鍵，現在改為未設定。` : "";
+  keysNote = taken.length
+    ? tr("已設定。「{names}」原本用這組按鍵，現在改為未設定。", { names: taken.map((a) => tr(a.label)).join(tr("、")) })
+    : "";
   renderKeys();
 }
 
@@ -1190,7 +1241,7 @@ $("keys").addEventListener("click", (e) => {
   if (removeEl) {
     const id = removeEl.dataset.remove!;
     setBinding(id, (bindings.get(id) ?? []).filter((_, i) => i !== +removeEl.dataset.alt!));
-    keysNote = "已移除一組快捷鍵。";
+    keysNote = tr("已移除一組快捷鍵。");
     renderKeys();
   } else if (bindEl) {
     const id = bindEl.dataset.bind!;
@@ -1207,7 +1258,7 @@ $("keys").addEventListener("click", (e) => {
     renderKeys();
   } else if (reset) {
     setBinding(reset, undefined);
-    keysNote = "已恢復預設。";
+    keysNote = tr("已恢復預設。");
     renderKeys();
   }
 });
@@ -1217,7 +1268,7 @@ $("keys-reset-all").onclick = () => {
   rawConfig = { ...rawConfig, shortcuts: { ...(rawConfig.shortcuts ?? {}), bindings: {} } };
   bindings = resolveBindings({});
   capturingId = undefined;
-  keysNote = "已將所有快捷鍵恢復預設。";
+  keysNote = tr("已將所有快捷鍵恢復預設。");
   renderKeys();
   scheduleRender();
 };
@@ -1237,6 +1288,12 @@ $("s-effect").addEventListener("click", (e) => {
   // An effect behind a fully opaque window is invisible; pick a sensible see-through level.
   updateSettings({ effect: v, opacity: v !== "none" && settings.opacity === 100 ? 80 : settings.opacity });
   fillSettings();
+});
+$("s-language").addEventListener("click", (e) => {
+  const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as LangPref | undefined;
+  if (!v) return;
+  updateSettings({ language: v });
+  setSeg("s-language", v);
 });
 $("s-shell").addEventListener("click", (e) => {
   const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v;
@@ -1579,7 +1636,8 @@ async function main() {
     } else {
       tab.exited = true;
       const close = keyLabel("closeTab");
-      tab.term.write(`\r\n\x1b[90m[程序已結束（代碼 ${payload.code}）。按 Enter 重新啟動${close ? `，${close} 關閉分頁` : ""}]\x1b[0m\r\n`);
+      const closeHint = close ? tr("，{key} 關閉分頁", { key: close }) : "";
+      tab.term.write(`\r\n\x1b[90m${tr("[程序已結束（代碼 {code}）。按 Enter 重新啟動{close}]", { code: payload.code, close: closeHint })}\x1b[0m\r\n`);
       scheduleRender();
     }
   });
@@ -1588,10 +1646,10 @@ async function main() {
     const tab = tabs.get(p.pane);
     if (!tab) return;
     if (p.event === "UserPromptSubmit") notify(tab, "running", "");
-    else if (p.event === "Stop") notify(tab, "done", p.message || "已完成");
+    else if (p.event === "Stop") notify(tab, "done", p.message || tr("已完成"));
     else if (p.notificationType === "auth_success") return;
     else if (p.notificationType === "idle_prompt" && tab.status === "done") return;
-    else notify(tab, "attention", p.message || "需要你的回應");
+    else notify(tab, "attention", p.message || tr("需要你的回應"));
   });
 
   listen<LoadedConfig>("config-changed", ({ payload }) => {
