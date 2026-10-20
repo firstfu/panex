@@ -25,7 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Create the draft once, before the platform jobs race to upload into it.
-      - run: gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "panex ${TAG#v}" --notes "Draft: notes pending."
+      - run: |
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 ||
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "panex ${TAG#v}" --notes "Notes pending."
         env:
           GH_TOKEN: ${{ github.token }}
 
