@@ -15,6 +15,7 @@
 - **改 session／config 格式一定要寫遷移並備份**：`#[serde(default)]` 會把舊格式靜默讀成空的，下一次存檔就把使用者資料洗掉。
 
 ## 踩過的雷
+- **公開 repo 裡混進使用者的私人路徑**：這是 public repo，設定面板的字型預覽曾寫死 `C:\Users\mis`，到發佈前掃描才發現（已改 `C:\Users\you`）。每次 commit 前、加截圖前都要掃過使用者名稱、院內網址、私人分頁名稱與金鑰；截圖一律用測試實例的示範資料拍（見 `operations.md`）。
 - **PTY 輸出在 Rust 端轉字串 → 中文亂碼**：多位元組字元會被切在兩次 read 之間。輸出一律以 raw bytes 傳給 `term.write(Uint8Array)`，由 xterm 解 UTF-8。
 - **ConPTY 開機會先問游標位置（portable-pty 開了 INHERIT_CURSOR）**：前端必須在 `pty_spawn` 回來之前就把 `running` 設 true，讓 xterm 的回覆送得進去，否則 console 卡住不出 prompt。
 - **在視窗 focus 事件裡呼叫 `webview.setFocus()` → 無限迴圈**：setFocus 會再觸發一次視窗 focus 事件，結果 CPU 空轉、游標狂閃、整個 App 卡頓。這個「自動焦點」功能已整個移除（2026-10-20，使用者裁定不需要）：點一下視窗本來就會聚焦終端機。不要再加回來；若真的遇到拿不到焦點，先問清楚實際操作情境再查。

@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-20 — 公開發佈到 GitHub + v0.1.0 release + README 改版
+
+**變更**
+- 建立公開 repo `firstfu/panex` 並推送：初始 commit `5f9269b`（全部原始碼）、README 改版 commit `68c98bd`。
+- README 依 Liftoff 風格重寫（置中頂部、徽章、Why／Features／Performance／Privacy／Install／Configuration／FAQ／比較／投票清單／Build／Contributing），新增 `translations/README.zh-Hant.md`、`assets/`（icon、hero、shortcuts 截圖，用獨立測試實例的示範資料拍，不含使用者真實分頁）。
+- 發佈 v0.1.0 release，附 `panex_0.1.0_x64-setup.exe`（用推上去的同一份原始碼重新打包）。下載連結實測 302。
+- 公開前掃描個資：字型預覽的 `C:\Users\mis` 改為 `C:\Users\you`。
+- 歸檔：`overview.md` 修正為工作區／分頁現況並加「專案狀態」、新增 `operations.md`（測試實例、重拍截圖、發布流程）、`boundaries.md` 加一條「公開 repo 混進私人路徑」。
+
+**為什麼**
+- 使用者要求公開到 GitHub，README 格式比照自己的 Liftoff 專案。
+
+**下一步**
+- 依 README「投票清單」：英文介面、搜尋捲動歷史、分割窗格、側欄 git branch／port、一鍵 worktree。
+
 ## 2026-10-20 — 改成 cmux 的兩層結構：側欄工作區 + 水平分頁
 
 **變更**

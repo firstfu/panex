@@ -15,6 +15,7 @@
 |------|------|--------|
 | `reference/overview.md` | 系統架構大圖 | **必讀** |
 | `reference/boundaries.md` | 編碼規範、邊界、跨全站的雷 | **必讀** |
+| `reference/operations.md` | 建置、獨立測試實例、重拍 README 截圖、發布 GitHub release | 要測試、拍截圖或發新版前 |
 
 > 新增任何 reference 檔（data-model / api-spec / modules/xxx …）時，archive-to-context 會在此表補一行。
 > 本表每列只寫「涵蓋什麼、何時讀」各一兩句，**不寫雷或結論的摘要**（那些寫在各檔本身）——本檔每個 session 都自動載入，摘要會讓它只增不減。
