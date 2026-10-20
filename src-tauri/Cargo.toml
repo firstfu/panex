@@ -1,6 +1,6 @@
 [package]
 name = "panex"
-version = "0.1.0"
+version = "0.2.0"
 description = "Open-source, cross-platform terminal for running many AI coding agents"
 license = "MIT"
 edition = "2021"

@@ -16,7 +16,7 @@
 
 [English](../README.md) · 繁體中文
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 panex_0.1.0_x64-setup.exe</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 panex_0.2.0_x64-setup.exe</b></a>
 
 <img src="../assets/hero.png" width="860" alt="panex：側欄三個工作區，一個在等待權限（藍色）、一個已完成（綠色），另一個工作區有兩個分頁">
 
@@ -45,7 +45,7 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 
 ### 當掉重開也能接著做
 
-工作區、分頁、每個分頁的 shell 與工作目錄、捲動歷史都會隨時存檔。關掉 panex、重開機，或從工作管理員強制結束，下次打開都會回到原本的樣子。跟 cmux 一樣，原本在跑的程式不會保留，要自己重新啟動。
+工作區、分頁、每個分頁的 shell 與工作目錄、捲動歷史都會隨時存檔。關掉 panex、重開機，或從工作管理員強制結束，下次打開都會回到原本的樣子。跟 cmux 一樣，原本在跑的程式不會保留，但 panex 會記住每個分頁的 Claude Code session：退出 Claude Code（例如要更新它）或重開 panex 後，終端機下方的提示列和側欄的 ↻ 會讓你按一下 **恢復**，自動幫你輸入 `claude --resume <id>`。
 
 ### 每個快捷鍵都能改
 
@@ -85,7 +85,7 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 
 ## 安裝
 
-1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.1.0_x64-setup.exe`。
+1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.2.0_x64-setup.exe`。
 2. 執行它。因為安裝檔沒有程式碼簽章，第一次 Windows SmartScreen 會跳出警告：按 **其他資訊**，再按 **仍要執行**。
 3. panex 只安裝給目前使用者（不需要系統管理員權限），並在開始選單加入捷徑。
 

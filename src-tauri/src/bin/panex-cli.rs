@@ -39,6 +39,7 @@ fn notify(rest: &[String]) {
         "event": event,
         "message": message,
         "notificationType": hook["notification_type"],
+        "sessionId": hook["session_id"],
     });
     let result = send(&pipe, payload.to_string().as_bytes());
     if std::env::var_os("PANEX_DEBUG").is_some() {

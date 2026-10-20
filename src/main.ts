@@ -31,6 +31,7 @@ interface SavedTab {
   shell: string;
   cwd?: string | null;
   title?: string | null;
+  agentSession?: string | null;
 }
 
 interface SavedWorkspace {
@@ -56,6 +57,7 @@ interface AgentNotify {
   event: string;
   message?: string;
   notificationType?: string | null;
+  sessionId?: string | null;
 }
 
 // Flat view of panex.json (~/.config/panex/panex.json); CONFIG_PATHS maps each field to its key.
@@ -115,6 +117,8 @@ interface Tab {
   status: Status;
   note?: string;
   initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
+  agentSession?: string; // last Claude Code session id seen here (persisted); offered for resume
+  agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
 }
 
 /** A sidebar entry (cmux's workspace) holding one or more tabs. */
@@ -189,6 +193,7 @@ const wsListEl = $("tabs");
 const tabbarEl = $("tabbar");
 const shellMenuEl = $("shell-menu");
 const hooksEl = $("hooks-row");
+const resumeBarEl = $("resume-bar");
 const ctxEl = $("ctx");
 const settingsEl = $("settings");
 const wtEl = $("wt");
@@ -394,7 +399,7 @@ function sessionData(): Session {
         active: ws.activeTab ?? null,
         tabs: ws.tabs.map((tid) => {
           const t = tabs.get(tid)!;
-          return { id: t.id, shell: t.shell, cwd: t.cwd ?? null, title: t.customTitle ?? null };
+          return { id: t.id, shell: t.shell, cwd: t.cwd ?? null, title: t.customTitle ?? null, agentSession: t.agentSession ?? null };
         }),
       };
     }),
@@ -443,6 +448,7 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
     shell: meta.shell,
     cwd: meta.cwd ?? undefined,
     customTitle: meta.title ?? undefined,
+    agentSession: validSessionId(meta.agentSession) ? meta.agentSession : undefined,
     term,
     fit,
     serializer,
@@ -503,6 +509,39 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
 
   tabs.set(tab.id, tab);
   return tab;
+}
+
+// ── Resume Claude Code ──────────────────────────────────────────────────────
+
+/** The id ends up typed into a shell, so accept only what a Claude Code session id looks like. */
+function validSessionId(id: unknown): id is string {
+  return typeof id === "string" && /^[0-9A-Za-z-]{8,64}$/.test(id);
+}
+
+function canResume(tab: Tab) {
+  return !!tab.agentSession && !tab.agentLive;
+}
+
+function resumeAgent(tab: Tab) {
+  if (!tab.agentSession || tab.agentLive) return;
+  const cmd = `claude --resume ${tab.agentSession}`;
+  tab.agentLive = true;
+  showTab(tab.id);
+  if (tab.running) {
+    invoke("pty_write", { id: tab.id, data: `${cmd}\r` }).catch(() => {});
+  } else {
+    tab.exited = false;
+    tab.initialInput = cmd;
+    spawn(tab);
+  }
+  scheduleRender();
+}
+
+function dismissResume(tab: Tab) {
+  tab.agentSession = undefined;
+  saveSession();
+  scheduleRender();
+  tab.term.focus();
 }
 
 function onInput(tab: Tab, data: string) {
@@ -808,6 +847,11 @@ function setColor(ws: Workspace, color?: string) {
 
 function setCwd(tab: Tab, cwd: string) {
   if (!cwd) return;
+  // A shell prompt means Claude Code has exited; its session can be offered for resume.
+  if (tab.agentLive) {
+    tab.agentLive = false;
+    scheduleRender();
+  }
   // Every prompt reports the cwd, so this also catches `git checkout` in place.
   refreshBranch(tab, cwd);
   if (cwd === tab.cwd) return;
@@ -924,6 +968,8 @@ function render() {
   if (renaming && document.querySelector(".rename-input")) return;
   renderSidebar();
   renderTabbar();
+  const cur = activeTab();
+  resumeBarEl.hidden = !(cur && cur.id === visibleTabId && canResume(cur));
 }
 
 function renderSidebar() {
@@ -938,11 +984,16 @@ function renderSidebar() {
       const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
       const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
       const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
+      const resumable = ws.tabs.find((tid) => {
+        const t = tabs.get(tid);
+        return t && canResume(t);
+      });
+      const resume = resumable ? `<span class="t-resume" data-resume="${resumable}" title="${esc(tr("恢復上次的 Claude Code session"))}">↻</span>` : "";
       const count = ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
       const title =
         renaming?.kind === "ws" && renaming.id === wid
           ? renameInput
-          : `${dot}<span class="name">${esc(wsTitle(ws))}</span>${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
+          : `${dot}<span class="name">${esc(wsTitle(ws))}</span>${resume}${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
       d.innerHTML =
         `<div class="t-title">${title}</div>` +
         (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.cwd ?? "")}</div>` : "") +
@@ -1569,6 +1620,9 @@ wsListEl.addEventListener("click", (e) => {
   const id = target.closest<HTMLElement>("[data-ws]")?.dataset.ws;
   if (!id) return;
   if (target.closest(".t-close")) return closeWorkspaces([id]);
+  const resumeId = target.closest<HTMLElement>(".t-resume")?.dataset.resume;
+  const resumeTab = resumeId ? tabs.get(resumeId) : undefined;
+  if (resumeTab) return resumeAgent(resumeTab);
   if (isDoubleClick(id)) return startRename("ws", id);
   showWorkspace(id);
 });
@@ -1709,6 +1763,14 @@ $("sidebar-toggle").onclick = () => updateSettings({ sidebarHidden: !settings.si
 $("new-tab").onclick = () => newWorkspace();
 $("shell-menu-btn").onclick = () => (shellMenuEl.hidden = !shellMenuEl.hidden);
 $("settings-btn").onclick = openSettings;
+$("resume-go").onclick = () => {
+  const tab = activeTab();
+  if (tab) resumeAgent(tab);
+};
+$("resume-skip").onclick = () => {
+  const tab = activeTab();
+  if (tab) dismissResume(tab);
+};
 
 let resizeTimer: number | undefined;
 new ResizeObserver(() => {
@@ -1764,6 +1826,14 @@ async function main() {
   listen<AgentNotify>("agent-notify", ({ payload: p }) => {
     const tab = tabs.get(p.pane);
     if (!tab) return;
+    if (validSessionId(p.sessionId)) {
+      tab.agentLive = true;
+      if (tab.agentSession !== p.sessionId) {
+        tab.agentSession = p.sessionId;
+        saveSessionSoon();
+      }
+      scheduleRender();
+    }
     if (p.event === "UserPromptSubmit") notify(tab, "running", "");
     else if (p.event === "Stop") notify(tab, "done", p.message || tr("已完成"));
     else if (p.notificationType === "auth_success") return;

@@ -23,6 +23,9 @@ pub struct Tab {
     /// User-chosen name; None means "derive from program title / cwd".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// Claude Code session id last seen in this tab (from hooks); offered for `claude --resume`.
+    #[serde(default, rename = "agentSession", skip_serializing_if = "Option::is_none")]
+    pub agent_session: Option<String>,
 }
 
 /// A sidebar entry holding one or more tabs (cmux's "workspace").
@@ -115,7 +118,7 @@ fn migrate_v1(v: &Value) -> Session {
             title: str_of(t, "title"),
             color: str_of(t, "color"),
             active: Some(id.clone()),
-            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), title: None }],
+            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), title: None, agent_session: None }],
         });
     }
     s

@@ -163,6 +163,10 @@ const EN: Record<string, string> = {
   "已複製：{files}": "Copied: {files}",
   "用新 worktree 開新工作區…": "New workspace in a new worktree…",
   "用新 git worktree 開新工作區": "New workspace in a new git worktree",
+  "上次的 Claude Code session 可以接回": "The last Claude Code session can be resumed",
+  "恢復": "Resume",
+  "略過": "Dismiss",
+  "恢復上次的 Claude Code session": "Resume the last Claude Code session",
 };
 
 let lang: Lang = "zh-Hant";
