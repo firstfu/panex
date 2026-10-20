@@ -1,0 +1,260 @@
+//! One pseudo-terminal per tab. Output streams to the frontend as raw bytes over a Tauri
+//! channel; xterm.js does the UTF-8 decoding, so multi-byte characters split across
+//! reads are never mangled here.
+
+use portable_pty::{native_pty_system, ChildKiller, CommandBuilder, MasterPty, PtySize};
+use serde::Serialize;
+use std::collections::HashMap;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use tauri::ipc::{Channel, InvokeResponseBody};
+use tauri::{AppHandle, Emitter, Manager, State};
+
+use crate::session::valid_id;
+use crate::AppState;
+
+pub struct Pane {
+    writer: Box<dyn Write + Send>,
+    master: Box<dyn MasterPty + Send>,
+    killer: Box<dyn ChildKiller + Send + Sync>,
+    /// Swappable so a reloaded webview can re-attach to a shell that is still running.
+    out: Arc<Mutex<Channel<InvokeResponseBody>>>,
+}
+
+pub type PtyMap = Mutex<HashMap<String, Pane>>;
+
+#[derive(Serialize, Clone)]
+pub struct ShellInfo {
+    id: &'static str,
+    name: &'static str,
+}
+
+#[derive(Serialize, Clone)]
+struct ExitPayload {
+    id: String,
+    code: u32,
+}
+
+#[tauri::command]
+pub fn shells_list() -> Vec<ShellInfo> {
+    let mut v = Vec::new();
+    if cfg!(windows) {
+        v.push(ShellInfo { id: "cmd", name: "命令提示字元" });
+        v.push(ShellInfo { id: "powershell", name: "Windows PowerShell" });
+        if find_in_path("pwsh.exe").is_some() {
+            v.push(ShellInfo { id: "pwsh", name: "PowerShell 7" });
+        }
+    } else {
+        v.push(ShellInfo { id: "default", name: "預設 shell" });
+    }
+    v
+}
+
+#[tauri::command]
+pub fn pty_spawn(
+    app: AppHandle,
+    state: State<AppState>,
+    id: String,
+    shell: String,
+    cwd: Option<String>,
+    cols: u16,
+    rows: u16,
+    on_data: Channel<InvokeResponseBody>,
+) -> Result<(), String> {
+    if !valid_id(&id) {
+        return Err("invalid id".into());
+    }
+    if let Some(pane) = state.ptys.lock().unwrap().get(&id) {
+        *pane.out.lock().unwrap() = on_data;
+        return Ok(());
+    }
+
+    let pair = native_pty_system()
+        .openpty(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 })
+        .map_err(|e| e.to_string())?;
+
+    let dir = cwd
+        .as_deref()
+        .map(PathBuf::from)
+        .filter(|p| p.is_dir())
+        .or_else(home_dir);
+    let mut cmd = build_command(&shell);
+    if let Some(d) = &dir {
+        cmd.cwd(d);
+    }
+    scrub_parent_agent_env(&mut cmd);
+    cmd.env("PANEX_PANE_ID", &id);
+    cmd.env("PANEX_PIPE", crate::notify::pipe_name());
+    cmd.env("TERM_PROGRAM", "panex");
+    cmd.env("COLORTERM", "truecolor");
+    cmd.env("TERM", "xterm-256color");
+    if let Some(path) = path_with_exe_dir() {
+        cmd.env("PATH", path);
+    }
+
+    let mut child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
+    drop(pair.slave);
+
+    let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
+    let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
+    let killer = child.clone_killer();
+
+    let out = Arc::new(Mutex::new(on_data));
+    state.ptys.lock().unwrap().insert(id.clone(), Pane { writer, master: pair.master, killer, out: out.clone() });
+
+    std::thread::spawn(move || {
+        let mut buf = vec![0u8; 64 * 1024];
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    // A send error means the webview is gone (reload/crash); keep draining.
+                    let _ = out.lock().unwrap().send(InvokeResponseBody::Raw(buf[..n].to_vec()));
+                }
+            }
+        }
+    });
+
+    // On ConPTY the reader never sees EOF while the pseudoconsole is open, so exit is
+    // driven by waiting on the child; dropping the pane closes the console and frees the reader.
+    std::thread::spawn(move || {
+        let code = child.wait().map(|s| s.exit_code()).unwrap_or(1);
+        let state = app.state::<AppState>();
+        if state.quitting() {
+            return;
+        }
+        let pane = state.ptys.lock().unwrap().remove(&id);
+        drop(pane);
+        let _ = app.emit("pty-exit", ExitPayload { id, code });
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub fn pty_write(state: State<AppState>, id: String, data: String) -> Result<(), String> {
+    let mut map = state.ptys.lock().unwrap();
+    let pane = map.get_mut(&id).ok_or("no such pty")?;
+    pane.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+    pane.writer.flush().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn pty_resize(state: State<AppState>, id: String, cols: u16, rows: u16) -> Result<(), String> {
+    let map = state.ptys.lock().unwrap();
+    let pane = map.get(&id).ok_or("no such pty")?;
+    pane.master
+        .resize(PtySize { rows: rows.max(1), cols: cols.max(1), pixel_width: 0, pixel_height: 0 })
+        .map_err(|e| e.to_string())
+}
+
+/// Closes a tab for good: deletes its scrollback and kills its shell. The frontend saves
+/// the layout without the tab first, so a late snapshot can't bring the file back.
+#[tauri::command]
+pub fn tab_close(state: State<AppState>, id: String) {
+    if state.quitting() {
+        return;
+    }
+    if let Some(p) = state.session.scrollback_path(&id) {
+        let _ = std::fs::remove_file(p);
+    }
+    if let Some(pane) = state.ptys.lock().unwrap().get_mut(&id) {
+        let _ = pane.killer.kill();
+    }
+}
+
+/// Called once on app exit. The session is left untouched so the next launch restores it.
+pub fn kill_all(state: &AppState) {
+    let mut map = state.ptys.lock().unwrap();
+    for pane in map.values_mut() {
+        let _ = pane.killer.kill();
+    }
+    // Closing a pseudoconsole can block while it drains; the process is exiting anyway,
+    // so let the OS reclaim the handles instead of dropping them here.
+    for (_, pane) in map.drain() {
+        std::mem::forget(pane);
+    }
+}
+
+#[cfg(windows)]
+fn build_command(shell: &str) -> CommandBuilder {
+    match shell {
+        "powershell" | "pwsh" => {
+            let mut cmd = CommandBuilder::new(if shell == "pwsh" { "pwsh.exe" } else { "powershell.exe" });
+            // Wrap the user's prompt so every prompt reports the cwd (OSC 9;9).
+            // -EncodedCommand avoids quoting issues and is not blocked by ExecutionPolicy.
+            let script = "$global:__panexPrompt = $function:prompt\n\
+                function global:prompt { $o = & $global:__panexPrompt; \
+                \"$([char]27)]9;9;$($executionContext.SessionState.Path.CurrentLocation.ProviderPath)$([char]27)\\$o\" }";
+            cmd.args(["-NoLogo", "-NoExit", "-EncodedCommand", &encode_ps(script)]);
+            cmd
+        }
+        _ => {
+            let comspec = std::env::var("ComSpec").unwrap_or_else(|_| "cmd.exe".into());
+            let mut cmd = CommandBuilder::new(comspec);
+            // $e]9;9;$P$e\ reports the cwd on every prompt (same convention as Windows Terminal).
+            let prompt = std::env::var("PROMPT").unwrap_or_else(|_| "$P$G".into());
+            cmd.env("PROMPT", format!("$e]9;9;$P$e\\{prompt}"));
+            cmd
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn build_command(_shell: &str) -> CommandBuilder {
+    let sh = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
+    let mut cmd = CommandBuilder::new(sh);
+    cmd.arg("-l");
+    cmd
+}
+
+/// When panex itself was started from inside a Claude Code session, the tabs would
+/// inherit that session's identity and its tool-shell settings (NO_COLOR=1 turns every
+/// TUI grey; CLAUDE_CODE_CHILD_SESSION makes claude act as a sub-session). Drop those.
+/// User-level CLAUDE_CODE_* settings (e.g. CLAUDE_CODE_USE_BEDROCK) are kept.
+fn scrub_parent_agent_env(cmd: &mut CommandBuilder) {
+    if std::env::var_os("CLAUDECODE").is_none() {
+        return;
+    }
+    for k in [
+        "CLAUDECODE",
+        "CLAUDE_PID",
+        "CLAUDE_CODE_CHILD_SESSION",
+        "CLAUDE_CODE_SESSION_ID",
+        "CLAUDE_CODE_SESSION_ATTENDED",
+        "CLAUDE_CODE_BRIDGE_SESSION_ID",
+        "CLAUDE_CODE_MESSAGING_SOCKET",
+        "CLAUDE_CODE_MESSAGING_TOKEN",
+        "CLAUDE_CODE_ENTRYPOINT",
+        "NO_COLOR",
+        "GIT_TERMINAL_PROMPT",
+    ] {
+        cmd.env_remove(k);
+    }
+}
+
+#[cfg(windows)]
+fn encode_ps(script: &str) -> String {
+    use base64::Engine;
+    let bytes: Vec<u8> = script.encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from)
+}
+
+/// PATH with panex's own directory prepended, so `panex-cli` is callable from every tab.
+fn path_with_exe_dir() -> Option<std::ffi::OsString> {
+    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let mut parts = vec![dir];
+    if let Some(p) = std::env::var_os("PATH") {
+        parts.extend(std::env::split_paths(&p));
+    }
+    std::env::join_paths(parts).ok()
+}
+
+fn find_in_path(exe: &str) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path).map(|d| d.join(exe)).find(|p| Path::new(p).is_file())
+}

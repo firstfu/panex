@@ -1,0 +1,181 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "panex.schema.json",
+  "title": "panex.json",
+  "description": "panex 設定檔（~/.config/panex/panex.json）。存檔後約 0.3 秒自動套用。只需寫想改的鍵，其餘用預設值。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 2
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "opacity": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 100,
+          "default": 100,
+          "description": "視窗背景不透明度（%）。文字永遠不透明。"
+        },
+        "windowEffect": {
+          "enum": [
+            "none",
+            "mica",
+            "acrylic"
+          ],
+          "default": "none",
+          "description": "背景效果：none 無、mica（Windows 11）、acrylic 毛玻璃。要搭配 opacity < 100 才看得到。"
+        }
+      }
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "fontSize": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 32,
+          "default": 14
+        },
+        "fontFamily": {
+          "type": "string",
+          "default": "'Cascadia Mono', Consolas, 'Microsoft JhengHei', monospace",
+          "description": "CSS font-family 字串，可列多個字型做備援。"
+        },
+        "cursorBlink": {
+          "type": "boolean",
+          "default": false
+        },
+        "defaultShell": {
+          "enum": [
+            "cmd",
+            "powershell",
+            "pwsh",
+            "default"
+          ],
+          "default": "cmd",
+          "description": "新分頁用的 shell。pwsh 需已安裝 PowerShell 7；default 是非 Windows 的登入 shell。"
+        },
+        "scrollback": {
+          "type": "integer",
+          "minimum": 500,
+          "maximum": 100000,
+          "default": 3000,
+          "description": "每個分頁保留的捲動歷史行數。越大越吃記憶體。新開的分頁才生效。"
+        },
+        "smartCopyPaste": {
+          "type": "boolean",
+          "default": true,
+          "description": "有選取文字時 Ctrl+C 複製（沒選取仍是中斷），Ctrl+V 貼上。關掉後只用 shortcuts 的 copy／paste。"
+        }
+      }
+    },
+    "sidebar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hidden": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "shortcuts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "showModifierHoldHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "按住 Ctrl 時在分頁上顯示編號提示。"
+        },
+        "bindings": {
+          "type": "object",
+          "default": {},
+          "description": "快捷鍵覆寫，鍵是動作 id。字串是單一組合鍵（如 \"ctrl+shift+t\"），陣列是連續按鍵（如 [\"ctrl+k\", \"ctrl+r\"]），陣列裡放陣列代表多組任選一組（如 [[\"ctrl+n\"], [\"ctrl+t\"]]）；null、\"\"、\"none\"、\"clear\"、\"unbound\"、\"disabled\" 代表取消綁定。修飾鍵：ctrl、shift、alt、meta（Windows 鍵）。selectWorkspaceByNumber、selectTabByNumber 與 newWorkspaceWithShell 寫數字 1，代表 1–9 整組。",
+          "propertyNames": {
+            "enum": [
+              "newWorkspace",
+              "newWorkspaceWithShell",
+              "closeWorkspace",
+              "renameWorkspace",
+              "selectWorkspaceByNumber",
+              "nextWorkspace",
+              "prevWorkspace",
+              "moveWorkspaceUp",
+              "moveWorkspaceDown",
+              "jumpToUnread",
+              "newTab",
+              "closeTab",
+              "renameTab",
+              "selectTabByNumber",
+              "nextTab",
+              "prevTab",
+              "moveTabLeft",
+              "moveTabRight",
+              "toggleSidebar",
+              "clearScrollback",
+              "copy",
+              "paste",
+              "increaseFontSize",
+              "decreaseFontSize",
+              "resetFontSize",
+              "openSettings",
+              "openConfigFile",
+              "reloadConfiguration"
+            ]
+          },
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "maxItems": 4
+              },
+              {
+                "type": "array",
+                "description": "多組任選一組：每個元素是一組按鍵（字串）或連續按鍵（字串陣列），例如 [[\"ctrl+n\"], [\"ctrl+t\"]]。",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1,
+                      "maxItems": 4
+                    }
+                  ]
+                },
+                "contains": {
+                  "type": "array"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

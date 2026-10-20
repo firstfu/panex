@@ -1,0 +1,41 @@
+[package]
+name = "panex"
+version = "0.1.0"
+description = "Open-source, cross-platform terminal for running many AI coding agents"
+license = "MIT"
+edition = "2021"
+default-run = "panex"
+
+[lib]
+name = "panex_lib"
+crate-type = ["rlib"]
+
+[[bin]]
+name = "panex"
+path = "src/main.rs"
+
+# Tiny console-subsystem helper called by agent hooks (`panex-cli notify`).
+[[bin]]
+name = "panex-cli"
+path = "src/bin/panex-cli.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-window-state = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+portable-pty = "0.9"
+tokio = { version = "1", features = ["net", "io-util", "rt", "macros"] }
+base64 = "0.22"
+notify = { version = "8", default-features = false }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
