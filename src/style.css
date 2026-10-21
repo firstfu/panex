@@ -254,6 +254,7 @@ button { font: inherit; }
 #settings .s-tab:focus-visible { outline-width: 1px; outline-offset: -1px; }
 .s-tab.on::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--s-accent); }
 .s-hint { margin: auto 8px 0; font-size: 11.5px; line-height: 1.5; color: #6b6b74; }
+.s-ver { margin: 8px 8px 0; font-size: 11.5px; color: #6b6b74; user-select: text; }
 
 /* Right side */
 .s-body { position: relative; overflow-y: auto; padding: 22px 28px 28px; scrollbar-width: thin; scrollbar-color: #3a3a42 transparent; }
@@ -415,7 +416,7 @@ button.bind:hover { border-color: var(--s-line); background: rgba(255, 255, 255,
   #settings .panel { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .s-nav { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; border-right: 0; border-bottom: 1px solid var(--s-line); }
   .s-nav h2 { margin: 0 12px 0 4px; }
-  .s-hint { display: none; }
+  .s-hint, .s-ver { display: none; }
   .s-tab.on::before { display: none; }
   .row { flex-direction: column; align-items: stretch; gap: 10px; }
 }

@@ -7,6 +7,7 @@ import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getVersion } from "@tauri-apps/api/app";
 import { resolveLang, setLang, getLang, t as tr, translateDom, type LangPref } from "./i18n";
 import { getCurrentWindow, Effect, LogicalSize } from "@tauri-apps/api/window";
 import { IS_MAC } from "./platform";
@@ -1939,6 +1940,7 @@ async function main() {
     // global Claude settings.
     askEl.querySelector<HTMLElement>(".wt-panel")!.focus();
   });
+  getVersion().then((v) => ($("s-version").textContent = `panex v${v}`)).catch(() => {});
 
   const saved = (session.workspaces ?? []).filter((w) => w.tabs?.length);
   const restored = await Promise.all(
