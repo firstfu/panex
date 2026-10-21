@@ -46,7 +46,7 @@ The sidebar holds workspaces (<kbd>Ctrl</kbd>+<kbd>N</kbd>), one per project or 
 
 ### Comes back after a crash
 
-Workspaces, tabs, each tab's shell and working directory, and the scrollback text are saved as you go. Close panex, reboot, or kill it from Task Manager: next time it opens exactly where you were. Like cmux, programs that were running are not kept alive, but panex remembers each tab's Claude Code session: after you exit Claude Code (say, to update it) or reopen panex, a bar under the terminal and a ↻ in the sidebar offer **Resume**, which types `claude --resume <id>` for you.
+Workspaces, tabs, each tab's shell and working directory, and the scrollback text are saved as you go. Close panex, reboot, or kill it from Task Manager: next time it opens exactly where you were. Like cmux, programs that were running are not kept alive, but panex remembers the Claude Code session each tab was running: when you reopen panex and open that tab, it runs `claude --resume <id>` for you, so you land back in the conversation. Tabs where you had already quit Claude Code stay at the prompt. You can turn this off in Settings → Terminal.
 
 ### Every shortcut is yours
 

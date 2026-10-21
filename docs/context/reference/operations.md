@@ -9,6 +9,7 @@
 - 開發：`cargo tauri dev`；正式：`cargo tauri build`，安裝檔在 `src-tauri/target/release/bundle/nsis/panex_<版本>_x64-setup.exe`。NSIS hook（`src-tauri/installer-hooks.nsh`）會把 `panex-cli.exe` 一起裝進去。
 - 從零編譯時 rustc 可能在 `windows`／`tokio` crate 崩潰（`STATUS_STACK_BUFFER_OVERRUN`），設 `RUST_MIN_STACK=134217728` 後重跑即過；`CARGO_TARGET_DIR` 換新目錄就是從零編譯，會碰到這個。
 - 使用者的 panex 開著時 `target/release/panex.exe` 被鎖住，可設 `CARGO_TARGET_DIR` 到別處建置。
+- 測試實例還開著時再建置 `test-build`，會因 `panex.exe` 被鎖住而報 `存取被拒 (os error 5)`，但背景指令的 exit code 仍是 0，很容易誤以為建好了、拿舊版在測。建置前先關掉測試實例，建完用 `ls -la --time-style=full-iso` 確認 exe 時間戳。
 - release 設了 `lto = true`＋`codegen-units = 1`，每次建置要好幾分鐘。**驗證功能用 `[profile.test-build]`**（不 LTO、平行 codegen、增量）：`cargo tauri build --no-bundle --config '…' -- --profile test-build`，產物在 `target\test-build\panex.exe`；發布安裝檔仍用 release。
 
 ## 獨立測試實例（不碰使用者正在用的 panex）
@@ -26,6 +27,7 @@ Start-Process <target>\release\panex.exe
 - app data 在 `%APPDATA%\dev.panex.terminal.test\`、WebView2 資料在 `%LOCALAPPDATA%\dev.panex.terminal.test\`，測完兩個都刪。
 - 要測遷移就把使用者的 `session.json`、`scrollback\`、`panex.json` **複製**進去，不要直接指向原檔。
 - 自動化：用 CDP（port 9556）的 `Input.dispatchKeyEvent` 送真實按鍵、`Runtime.evaluate` 讀 DOM；只連 URL 是 `tauri.localhost` 的頁面。從 Bash 送通知時 `\\.\pipe\...` 的反斜線會被吃掉，改用 PowerShell 跑 `panex-cli notify`。
+- 測 `claude --resume` 這類流程時，在測試實例啟動前把一個假的 `claude.cmd`（印一行字再 `ping -n 40 127.0.0.1`）放進 `PATH` 最前面：真的 `claude` 會對假 session id 報 `No conversation found`、跳信任資料夾詢問，還會用真的 hook 回報新 session id 干擾結果。
 - 截圖：`PrintWindow` 擷取該程序的視窗；CDP 的 `Page.captureScreenshot` 只擷取網頁內容。
 - 機器上同時有使用者正在用的 panex，視窗標題也是 `panex`；操作視窗時一律用測試實例的行程 ID，不要用名稱。
 - **不要對桌面注入真實滑鼠輸入**（`SetCursorPos`／`mouse_event` 做 OLE 拖放）：自製的拖曳來源視窗沒有浮到最上層，按下、拖曳、放開全落在使用者前景的 Claude Code 視窗上（2026-10-20 發生，只造成文字被反白選取）。檔案拖入只靠 CDP 對 `tauri://drag-drop` 發 `plugin:event|emit_to`（`target: {kind:'Webview', label:'main'}`）驗證處理邏輯，原生拖放請使用者實測。

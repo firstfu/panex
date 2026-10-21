@@ -185,12 +185,8 @@ const EN: Record<string, string> = {
   "已複製：{files}": "Copied: {files}",
   "用新 worktree 開新工作區…": "New workspace in a new worktree…",
   "用新 git worktree 開新工作區": "New workspace in a new git worktree",
-  "上次的 Claude Code session 可以接回": "The last Claude Code session can be resumed",
-  "恢復": "Resume",
-  "略過": "Dismiss",
-  "恢復上次的 Claude Code session": "Resume the last Claude Code session",
-  "恢復 Claude Code session": "Resume Claude Code sessions",
-  "Claude Code 結束後，在終端機下方與側欄提供一鍵 claude --resume": "After Claude Code exits, offer a one-click claude --resume under the terminal and in the sidebar",
+  "重開後接回 Claude Code": "Reopen Claude Code sessions",
+  "重開 panex 時，上次還在跑 Claude Code 的分頁會自動執行 claude --resume": "When panex starts, tabs that were running Claude Code reopen it with claude --resume",
 };
 
 let lang: Lang = "zh-Hant";

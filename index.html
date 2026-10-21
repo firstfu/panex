@@ -23,11 +23,6 @@
         <div id="tabbar" role="tablist"></div>
       </div>
       <main id="terms"></main>
-      <div id="resume-bar" hidden>
-        <span data-i18n>上次的 Claude Code session 可以接回</span>
-        <button id="resume-go" class="primary" data-i18n>恢復</button>
-        <button id="resume-skip" class="ghost" data-i18n>略過</button>
-      </div>
     </div>
 
     <div id="ctx" hidden></div>
@@ -143,7 +138,7 @@
               <label class="row-ctl switch"><input id="s-smart" type="checkbox" /><i></i></label>
             </div>
             <div class="row">
-              <div class="row-text"><b data-i18n>恢復 Claude Code session</b><span data-i18n>Claude Code 結束後，在終端機下方與側欄提供一鍵 claude --resume</span></div>
+              <div class="row-text"><b data-i18n>重開後接回 Claude Code</b><span data-i18n>重開 panex 時，上次還在跑 Claude Code 的分頁會自動執行 claude --resume</span></div>
               <label class="row-ctl switch"><input id="s-resume" type="checkbox" /><i></i></label>
             </div>
             <div class="row">

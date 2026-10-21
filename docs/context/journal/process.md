@@ -23,6 +23,32 @@
 - Windows 端未實測：需在 Windows 建置確認 tauri-build 接受 macOS 專屬的 tauri feature、以及「不再記住視窗大小」這個行為改變使用者是否接受。
 - 未做：Mac 版 GitHub release（未簽章，使用者第一次開要右鍵「打開」）、README 的 Mac 說明、fish shell 的 cwd 回報。測試實例的 session 寫在正式的 `~/Library/Application Support/dev.panex.terminal/`（這台 Mac 原本沒裝 panex）。
 
+## 2026-10-21 — 恢復 Claude Code 改成重開後自動接回（拿掉按鈕）
+
+**變更**
+- 照 cmux 的做法：重開 panex 後，關閉時還在跑 Claude Code 的分頁，在第一次啟動 shell 時自動送 `claude --resume <id>`。`agentSession` 只在 Claude 執行期間保留，shell 回到提示符（或 shell 結束）就清掉，所以已正常退出的分頁不會被接回。
+- 移除終端機下方的提示列（`#resume-bar`）、「恢復／略過」按鈕與相關樣式、字串；設定開關保留並改成「重開後接回 Claude Code」。README 兩版、`overview.md`、`operations.md` 同步。
+- 用測試實例＋假的 `claude.cmd` 驗證：關閉時還在跑的兩個分頁各自在被打開時自動接回；跑完的分頁記錄被清掉、重開後不再接回；開關關掉就不自動接回；DOM 裡已沒有提示列。測試資料已清除。
+
+**為什麼**
+- 使用者要求「照 cmux 的做法，可以回復的重開後自己進到 claude code」；手動按鈕對每天更新 Claude Code 的流程多一步。
+
+**下一步**
+- 尚未 commit、未重新打包安裝；使用者的 panex 還是帶側欄 ↻ 與提示列的版本。
+- 沒被打開的分頁不會自動接回（沿用 lazy spawn 以省資源）；若使用者希望一開 panex 全部接回，要另外決定（會一次啟動多個 Claude Code）。
+
+## 2026-10-21 — 移除側欄的恢復標記 ↻（保留終端機下方的提示列）
+
+**變更**
+- 移除 `renderSidebar` 的 `↻` 標記、側欄點擊處理、`.t-resume` 樣式與相關字串；設定頁與 schema 的說明文字改成只提「終端機下方」。恢復提示列、設定開關、`agentSession` 記錄不變。README 兩版、`overview.md` 同步。
+
+**為什麼**
+- 使用者回報側欄的恢復只能恢復工作區的「第一個」可恢復分頁，無法一次恢復整個工作區，並要求整個移除。
+- 曾試著改成恢復全部分頁：發現 ConPTY 會把同一個提示符回報兩次，背景分頁恢復後被誤判回「可恢復」；用去重修好，但使用者選擇直接移除，該改動未提交。
+
+**下一步**
+- 尚未 commit、未重新打包安裝；使用者的 panex 還是帶側欄 ↻ 的版本。
+
 ## 2026-10-20 — 一鍵恢復 Claude Code session（提示列＋側欄 ↻）
 
 **變更**

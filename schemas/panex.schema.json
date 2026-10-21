@@ -108,7 +108,7 @@
         "resumeSession": {
           "type": "boolean",
           "default": true,
-          "description": "Claude Code 結束後（或重開 panex 後），在終端機下方與側欄顯示「恢復」，一鍵執行 claude --resume。關掉後不顯示，已記下的 session id 仍保留。"
+          "description": "重開 panex 時，上次還在跑 Claude Code 的分頁（以 hook 記下的 session id 為準）會在該分頁開啟時自動執行 claude --resume。Claude Code 正常結束後不會再自動接回。關掉就不自動接回。"
         },
         "askToEnableHooks": {
           "type": "boolean",
