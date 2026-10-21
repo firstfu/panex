@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-21 — 發佈 v0.3.1（自動接回 Claude Code）
+
+**變更**
+- 提交 `03ba09c`（自動接回、拿掉提示列／側欄 ↻）與 `0f657b2`（版本號 0.3.1），推上 main 並推 tag `v0.3.1`，由 CI 同時建 Windows `.exe` 與 macOS `.dmg` 到草稿 release；補上發佈說明後手動發布，兩個下載連結實測回 302 → 200。
+- 設定頁左下角顯示版本號（`7eef377`）一併進入此版。
+- 使用者機器：先解除安裝舊版（保留資料）再裝本機建置的新版。
+
+**為什麼**
+- 使用者要求把「重開後自動接回」發成新版。
+
+**下一步**
+- 提交前務必先 `git checkout src-tauri/Cargo.toml`：在 Windows 跑 `cargo tauri build` 時，tauri CLI 會依 Windows 設定把 `tauri` 依賴的 `macos-private-api` feature 自動刪掉（`tauri.macos.conf.json` 才有 `macOSPrivateApi`），這個改動不能提交，否則 macOS 版建置會壞。
+- 使用者的 `~/.claude/settings.json` hooks 目前指向測試實例的路徑（`...	arget	est-build\panex-cli.exe`），不是正式安裝的路徑；要使用者開新版 panex 按一次「啟用」改回來（規定只能由使用者按鈕寫入，我沒有動）。
+- 發版流程已改成「推 `v*` tag → CI 建兩平台 → 補說明並發布草稿」，`operations.md` 的「發布 release」段還是舊的手動流程，待更新。
+
 ## 2026-10-20 — macOS 版：可編譯打包、平台預設字型／快捷鍵、視窗大小設定
 
 **變更**
