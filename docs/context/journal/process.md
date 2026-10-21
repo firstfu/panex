@@ -16,7 +16,7 @@
 
 **下一步**
 - 提交前務必先 `git checkout src-tauri/Cargo.toml`：在 Windows 跑 `cargo tauri build` 時，tauri CLI 會依 Windows 設定把 `tauri` 依賴的 `macos-private-api` feature 自動刪掉（`tauri.macos.conf.json` 才有 `macOSPrivateApi`），這個改動不能提交，否則 macOS 版建置會壞。
-- 使用者的 `~/.claude/settings.json` hooks 目前指向測試實例的路徑（`...	arget	est-build\panex-cli.exe`），不是正式安裝的路徑；要使用者開新版 panex 按一次「啟用」改回來（規定只能由使用者按鈕寫入，我沒有動）。
+- 使用者的 `~/.claude/settings.json` hooks 目前指向測試實例的路徑（`target/test-build/panex-cli.exe`），不是正式安裝的路徑；要使用者開新版 panex 按一次「啟用」改回來（規定只能由使用者按鈕寫入，我沒有動）。
 - 發版流程已改成「推 `v*` tag → CI 建兩平台 → 補說明並發布草稿」，`operations.md` 的「發布 release」段還是舊的手動流程，待更新。
 
 ## 2026-10-20 — macOS 版：可編譯打包、平台預設字型／快捷鍵、視窗大小設定
