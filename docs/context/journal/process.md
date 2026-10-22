@@ -4,6 +4,25 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 換行快捷鍵改成設定頁可調
+
+**變更**
+- 新增動作 `insertNewline`（分類「編輯」，預設 `ctrl+enter`），可在設定頁「快捷鍵」比照其他動作改綁，也能改成 `shift+enter`（原本的按鍵合法性檢查只收 Ctrl/Alt/Win 組合，特別放行 `shift+enter` 這個例外）。觸發時送出 `ESC CR`（和 Alt+Enter 送的序列一樣），Claude Code 等會收成插入換行而不是送出。
+- 原本寫死在 `isWindows` 分支裡、只認 Ctrl+Enter 的 `attachCustomKeyEventHandler` 移除，改走 `runAction("insertNewline")`，所以 mac 使用者原則上也能自行綁一組（預設沒綁，`mac: null`）。
+- 這段改動原本是獨立改的，過程中被同一台機器上另一個同時在跑的 session 的「SSH 連線」commit（`20420cb`）一起帶進去 push 了，commit 訊息沒提到這件事，這裡補記。
+- 測試實例實測：預設 Ctrl+Enter 送 `ESC CR`、Enter 送 `\r`；在設定頁改綁成 Shift+Enter 後，Shift+Enter 送 `ESC CR`、Ctrl+Enter 變回送 `\r`，`panex.json` 正確寫入 `shortcuts.bindings.insertNewline`。「Claude Code 收到 `ESC CR` 真的換行」只在早先同一個改動下用真的 Claude Code 畫面確認過一次，這次改綁後沒有再用真的 Claude Code 複驗。
+
+**為什麼**
+- 使用者在 Windows Terminal 習慣用 Ctrl+Enter 換行，搬來 panex 後這個鍵變成直接送出；原本寫死處理掉之後，使用者接著問「這個也能在設定頁配置嗎」，所以比照其他快捷鍵的模式做成可調動作而不是寫死行為。
+
+**影響檔案**
+- `src/keys.ts`（新增 `insertNewline` 這個 `ActionDef`）
+- `src/main.ts`（移除 `attachCustomKeyEventHandler` 分支、`runAction` 加 case、按鍵合法性檢查放行 `shift+enter`）
+- `src/i18n.ts`、`schemas/panex.schema.json`
+
+**下一步**
+- 找機會用真的 Claude Code（不是記位元組的小程式）確認改綁後的按鍵一樣會換行，而不是只驗證送出的位元組對。
+
 ## 2026-10-22 — SSH 連線
 
 **變更**
