@@ -22,6 +22,7 @@ import { scheduleGit } from "./git-panel";
 import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
 import { inFolder } from "./groups";
+import { IS_MAC } from "./platform";
 
 const SNAPSHOT_DELAY_MS = 4000;
 const SNAPSHOT_LINES = 1000;
@@ -102,6 +103,7 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
   term.registerLinkProvider(fileLinks(tab));
 
   term.onData((d) => onInput(tab, d));
+  if (IS_MAC) guardImeInput(el, term);
   term.onResize(({ cols, rows }) => {
     if (tab.running) invoke("pty_resize", { id: tab.id, cols, rows }).catch(() => {});
   });
@@ -135,6 +137,55 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
 
   tabs.set(tab.id, tab);
   return tab;
+}
+
+/**
+ * Keeps characters typed through a macOS input method from being dropped.
+ *
+ * With an IME active (OpenVanilla, for one), WKWebView fires `input` before the key's
+ * `keydown` (keyCode 229). xterm ignores an `insertText` input while it thinks a key is still
+ * down, which is the case whenever the previous key's `keyup` arrives late; the 229 keydown
+ * then diffs the textarea against a value that already holds the character, so nothing is
+ * sent. The fix sends such inputs ourselves, ahead of xterm.
+ *
+ * Only an input that comes before its keydown is taken over. When the 229 keydown comes first
+ * (Chromium's order), xterm's textarea diff sends the character, and sending here too would
+ * double it. Inputs inside a composition belong to xterm's composition handling.
+ *
+ * @param el   the tab's container; the listeners run in its capture phase, before xterm's
+ * @param term the tab's terminal, whose `input` feeds `onData` like typing does
+ */
+function guardImeInput(el: HTMLElement, term: Terminal) {
+  let composing = false;
+  let imeKeyPending = false; // a 229 keydown whose input hasn't come yet
+  let inputAhead = false; // an input we sent whose 229 keydown hasn't come yet
+  el.addEventListener("compositionstart", () => (composing = true), true);
+  // xterm reads the textarea a tick after compositionend; stay out until then.
+  el.addEventListener("compositionend", () => setTimeout(() => (composing = false)), true);
+  el.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.keyCode !== 229) return;
+      if (inputAhead) inputAhead = false;
+      else imeKeyPending = true;
+    },
+    true,
+  );
+  el.addEventListener(
+    "input",
+    (e) => {
+      const ev = e as InputEvent;
+      if (ev.inputType !== "insertText" || !ev.data || ev.isComposing || composing) return;
+      if (imeKeyPending) {
+        imeKeyPending = false;
+        return;
+      }
+      inputAhead = true;
+      ev.stopPropagation();
+      term.input(ev.data, true);
+    },
+    true,
+  );
 }
 
 export function onInput(tab: Tab, data: string) {
