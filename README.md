@@ -78,7 +78,7 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 - English and Traditional Chinese interface, following your system language (switch in Settings)
 - Chinese and other wide characters line up correctly; Unicode 11 widths
 - Ctrl+C copies when text is selected and interrupts otherwise; Ctrl+V pastes
-- Closing panex while an agent is mid-task asks first, so a stray click doesn't interrupt it (can be turned off in Settings → Terminal)
+- Closing panex, or a tab or workspace, while an agent in it is mid-task asks first, so a stray click doesn't interrupt it (can be turned off in Settings → Terminal)
 - Single instance: opening panex again brings the existing window forward
 
 ## Performance

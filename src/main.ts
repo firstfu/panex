@@ -977,7 +977,17 @@ function closeTabs(ids: string[]) {
 }
 
 const closeTab = (id: string) => closeTabs([id]);
-const closeWorkspaces = (ids: string[]) => closeTabs(ids.flatMap((id) => workspaces.get(id)?.tabs ?? []));
+
+/** User-initiated close: asks first when one of the tabs has an agent mid-turn. */
+function askCloseTabs(ids: string[]) {
+  const set = new Set(ids);
+  const working = workingTabs().filter((t) => set.has(t.id));
+  if (settings.confirmClose && working.length) {
+    openCloseAsk(working, tr("關閉分頁會中斷它們正在做的這一輪，而且不會自動接回對話。"), () => closeTabs(ids));
+  } else closeTabs(ids);
+}
+const askCloseTab = (id: string) => askCloseTabs([id]);
+const askCloseWorkspaces = (ids: string[]) => askCloseTabs(ids.flatMap((id) => workspaces.get(id)?.tabs ?? []));
 
 function cycleWorkspace(dir: number) {
   if (!activeWsId || wsOrder.length < 2) return;
@@ -1777,9 +1787,10 @@ function workingTabs(): Tab[] {
 
 let closeAskConfirm: (() => void) | undefined;
 
-function openCloseAsk(working: Tab[], confirm: () => void) {
+function openCloseAsk(working: Tab[], text: string, confirm: () => void) {
   closeAskConfirm = confirm;
   $("close-ask-title").textContent = tr("還有 {n} 個 agent 在工作", { n: working.length });
+  $("close-ask-text").textContent = text;
   $("close-ask-list").replaceChildren(
     ...working.map((t) => {
       const ws = workspaces.get(t.wsId);
@@ -1803,6 +1814,7 @@ $("close-ask-ok").onclick = () => {
   const confirm = closeAskConfirm;
   closeAskEl.hidden = true;
   confirm?.();
+  activeTab()?.term.focus();
 };
 closeAskEl.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeCloseAsk();
@@ -1826,10 +1838,10 @@ function wsMenu(ws: Workspace): MenuItem[] {
     { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveWorkspace(ws.id, i + 1), disabled: i === wsOrder.length - 1 },
     { label: tr("移到最上面"), run: () => moveWorkspace(ws.id, 0), disabled: i === 0 },
     "-",
-    { label: tr("關閉工作區"), keys: keyLabel("closeWorkspace"), run: () => closeWorkspaces([ws.id]) },
-    { label: tr("關閉其他工作區"), run: () => closeWorkspaces(others), disabled: !others.length },
-    { label: tr("關閉下方工作區"), run: () => closeWorkspaces(wsOrder.slice(i + 1)), disabled: i === wsOrder.length - 1 },
-    { label: tr("關閉上方工作區"), run: () => closeWorkspaces(wsOrder.slice(0, i)), disabled: i === 0 },
+    { label: tr("關閉工作區"), keys: keyLabel("closeWorkspace"), run: () => askCloseWorkspaces([ws.id]) },
+    { label: tr("關閉其他工作區"), run: () => askCloseWorkspaces(others), disabled: !others.length },
+    { label: tr("關閉下方工作區"), run: () => askCloseWorkspaces(wsOrder.slice(i + 1)), disabled: i === wsOrder.length - 1 },
+    { label: tr("關閉上方工作區"), run: () => askCloseWorkspaces(wsOrder.slice(0, i)), disabled: i === 0 },
   ];
 }
 
@@ -1843,9 +1855,9 @@ function tabMenu(tab: Tab): MenuItem[] {
     { label: tr("左移"), keys: keyLabel("moveTabLeft"), run: () => moveTab(tab.id, i - 1), disabled: i === 0 },
     { label: tr("右移"), keys: keyLabel("moveTabRight"), run: () => moveTab(tab.id, i + 1), disabled: i === ws.tabs.length - 1 },
     "-",
-    { label: tr("關閉分頁"), keys: keyLabel("closeTab"), run: () => closeTab(tab.id) },
-    { label: tr("關閉其他分頁"), run: () => closeTabs(others), disabled: !others.length },
-    { label: tr("關閉右側分頁"), run: () => closeTabs(ws.tabs.slice(i + 1)), disabled: i === ws.tabs.length - 1 },
+    { label: tr("關閉分頁"), keys: keyLabel("closeTab"), run: () => askCloseTab(tab.id) },
+    { label: tr("關閉其他分頁"), run: () => askCloseTabs(others), disabled: !others.length },
+    { label: tr("關閉右側分頁"), run: () => askCloseTabs(ws.tabs.slice(i + 1)), disabled: i === ws.tabs.length - 1 },
   ];
 }
 
@@ -2314,7 +2326,7 @@ function runAction(id: string, digit = 0) {
     case "newWorkspaceWithShell": return shells[digit - 1] && newWorkspace(shells[digit - 1].id);
     case "newWorktree": return openWorktreeDialog();
     case "newSsh": return openSshDialog();
-    case "closeWorkspace": return activeWsId && closeWorkspaces([activeWsId]);
+    case "closeWorkspace": return activeWsId && askCloseWorkspaces([activeWsId]);
     case "renameWorkspace": return activeWsId && startRename("ws", activeWsId);
     case "selectWorkspaceByNumber": { const w = nth(wsOrder, digit); return w && showWorkspace(w); }
     case "nextWorkspace": return cycleWorkspace(1);
@@ -2323,7 +2335,7 @@ function runAction(id: string, digit = 0) {
     case "moveWorkspaceDown": return activeWsId && moveWorkspace(activeWsId, wi + 1);
     case "jumpToUnread": return jumpToUnread();
     case "newTab": return newTab();
-    case "closeTab": return visibleTabId && closeTab(visibleTabId);
+    case "closeTab": return visibleTabId && askCloseTab(visibleTabId);
     case "renameTab": return visibleTabId && startRename("tab", visibleTabId);
     case "selectTabByNumber": { const t = ws && nth(ws.tabs, digit); return t && showTab(t); }
     case "nextTab": return cycleTab(1);
@@ -2449,7 +2461,7 @@ wsListEl.addEventListener("click", (e) => {
   if (target.closest(".rename-input")) return;
   const id = target.closest<HTMLElement>("[data-ws]")?.dataset.ws;
   if (!id) return;
-  if (target.closest(".t-close")) return closeWorkspaces([id]);
+  if (target.closest(".t-close")) return askCloseWorkspaces([id]);
   if (isDoubleClick(id)) return startRename("ws", id);
   showWorkspace(id);
 });
@@ -2459,7 +2471,7 @@ tabbarEl.addEventListener("click", (e) => {
   if (target.closest(".h-add")) return newTab();
   const id = target.closest<HTMLElement>("[data-tab]")?.dataset.tab;
   if (!id) return;
-  if (target.closest(".h-close")) return closeTab(id);
+  if (target.closest(".h-close")) return askCloseTab(id);
   if (isDoubleClick(id)) return startRename("tab", id);
   showTab(id);
 });
@@ -2470,11 +2482,11 @@ tabbarEl.addEventListener("dblclick", (e) => {
 // Middle click closes, like browser tabs.
 wsListEl.addEventListener("auxclick", (e) => {
   const id = (e.target as HTMLElement).closest<HTMLElement>("[data-ws]")?.dataset.ws;
-  if (e.button === 1 && id) closeWorkspaces([id]);
+  if (e.button === 1 && id) askCloseWorkspaces([id]);
 });
 tabbarEl.addEventListener("auxclick", (e) => {
   const id = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]")?.dataset.tab;
-  if (e.button === 1 && id) closeTab(id);
+  if (e.button === 1 && id) askCloseTab(id);
 });
 
 // Drag to reorder: workspaces vertically in the sidebar, tabs horizontally in the bar.
@@ -2634,7 +2646,7 @@ async function main() {
     const working = workingTabs();
     if (settings.confirmClose && working.length) {
       e.preventDefault();
-      openCloseAsk(working, async () => {
+      openCloseAsk(working, tr("現在關閉會中斷它們正在做的這一輪。下次打開 panex 時會自動接回對話，但要再叫它繼續。"), async () => {
         await flushForClose();
         await win.destroy();
       });

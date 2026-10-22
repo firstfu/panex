@@ -99,7 +99,7 @@
       <div class="wt-panel" role="alertdialog" aria-modal="true" aria-labelledby="close-ask-title" tabindex="-1">
         <h2 id="close-ask-title"></h2>
         <ul id="close-ask-list"></ul>
-        <p class="ask-text" data-i18n>現在關閉會中斷它們正在做的這一輪。下次打開 panex 時會自動接回對話，但要再叫它繼續。</p>
+        <p id="close-ask-text" class="ask-text"></p>
         <div class="wt-actions">
           <button type="button" id="close-ask-cancel" class="ghost" data-i18n>取消</button>
           <button type="button" id="close-ask-ok" class="primary danger" data-i18n>仍要關閉</button>
@@ -195,7 +195,7 @@
               <label class="row-ctl switch"><input id="s-resume" type="checkbox" /><i></i></label>
             </div>
             <div class="row">
-              <div class="row-text"><b data-i18n>agent 工作中關閉前先確認</b><span data-i18n>有 Claude Code 正在跑時關閉 panex，先問一聲，免得誤關中斷它</span></div>
+              <div class="row-text"><b data-i18n>agent 工作中關閉前先確認</b><span data-i18n>有 Claude Code 正在跑時關閉 panex 或它所在的分頁，先問一聲，免得誤關中斷它</span></div>
               <label class="row-ctl switch"><input id="s-confirm-close" type="checkbox" /><i></i></label>
             </div>
             <div class="row">

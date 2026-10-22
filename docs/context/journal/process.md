@@ -27,6 +27,20 @@
 - 使用者要裝 v0.4.1，並在 panex 按一次「啟用」：一方面補上兩個新 hook，另一方面把 hook 從 `target/test-build/panex-cli.exe` 改回指向安裝版的路徑。
 - 值得歸檔、還沒歸檔的雷：①`vscode://` 網址會觸發 VS Code 的確認框；②測試實例覆寫 `USERPROFILE` 會起不來；③Git Bash 會把 `/exit` 這類開頭是 `/` 的參數轉成路徑（`MSYS_NO_PATHCONV=1`）；④`operations.md` 的版本號檔案清單要補上 `package-lock.json`。
 
+## 2026-10-22 — 關閉分頁／工作區也先確認
+
+**變更**
+- 使用者主動關閉的路徑（Ctrl+Shift+W、分頁 ×、中鍵、右鍵「關閉分頁／其他／右側」、工作區 ×、中鍵、`closeWorkspace` 與右鍵各項）改走 `askCloseTabs`：其中有 agent 在這一輪中（`workingTabs()`）就沿用關視窗的對話框。`pty-exit` 代碼 0 的自動關閉不經過確認（程序已經結束）。原本的 `closeWorkspaces` 沒人用了，已刪。
+- 對話框內文改成依情境填入：關視窗沿用「重開會自動接回」；關分頁是「不會自動接回對話」（分頁關掉，接回紀錄也跟著沒了）。沿用設定 `agent.confirmCloseWhileRunning`，設定頁、schema、README 兩版的說明一起改。
+- 測試實例＋CDP 實測 8/8：執行中按 × 會問、取消保留、Ctrl+Shift+W 會問、確認後關閉；等你回應的那一輪中關工作區會問；閒置直接關；設定關掉直接關；關視窗的對話框文字與「仍要關閉」照舊。
+
+**為什麼**
+- 第一性分析的「不丟狀態」缺口：只擋了關視窗，Ctrl+W 誤關一個跑著 agent 的分頁反而損失更大（不會自動接回）。
+
+**下一步**
+- 尚未 commit。
+- 建置時遇到另一個程序在跑 `rustup update`，工具鏈裝到一半，`rustc` 暫時消失，tauri-cli 會在 `rustc -vV` 的 `unwrap` panic。等它跑完就好；另外 PowerShell 5.1 會吃掉 `cargo tauri build … -- --profile` 的 `--`，要改用 Bash 建置。
+
 ## 2026-10-22 — agent 工作中關閉前先確認
 
 **變更**

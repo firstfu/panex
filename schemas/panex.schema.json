@@ -118,7 +118,7 @@
         "confirmCloseWhileRunning": {
           "type": "boolean",
           "default": true,
-          "description": "有 agent 正在工作（執行中，或在這一輪中等你回應）時關閉 panex，先跳出確認。關閉會中斷正在做的這一輪；重開後雖然會自動接回對話，但要再叫它繼續。"
+          "description": "有 agent 正在工作（執行中，或在這一輪中等你回應）時關閉 panex 或該分頁／工作區，先跳出確認。關閉會中斷正在做的這一輪；關閉 panex 的話重開後會自動接回對話（要再叫它繼續），關閉分頁則不會接回。"
         },
         "askToEnableHooks": {
           "type": "boolean",
