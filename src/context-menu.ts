@@ -6,7 +6,7 @@ import { $, COLORS, esc } from "./util";
 import { tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { keyLabel } from "./config";
 import { askCloseTab, askCloseTabs, askCloseWorkspaces, moveTab, newTab, setColor, showWorkspace } from "./workspaces";
-import { canMove, groupMembers, groupName, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
+import { canMove, groupLead, groupMembers, groupName, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
 import { openWorktreeDialog } from "./worktree-dialog";
 import { startRename } from "./rename";
 
@@ -41,7 +41,20 @@ export function wsMenu(ws: Workspace): MenuItem[] {
 
 /** Leave the group, or join / start the group of the repo this workspace is a checkout of. */
 function groupItems(ws: Workspace): MenuItem[] {
-  if (ws.group) return [{ label: tr("移出群組"), run: () => leaveGroup(ws.id) }];
+  if (ws.group) {
+    const members = groupMembers(ws.group);
+    // The main workspace is the group's top row, so it carries the group's own items instead.
+    if (groupLead(ws.group, members) === ws.id) {
+      const group = ws.group;
+      const folded = isCollapsed(group);
+      return [
+        { label: folded ? tr("展開") : tr("收合"), run: () => setCollapsed(group, !folded) },
+        { label: tr("解散群組"), run: () => ungroup(group) },
+        { label: tr("關閉群組內的工作區"), run: () => askCloseWorkspaces(members) },
+      ];
+    }
+    return [{ label: tr("移出群組"), run: () => leaveGroup(ws.id) }];
+  }
   const repo = wsActiveTab(ws)?.repo;
   if (!repo) return [];
   const members = groupMembers(repo);

@@ -1,8 +1,11 @@
 // Sidebar groups: the workspaces of one repo's checkouts (its main folder and its worktrees)
-// sit together in wsOrder under a collapsible header. A workspace's `group` is the main
-// checkout's path; it is set when a worktree is opened (or from the menu) and stays put when
-// the shell cd's elsewhere, so a workspace never jumps between groups on its own.
-// Invariants, restored by tidyGroups: a group has two or more workspaces, and they are adjacent.
+// sit together in wsOrder. The main folder's workspace (groupLead) is the group's top row, with
+// the worktrees indented below it; with no such workspace open, a header row names the repo.
+// A workspace's `group` is the main checkout's path; it is set when a worktree is opened (or
+// from the menu) and stays put when the shell cd's elsewhere, so a workspace never jumps
+// between groups on its own.
+// Invariants, restored by tidyGroups: a group has two or more workspaces, they are adjacent,
+// and its main workspace, when open, comes first.
 
 import { type Workspace } from "./types";
 import { basename } from "./util";
@@ -15,23 +18,36 @@ export const repoKey = (p?: string) => (p ? (CI ? p.toLowerCase() : p) : "");
 export const sameRepo = (a?: string, b?: string) => !!a && repoKey(a) === repoKey(b);
 export const repoName = (repo: string) => basename(repo);
 
+/** 比對路徑用：統一斜線、去掉結尾斜線（Windows 上 git 給 `C:/…`，shell 給 `C:\…`），Windows 不分大小寫。 */
+const normPath = (p?: string) => repoKey(p).replace(/\\/g, "/").replace(/\/+$/, "");
+
 /**
- * 群組標題要顯示的名字：主 checkout 那個工作區被使用者取過名就用它（例如「老犬」），否則用 repo 資料夾名。
- * 只認使用者自訂的名字，因為自動標題會跟著終端機標題一直變，標題列會跳來跳去。
+ * 群組的「主工作區」：有分頁開在主 checkout 資料夾（或它的子資料夾）裡的那個，側欄把它當群組的最上層。
+ * 看的是有存進 session 的 cwd，不是 git 偵測結果：還原的分頁要被看到才會啟動 shell，啟動前沒有 git 資訊。
+ * @param group 群組的 key（主 checkout 的路徑）
+ * @param members 群組內的工作區 id
+ * @returns 主工作區的 id；沒有（例如主資料夾那個已經關掉）就是 undefined
+ */
+export function groupLead(group: string, members: string[]): string | undefined {
+  const root = normPath(group);
+  return members.find((id) =>
+    workspaces.get(id)?.tabs.some((t) => {
+      const cwd = normPath(tabs.get(t)?.cwd);
+      return cwd === root || cwd.startsWith(root + "/");
+    }),
+  );
+}
+
+/**
+ * 群組顯示的名字：主工作區被使用者取過名就用它（例如「老犬」），否則用 repo 資料夾名。
+ * 只認使用者自訂的名字，因為自動標題會跟著終端機標題一直變。
  * @param group 群組的 key（主 checkout 的路徑）
  * @param members 群組內的工作區 id
  * @returns 顯示用的名字
  */
 export function groupName(group: string, members: string[]): string {
-  for (const id of members) {
-    const ws = workspaces.get(id);
-    const main = ws?.tabs.some((t) => {
-      const tab = tabs.get(t);
-      return !!tab && !tab.worktree && sameRepo(tab.repo, group);
-    });
-    if (main && ws?.customTitle) return ws.customTitle;
-  }
-  return repoName(group);
+  const lead = groupLead(group, members);
+  return (lead && workspaces.get(lead)?.customTitle) || repoName(group);
 }
 
 /** The group's workspaces in sidebar order. */
@@ -65,7 +81,10 @@ export function tidyGroups() {
     if (!ws.group) out.push(id);
     else if (!seen.has(k)) {
       seen.add(k);
-      out.push(...groupMembers(ws.group));
+      // 主工作區永遠排在組內第一個，它就是側欄上這組的最上層
+      const members = groupMembers(ws.group);
+      const lead = groupLead(ws.group, members);
+      out.push(...(lead ? [lead, ...members.filter((m) => m !== lead)] : members));
     }
   }
   wsOrder.splice(0, wsOrder.length, ...out);
@@ -130,6 +149,7 @@ export function placeRun(run: string[], target: string[], after: boolean) {
   rest.splice(after ? anchor + 1 : anchor, 0, ...run);
   if (rest.every((id, i) => id === wsOrder[i])) return false;
   wsOrder.splice(0, wsOrder.length, ...rest);
+  tidyGroups(); // a drop above a group's main workspace still leaves it first
   saveSession();
   scheduleRender();
   return true;
@@ -138,7 +158,11 @@ export function placeRun(run: string[], target: string[], after: boolean) {
 /** What a workspace moves among: the other members of its group, or the top-level runs. */
 function siblings(id: string): string[][] {
   const g = workspaces.get(id)?.group;
-  return g ? groupMembers(g).map((m) => [m]) : units();
+  if (!g) return units();
+  // The main workspace stands for its whole group; the others move among themselves below it.
+  const members = groupMembers(g);
+  const lead = groupLead(g, members);
+  return id === lead ? units() : members.filter((m) => m !== lead).map((m) => [m]);
 }
 const runIndex = (list: string[][], id: string) => list.findIndex((r) => r.includes(id));
 
