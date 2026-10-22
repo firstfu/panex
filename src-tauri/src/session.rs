@@ -172,3 +172,92 @@ pub async fn scrollback_save(state: State<'_, AppState>, id: String, data: Strin
     let Some(path) = state.session.scrollback_path(&id) else { return Err("invalid id".into()) };
     write_atomic(&path, data.as_bytes()).map_err(|e| e.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// A fresh directory under the system temp dir; each test gets its own.
+    fn scratch(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("panex-test-session-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn v1_flat_tabs_become_one_workspace_each() {
+        let d = scratch("v1");
+        let v1 = json!({
+            "active": "bbbbbbbbbbbbbbbb",
+            "tabs": [
+                { "id": "aaaaaaaaaaaaaaaa", "shell": "powershell", "cwd": "C:\\work", "title": "api", "color": "red" },
+                { "id": "bbbbbbbbbbbbbbbb", "cwd": "D:\\x" },
+                { "id": "../evil", "shell": "cmd" },
+                { "shell": "cmd" }
+            ]
+        });
+        fs::write(d.join("session.json"), v1.to_string()).unwrap();
+        let s = Store::open(d.clone()).unwrap().snapshot();
+
+        assert_eq!(s.workspaces.len(), 2, "tabs with a bad or missing id are dropped");
+        let (a, b) = (&s.workspaces[0], &s.workspaces[1]);
+        assert_eq!(a.id, "waaaaaaaaaaa");
+        assert_eq!((a.title.as_deref(), a.color.as_deref()), (Some("api"), Some("red")));
+        assert_eq!(a.active.as_deref(), Some("aaaaaaaaaaaaaaaa"));
+        assert_eq!(a.tabs[0].id, "aaaaaaaaaaaaaaaa", "tab ids are kept so scrollback files still match");
+        assert_eq!(a.tabs[0].shell, "powershell");
+        assert_eq!(a.tabs[0].cwd.as_deref(), Some("C:\\work"));
+        assert_eq!(a.tabs[0].title, None);
+        assert_eq!(b.tabs[0].shell, "cmd", "missing shell defaults to cmd");
+        assert_eq!(s.active.as_deref(), Some(b.id.as_str()));
+
+        // The original is backed up and the file on disk is rewritten in the new shape.
+        let bak: Value = serde_json::from_slice(&fs::read(d.join("session.v1.json.bak")).unwrap()).unwrap();
+        assert_eq!(bak, v1);
+        let again = Store::open(d.clone()).unwrap().snapshot();
+        assert_eq!(serde_json::to_value(&again).unwrap(), serde_json::to_value(&s).unwrap());
+    }
+
+    #[test]
+    fn current_format_round_trips_every_field() {
+        let d = scratch("v2");
+        let v2 = json!({
+            "workspaces": [{
+                "id": "w1", "title": "demo", "color": "blue", "active": "t2",
+                "tabs": [
+                    { "id": "t1", "shell": "cmd", "cwd": "C:\\a", "title": "mine", "agentSession": "0f6e1c2a-9b3d-4e5f" },
+                    { "id": "t2", "shell": "ssh", "ssh": "u@h:22", "cwd": null }
+                ]
+            }],
+            "active": "w1"
+        });
+        fs::write(d.join("session.json"), v2.to_string()).unwrap();
+        let s = Store::open(d.clone()).unwrap().snapshot();
+        assert_eq!(serde_json::to_value(&s).unwrap(), v2);
+        assert!(!d.join("session.v1.json.bak").exists());
+    }
+
+    #[test]
+    fn missing_or_corrupt_file_starts_empty() {
+        let d = scratch("corrupt");
+        assert!(Store::open(d.clone()).unwrap().snapshot().workspaces.is_empty());
+        fs::write(d.join("session.json"), "{ not json").unwrap();
+        assert!(Store::open(d.clone()).unwrap().snapshot().workspaces.is_empty());
+        assert!(d.join("scrollback").is_dir());
+    }
+
+    #[test]
+    fn ids_used_in_file_names_are_restricted() {
+        for ok in ["a", "t1-x", "AbC123", &"a".repeat(64)] {
+            assert!(valid_id(ok), "{ok}");
+        }
+        for bad in ["", "../x", "a/b", "a\\b", "a.txt", "a b", "con:", &"a".repeat(65)] {
+            assert!(!valid_id(bad), "{bad}");
+        }
+        let store = Store::open(scratch("ids")).unwrap();
+        assert!(store.scrollback_path("..\\..\\x").is_none());
+        assert!(store.scrollback_path("t1").unwrap().ends_with(Path::new("scrollback").join("t1.txt")));
+    }
+}

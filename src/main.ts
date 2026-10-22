@@ -13,6 +13,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { resolveLang, setLang, getLang, t as tr, translateDom, type LangPref } from "./i18n";
 import { getCurrentWindow, Effect, LogicalSize } from "@tauri-apps/api/window";
 import { IS_MAC } from "./platform";
+import { squeezeBlankRuns, validSessionId, validSshTarget } from "./sanitize";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   ACTIONS,
@@ -293,17 +294,10 @@ const newWsId = () => `w${newId().slice(0, 11)}`;
 const basename = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 const shellName = (id: string) => tr(shells.find((s) => s.id === id)?.name ?? id);
 const shellTag = (id: string) => (id === "cmd" ? "cmd" : id === "default" ? "sh" : id === "ssh" ? "SSH" : "PS");
-/** Mirrors ssh.rs `valid_target`: the target lands on ssh's command line. */
-const validSshTarget = (t: string) => /^[A-Za-z0-9@._:\[\]%-]{1,255}$/.test(t) && !t.startsWith("-");
 const activeTab = () => (visibleTabId ? tabs.get(visibleTabId) : undefined);
 const activeWs = () => (activeWsId ? workspaces.get(activeWsId) : undefined);
 const wsActiveTab = (ws: Workspace) => tabs.get(ws.activeTab ?? "") ?? tabs.get(ws.tabs[0] ?? "");
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
-/**
- * A TUI (Claude Code) pads its screen with blank rows to park the input box at the bottom. Those rows
- * only make sense while it runs; replayed as history they become a big gap, so cap blank runs at 2.
- */
-const squeezeBlankRuns = (snapshot: string) => snapshot.replace(/(?:[ \t]*\r?\n){4,}/g, "\n\n\n");
 
 function autoTabTitle(tab: Tab): string {
   const t = tab.progTitle?.trim();
@@ -631,11 +625,6 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
 }
 
 // ── Resume Claude Code ──────────────────────────────────────────────────────
-
-/** The id ends up typed into a shell, so accept only what a Claude Code session id looks like. */
-function validSessionId(id: unknown): id is string {
-  return typeof id === "string" && /^[0-9A-Za-z-]{8,64}$/.test(id);
-}
 
 /** A restored tab whose Claude Code was still running when panex closed re-enters that session when its shell starts. */
 function autoResume(tab: Tab) {

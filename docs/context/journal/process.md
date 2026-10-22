@@ -27,6 +27,21 @@
 - 使用者要裝 v0.4.1，並在 panex 按一次「啟用」：一方面補上兩個新 hook，另一方面把 hook 從 `target/test-build/panex-cli.exe` 改回指向安裝版的路徑。
 - 值得歸檔、還沒歸檔的雷：①`vscode://` 網址會觸發 VS Code 的確認框；②測試實例覆寫 `USERPROFILE` 會起不來；③Git Bash 會把 `/exit` 這類開頭是 `/` 的參數轉成路徑（`MSYS_NO_PATHCONV=1`）；④`operations.md` 的版本號檔案清單要補上 `package-lock.json`。
 
+## 2026-10-22 — 補上遷移與輸入檢查的測試
+
+**變更**
+- Rust（`cargo test`，12 個）：`session.rs` 測 v0.1 扁平分頁轉工作區（id、標題顏色、active、壞 id 丟棄、備份、轉完再讀一致）、現行格式所有欄位來回不掉、壞檔或沒檔從空白開始、`valid_id`。`config.rs` 測 v1 快捷鍵改名（含 `cycleTabPrev`、只跑一次、備份）、改名目標不重複、v2 檔不動、v0.1 settings 對應、`read` 的 BOM／空白／非物件、`config_set` 只改單一鍵且清空殼、壞檔拒寫。為了能指定路徑，`migrate_v1_bindings`／`config_set` 拆出 `_at(&Path)` 版本，行為不變。
+- 前端（`npm test`，6 個，Node 內建 `node --test`，沒有新增依賴）：`validSshTarget`、`validSessionId`、`squeezeBlankRuns` 從 `main.ts` 搬到沒有副作用的 `src/sanitize.ts`，測試在 `tests/`。
+- 順手修正：`validSessionId` 原本接受 `-` 開頭（例如 `--dangerously-skip-permissions`），會變成 `claude --resume` 後面的另一個選項；改成第一個字必須是英數字。
+- 故意改壞 v1 工作區 id 與 `cycleTabPrev` 對應，兩個測試都會失敗，改回後全過。
+
+**為什麼**
+- 第一性分析的第 3 項：遷移寫錯會靜默洗掉使用者資料，是全專案風險最高、又完全沒測試的地方；之後要拆 `main.ts` 也需要安全網。
+
+**下一步**
+- 測試跑法已歸檔進 `operations.md` 的「單元測試」，發版步驟加上「先跑測試」。CI 刻意不跑：每次 push 都要從零編 Rust，遷移又很少改，不划算。
+- 刪掉 `src/pty.rs`：第一個 commit 就混進來的 0 位元組空檔，沒有任何地方引用。
+
 ## 2026-10-22 — 關閉分頁／工作區也先確認
 
 **變更**

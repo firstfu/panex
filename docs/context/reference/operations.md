@@ -11,7 +11,15 @@
 - 使用者的 panex 開著時 `target/release/panex.exe` 被鎖住，可設 `CARGO_TARGET_DIR` 到別處建置。
 - 測試實例還開著時再建置 `test-build`，會因 `panex.exe` 被鎖住而報 `存取被拒 (os error 5)`，但背景指令的 exit code 仍是 0，很容易誤以為建好了、拿舊版在測。建置前先關掉測試實例，建完用 `ls -la --time-style=full-iso` 確認 exe 時間戳。
 - release 設了 `lto = true`＋`codegen-units = 1`，每次建置要好幾分鐘。**驗證功能用 `[profile.test-build]`**（不 LTO、平行 codegen、增量）：`cargo tauri build --no-bundle --config '…' -- --profile test-build`，產物在 `target\test-build\panex.exe`；發布安裝檔仍用 release。
-- **`cargo tauri build` 會改寫 `src-tauri/Cargo.toml`**：Windows 上 `tauri.conf.json` 沒開 macOS private API，CLI 會把 `[dependencies]` 的 `tauri = { …, features = ["macos-private-api"] }` 自動改成 `features = []`。建置完用 `git diff src-tauri/Cargo.toml` 檢查並改回，不要連同功能一起 commit。反過來，直接 `cargo check` 會因為 feature 和設定檔對不上而失敗（`The tauri dependency features … does not match the allowlist`），Rust 端驗證一律走 `cargo tauri build`。
+- **`cargo tauri build` 會改寫 `src-tauri/Cargo.toml`**：Windows 上 `tauri.conf.json` 沒開 macOS private API，CLI 會把 `[dependencies]` 的 `tauri = { …, features = ["macos-private-api"] }` 自動改成 `features = []`。建置完用 `git diff src-tauri/Cargo.toml` 檢查並改回，不要連同功能一起 commit。反過來，直接 `cargo check` 會因為 feature 和設定檔對不上而失敗（`The tauri dependency features … does not match the allowlist`），Rust 端建置走 `cargo tauri build`；單元測試的繞法見下方「單元測試」。
+- **PowerShell 5.1 會吃掉傳給原生程式的 `--`**：`cargo tauri build … -- --profile test-build` 在 PowerShell 裡跑，`--profile` 會被當成 tauri-cli 自己的參數，結果 panic 在 `Option::unwrap()`（2026-10-22 踩過）。這條指令一律用 Bash 跑。
+- **另一個程序正在 `rustup update` 時**，工具鏈會裝到一半（`rustc.exe` 暫時不存在），`cargo` 報 `binary … is not applicable to the toolchain`、tauri-cli 在讀 `rustc -vV` 時 panic。等它跑完再建，不要去砍那個程序。
+
+## 單元測試
+
+- 前端：`npm test`（Node 內建 `node --test`，跑 `tests/*.test.ts`，靠 Node 的型別剝除直接載入 TS，沒有測試框架依賴）。被測的函式必須放在不 import DOM／Tauri 的模組（例如 `src/sanitize.ts`）；`main.ts` 一載入就有副作用，不能拿來測。`tests/` 不在 `tsconfig` 的 `include` 裡，編輯器會對 `node:test` 標紅，不影響執行。
+- Rust：在 `src-tauri/` 執行 `RUST_MIN_STACK=134217728 TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}' cargo test`。`TAURI_CONFIG` 讓 build script 看到 private API 已開、不再拒絕 `macos-private-api` feature；這只影響這次編譯，不會改到任何檔案。從零編譯偶爾還是會 `STATUS_STACK_BUFFER_OVERRUN`，重跑即可。
+- 要讀寫檔案的邏輯（遷移、`config_set`）做成吃 `&Path` 的 `_at` 版本來測，不要在測試裡改 `XDG_CONFIG_HOME` 這類全域環境變數（測試是平行跑的）。
 
 ## 獨立測試實例（不碰使用者正在用的 panex）
 
@@ -44,6 +52,7 @@ Start-Process <target>\release\panex.exe
 
 安裝檔由 CI 建（`.github/workflows/release.yml`），本機不必建置：
 
+0. 先跑上方「單元測試」的兩組測試，全過才發版（CI 不跑測試）。
 1. 改版本號，六個檔：`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（`name = "panex"` 那段）、`package.json`，以及 README 與繁中版裡的安裝檔檔名（`.exe`、`.dmg` 各處）。提交前確認 `Cargo.toml` 的 `macos-private-api` 還在（見上方「建置」）。
 2. commit、`git push origin main`，再 `git tag v<版本>` 並 `git push origin v<版本>`。
 3. tag 觸發 CI：先建草稿 release，再由 Windows、macOS 兩個 job 各自建安裝檔並上傳。草稿這時的說明只是 `Notes pending.`。兩個平台平行跑，LTO＋沒有快取，約 8–15 分鐘；`gh run watch <run id> --exit-status` 可以等它結束。

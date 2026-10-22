@@ -122,12 +122,15 @@ pub fn init(app: &AppHandle, old_settings: PathBuf) {
 /// Renames v1 shortcut ids in one pass (each old key maps to exactly one new key), keeping
 /// a backup. Runs only on files that say schemaVersion 1, so it never runs twice.
 fn migrate_v1_bindings() {
-    let p = path();
-    let Ok(mut root) = read(&p) else { return };
+    migrate_v1_bindings_at(&path());
+}
+
+fn migrate_v1_bindings_at(p: &Path) {
+    let Ok(mut root) = read(p) else { return };
     if root.get("schemaVersion").and_then(Value::as_u64) != Some(1) {
         return;
     }
-    let _ = fs::copy(&p, p.with_extension("json.v1.bak"));
+    let _ = fs::copy(p, p.with_extension("json.v1.bak"));
     if let Some(old) = root.pointer_mut("/shortcuts/bindings").and_then(Value::as_object_mut) {
         let mut new = Map::new();
         for (k, v) in std::mem::take(old) {
@@ -140,7 +143,7 @@ fn migrate_v1_bindings() {
         }
         *old = new;
     }
-    let _ = write_atomic(&p, &with_header(root));
+    let _ = write_atomic(p, &with_header(root));
 }
 
 /// v0.1 kept flat settings in app data; map them onto the nested layout.
@@ -209,8 +212,11 @@ pub fn config_load() -> Loaded {
 /// (falls back to the default). Refuses to touch a file that doesn't parse.
 #[tauri::command]
 pub fn config_set(path: Vec<String>, value: Value) -> Result<(), String> {
-    let file = self::path();
-    let mut root = read(&file).map_err(|e| format!("panex.json has an error, nothing written: {e}"))?;
+    config_set_at(&self::path(), &path, value)
+}
+
+fn config_set_at(file: &Path, path: &[String], value: Value) -> Result<(), String> {
+    let mut root = read(file).map_err(|e| format!("panex.json has an error, nothing written: {e}"))?;
     let Some((last, parents)) = path.split_last() else { return Err("empty path".into()) };
     let mut cur = &mut root;
     for k in parents {
@@ -226,7 +232,7 @@ pub fn config_set(path: Vec<String>, value: Value) -> Result<(), String> {
         obj.insert(last.clone(), value);
     }
     prune_empty(&mut root);
-    write_atomic(&file, &with_header(root))
+    write_atomic(file, &with_header(root))
 }
 
 /// Drops sections left empty after removing keys, so the file stays minimal.
@@ -269,5 +275,137 @@ fn open_path(p: &Path) -> Result<(), String> {
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         std::process::Command::new("xdg-open").arg(p).spawn().map(|_| ()).map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A fresh directory under the system temp dir; each test gets its own.
+    fn scratch(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("panex-test-config-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&d);
+        fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn load(p: &Path) -> Value {
+        serde_json::from_slice(&fs::read(p).unwrap()).unwrap()
+    }
+
+    fn keys(k: &[&str]) -> Vec<String> {
+        k.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn v1_bindings_are_renamed_once_with_a_backup() {
+        let d = scratch("v1");
+        let p = d.join(FILE);
+        let v1 = json!({
+            "schemaVersion": 1,
+            "terminal": { "fontSize": 15 },
+            "shortcuts": { "bindings": {
+                "newTab": "ctrl+n", "cycleTabNext": "ctrl+tab", "cycleTabPrev": "ctrl+shift+tab",
+                "moveTabUp": null, "clearScrollback": "ctrl+k"
+            } }
+        });
+        fs::write(&p, v1.to_string()).unwrap();
+        migrate_v1_bindings_at(&p);
+
+        let v2 = load(&p);
+        assert_eq!(v2["schemaVersion"], json!(SCHEMA_VERSION));
+        assert_eq!(v2["$schema"], json!("./panex.schema.json"));
+        assert_eq!(v2["terminal"]["fontSize"], json!(15));
+        assert_eq!(
+            v2["shortcuts"]["bindings"],
+            json!({
+                "newWorkspace": "ctrl+n", "nextTab": "ctrl+tab", "prevTab": "ctrl+shift+tab",
+                "moveWorkspaceUp": null, "clearScrollback": "ctrl+k"
+            })
+        );
+        assert_eq!(load(&p.with_extension("json.v1.bak")), v1);
+
+        // A second run must not rename v2 ids again (v2 "newTab" is a different action).
+        config_set_at(&p, &keys(&["shortcuts", "bindings", "newTab"]), json!("ctrl+t")).unwrap();
+        migrate_v1_bindings_at(&p);
+        assert_eq!(load(&p)["shortcuts"]["bindings"]["newTab"], json!("ctrl+t"));
+        assert_eq!(load(&p)["shortcuts"]["bindings"]["newWorkspace"], json!("ctrl+n"));
+    }
+
+    #[test]
+    fn every_v1_rename_lands_on_a_distinct_id() {
+        let mut to: Vec<_> = V1_RENAMES.iter().map(|(_, t)| *t).collect();
+        to.push("prevTab");
+        let n = to.len();
+        to.sort();
+        to.dedup();
+        assert_eq!(to.len(), n, "two v1 ids would merge into one v2 id and lose a binding");
+    }
+
+    #[test]
+    fn v2_file_is_left_untouched() {
+        let d = scratch("v2");
+        let p = d.join(FILE);
+        let text = r#"{"schemaVersion":2,"shortcuts":{"bindings":{"newTab":"ctrl+t"}}}"#;
+        fs::write(&p, text).unwrap();
+        migrate_v1_bindings_at(&p);
+        assert_eq!(fs::read_to_string(&p).unwrap(), text);
+        assert!(!p.with_extension("json.v1.bak").exists());
+    }
+
+    #[test]
+    fn v01_settings_map_onto_sections() {
+        let d = scratch("v01");
+        let old = d.join("settings.json");
+        fs::write(&old, r#"{"opacity":80,"effect":"mica","fontSize":14,"sidebarHidden":true,"unknown":1}"#).unwrap();
+        assert_eq!(
+            migrate(&old),
+            json!({ "app": { "opacity": 80, "windowEffect": "mica" }, "terminal": { "fontSize": 14 }, "sidebar": { "hidden": true } })
+        );
+        assert_eq!(migrate(&d.join("missing.json")), json!({}));
+    }
+
+    #[test]
+    fn read_accepts_bom_and_blank_and_rejects_non_objects() {
+        let d = scratch("read");
+        let p = d.join(FILE);
+        fs::write(&p, b"\xEF\xBB\xBF{\"a\":1}").unwrap();
+        assert_eq!(read(&p).unwrap(), json!({ "a": 1 }));
+        fs::write(&p, " \r\n").unwrap();
+        assert_eq!(read(&p).unwrap(), json!({}));
+        assert_eq!(read(&d.join("missing.json")).unwrap(), json!({}));
+        fs::write(&p, "[1]").unwrap();
+        assert!(read(&p).is_err());
+        fs::write(&p, "{ broken").unwrap();
+        assert!(read(&p).is_err());
+    }
+
+    #[test]
+    fn config_set_writes_one_key_and_prunes_empty_sections() {
+        let d = scratch("set");
+        let p = d.join(FILE);
+        fs::write(&p, r#"{"terminal":{"fontSize":15},"custom":{"keep":true}}"#).unwrap();
+
+        config_set_at(&p, &keys(&["shortcuts", "bindings", "find"]), json!(null)).unwrap();
+        config_set_at(&p, &keys(&["agent", "confirmCloseWhileRunning"]), json!(false)).unwrap();
+        let v = load(&p);
+        assert_eq!(v["agent"]["confirmCloseWhileRunning"], json!(false));
+        assert_eq!(v["terminal"]["fontSize"], json!(15));
+        assert_eq!(v["custom"]["keep"], json!(true), "unknown keys survive");
+        assert!(v.get("shortcuts").is_none(), "removing a missing key leaves no empty sections");
+
+        config_set_at(&p, &keys(&["agent", "confirmCloseWhileRunning"]), json!(null)).unwrap();
+        assert!(load(&p).get("agent").is_none());
+        assert!(config_set_at(&p, &[], json!(1)).is_err());
+    }
+
+    #[test]
+    fn config_set_refuses_a_broken_file() {
+        let d = scratch("broken");
+        let p = d.join(FILE);
+        fs::write(&p, "{ \"terminal\": ").unwrap();
+        assert!(config_set_at(&p, &keys(&["app", "opacity"]), json!(50)).is_err());
+        assert_eq!(fs::read_to_string(&p).unwrap(), "{ \"terminal\": ");
     }
 }
