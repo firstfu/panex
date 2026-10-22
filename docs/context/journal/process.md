@@ -4,7 +4,7 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-22 — 終端機失去焦點時不畫游標（跟 Windows Terminal 一樣）
+## 2026-10-22 — 終端機失去焦點時不畫游標（已改回）
 
 **變更**
 - `terminal.ts` 的 xterm 選項加 `cursorInactiveStyle: "none"`。原本預設是 `outline`：視窗或終端機失去焦點時，游標畫成空心框。
@@ -13,8 +13,8 @@
 **為什麼**
 - 使用者截圖看到 Claude Code 輸入框第一個字「發」被一個黑框框住，Windows Terminal 沒有。重現後確認那是 xterm 的空心游標：Claude Code 把真實游標停在輸入框插入點（方便輸入法），截圖工具一拿走焦點，xterm 就畫出空心框。Claude Code 自己的反白游標在 panex 裡顯示正常，跟它無關。Windows Terminal 失去焦點時本來就不畫游標。
 
-**下一步**
-- 尚未發版；下一次發版時一起帶上。
+**後續**
+- 同日使用者要求改回，`cursorInactiveStyle` 回到 xterm 預設（失去焦點時畫空心框）。從沒發版過。之後若有人回報同樣的框，原因就是上面這段，處理方式先問使用者。
 
 ## 2026-10-22 — 拆分 `src/main.ts`（2715 行 → 22 個模組），每個檔案補上檔頭註解
 
