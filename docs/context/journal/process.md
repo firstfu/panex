@@ -4,6 +4,28 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 側欄狀態不再卡住、捲動歷史搜尋、Ctrl+點擊連結
+
+**變更**
+- 側欄狀態（`c40f478`）：hooks 改成接五個事件，新增 `StopFailure`、`SessionEnd`。`StopFailure` 時顯示藍點加 API 錯誤原文；`SessionEnd` 時清掉「執行中」和接回紀錄；分頁在「執行中」時按 Esc 或 Ctrl+C，改顯示「已中斷」；shell 提示符回來時，如果還卡在「執行中」也一併清掉。README 兩版的 hook 清單同步更新。
+- 捲動歷史搜尋（`59a922b`）：`find` 動作預設 Ctrl+Shift+F（mac 是 ⌘F），搜尋框在終端機右上角，打字就逐字搜尋，Enter／Shift+Enter 跳下一個／上一個，Esc 關閉並把焦點還給終端機。`@xterm/addon-search` 拆成獨立 chunk，第一次搜尋時才載入。只有焦點在搜尋框時，Esc 才會被攔下；焦點在終端機時，Esc 照常送給程式（用來中斷 Claude）。
+- 可點擊的連結（`2bbae96`）：按住 Ctrl（mac 是 ⌘）點擊才會開，單純點擊還是選取文字。網址用 `@xterm/addon-web-links`。檔案路徑由自寫的 link provider 比對，相對路徑以分頁的 cwd 為準，用 `links_resolve` 確認檔案存在才標成連結；SSH 分頁不處理檔案路徑。新增 `src-tauri/src/links.rs`：Windows 用 `ShellExecuteW`（`windows-sys` 本來就在依賴樹裡，只是補上 features），不經過 shell；只開 http(s) 網址；可執行檔（.exe、.bat、.ps1 等）只在檔案總管裡標出來，不會執行；網路路徑（`\\server\...`）完全不去探測。新設定 `terminal.openFilesWith`（`system`／`vscode`／`cursor`，在設定頁「終端機」），選編輯器時用 `vscode://file/...:行:欄` 開檔並跳到行號。
+- README 兩版：搜尋與連結加進功能列表，把「搜尋捲動歷史」從投票清單移除（`78c3b51`）。
+- 測試實例＋CDP 實測：用 `panex-cli` 模擬 hook，狀態轉換全部正確；搜尋的筆數、上下跳、無符合、Esc 關閉都正常，且一開始沒有載入 chunk；滑鼠移到連結上的偵測（含行號、結尾句點、不存在的檔案、`v1.2.3` 不被誤判）、拒絕危險輸入（`file:`／`javascript:`／`ms-settings:`、相對路徑、網路路徑）、設定頁寫回 `panex.json` 都驗過。**沒有實際點開任何連結**，因為點下去會在使用者桌面開出視窗。
+
+**為什麼**
+- 第一性原理分析後，使用者同意的優先順序：AI 終端機的瓶頸是人的注意力和驗收，所以先修狀態信號的正確性（Claude Code 官方文件寫明使用者中斷時 `Stop` 不會觸發，API 錯誤觸發的是 `StopFailure`），再做搜尋與連結，縮短驗收流程。
+
+**影響檔案**
+- `src-tauri/src/hooks.rs`、`src-tauri/src/bin/panex-cli.rs`、`src-tauri/src/links.rs`（新增）、`src-tauri/src/lib.rs`、`src-tauri/Cargo.toml`／`Cargo.lock`
+- `src/main.ts`、`src/keys.ts`、`src/i18n.ts`、`src/style.css`、`index.html`、`schemas/panex.schema.json`、`package.json`
+- `README.md`、`translations/README.zh-Hant.md`
+
+**下一步**
+- 使用者的 `~/.claude/settings.json` 在 10:19:42 被加進 `StopFailure`、`SessionEnd`（指向 `target/test-build/panex-cli.exe`），**原因沒查清楚**：可能是本 session 的測試實例，也可能是同時在跑的另一個 session。已經問使用者要保留還是還原，還在等回覆。
+- 請使用者實機確認：Ctrl+點擊網址、檔案、`.exe`（應該只在檔案總管裡標出來）、選 VS Code 時是否跳到行號；在真的 Claude Code 裡按 Esc，側欄是否顯示「已中斷」。
+- 還沒發版。剩下的建議：分割窗格、Codex 等其他 agent 的 adapter、量測側欄掃描光帶的耗用。
+
 ## 2026-10-22 — 發佈 v0.4.0（Git 面板、SSH、彩色 emoji）
 
 **變更**
