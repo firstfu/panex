@@ -250,16 +250,6 @@ function setCwd(tab: Tab, cwd: string) {
       endRun(tab);
     }
   }
-  // Claude moved this tab into a worktree while it ran; now that the shell is back, it follows,
-  // so the workspace keeps showing (and working in) the worktree.
-  if (tab.followCwd && !duplicate) {
-    const to = tab.followCwd;
-    tab.followCwd = undefined;
-    if (cwd !== to) {
-      invoke("pty_write", { id: tab.id, data: `${cdCommand(tab.shell, to)}\r` }).catch(() => {});
-      return;
-    }
-  }
   // 所在的 worktree 被刪了（Claude 的 WorktreeRemove）：shell 還留在已刪的資料夾裡才帶它回主 checkout。
   if (tab.leaveDir && !duplicate) {
     const { from, to } = tab.leaveDir;

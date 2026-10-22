@@ -198,7 +198,7 @@ async function main() {
       if (!inSidebar) throw new Error("no e2e-a workspace in the sidebar");
     });
 
-    await check("WorktreeRemove hook: worktree deleted, Claude's tab back in the main workspace", async () => {
+    await check("worktree hooks: Claude's tab stays, the worktree gets its own workspace, removing closes it", async () => {
       // What Claude Code does around EnterWorktree / ExitWorktree, from inside tab t1.
       const script = join(tmp, "hooks.sh");
       writeFileSync(
@@ -206,7 +206,7 @@ async function main() {
         `cd "${repo}"
 printf '{"hook_event_name":"WorktreeCreate","name":"e2e-rm","cwd":"%s"}' "$PWD" | "${CLI}" worktree-create > "${tmp}/create.out"
 echo $? > "${tmp}/create.code"
-sleep 1
+sleep 3
 printf '{"hook_event_name":"WorktreeRemove","worktree_path":"%s","cwd":"%s"}' "$(cat "${tmp}/create.out")" "$PWD" | "${CLI}" worktree-remove 2> "${tmp}/remove.err"
 echo $? > "${tmp}/remove.code"
 `,
@@ -217,14 +217,19 @@ echo $? > "${tmp}/remove.code"
       const path = readFileSync(join(tmp, "create.out"), "utf8").trim();
       if (readFileSync(join(tmp, "create.code"), "utf8").trim() !== "0" || !path.endsWith("repo-worktrees/e2e-rm")) throw new Error(`create gave ${path}`);
       await waitFor("the e2e-rm workspace", () => evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-rm")`), 5000);
+      // The conversation stays in w1; the worktree is a new workspace of its own with a shell in the folder.
+      const session = join(home, "Library/Application Support/dev.panex.terminal.test/session.json");
+      await waitFor("t1 kept in w1 next to the worktree's workspace", () => {
+        const s = JSON.parse(readFileSync(session, "utf8"));
+        return s.workspaces.find((w) => w.id === "w1")?.tabs.some((t) => t.id === "t1") && s.workspaces.some((w) => w.tabs.some((t) => t.cwd === path));
+      }, 2500);
       await waitFor("the remove hook", () => existsSync(join(tmp, "remove.code")));
       const code = readFileSync(join(tmp, "remove.code"), "utf8").trim();
       if (code !== "0") throw new Error(`remove exited ${code}: ${readFileSync(join(tmp, "remove.err"), "utf8")}`);
       if (existsSync(path)) throw new Error("the worktree folder is still there");
       if (sh("git", ["worktree", "list"], { cwd: repo }).includes("e2e-rm")) throw new Error("git still lists the worktree");
       if (evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-rm")`)) throw new Error("the e2e-rm workspace is still in the sidebar");
-      const session = join(home, "Library/Application Support/dev.panex.terminal.test/session.json");
-      await waitFor("t1 back in w1", () => JSON.parse(readFileSync(session, "utf8")).workspaces.find((w) => w.id === "w1")?.tabs.some((t) => t.id === "t1"), 5000);
+      await waitFor("t1 still in w1", () => JSON.parse(readFileSync(session, "utf8")).workspaces.find((w) => w.id === "w1")?.tabs.some((t) => t.id === "t1"), 5000);
     });
 
     await check("workspace menu: 關閉工作區並刪除 worktree", async () => {

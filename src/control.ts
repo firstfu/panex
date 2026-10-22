@@ -43,35 +43,52 @@ async function open(a: OpenArgs) {
     if (setup) input.push(setup);
   }
   if (a.command) input.push(a.command);
+  const tab = await openWorkspace({ cwd, from: a.from ?? "", title: a.title || a.worktree, repo, copied, input });
+  return { tab: tab.id, cwd };
+}
 
-  const ws: Workspace = { id: newWsId(), tabs: [], customTitle: a.title || a.worktree || undefined };
+interface NewWorkspace {
+  cwd: string;
+  from: string; // tab that asked; the new workspace goes right below its workspace
+  title?: string;
+  repo?: string; // main checkout, when cwd is a worktree of it
+  copied: string[]; // files copied into the worktree, noted in the new tab
+  input: string[]; // lines typed into the shell once it starts
+}
+
+/**
+ * Opens a workspace with one shell below the caller's and starts it without switching to it.
+ * @returns the new tab
+ * @throws when the shell does not start
+ */
+async function openWorkspace(o: NewWorkspace) {
+  const ws: Workspace = { id: newWsId(), tabs: [], customTitle: o.title || undefined };
   workspaces.set(ws.id, ws);
   // Below the caller's workspace, after the ones it opened before, so they keep their order.
   // A worktree joins its repo's group; anything else stays in the caller's group, if any.
-  const from = a.from ?? "";
-  const callerWs = tabs.get(from)?.wsId;
-  const prev = lastOpened.get(from);
+  const callerWs = tabs.get(o.from)?.wsId;
+  const prev = lastOpened.get(o.from);
   const anchor = prev && workspaces.has(prev) ? prev : callerWs;
-  if (repo) insertInRepoGroup(ws, repo, callerWs, anchor);
+  if (o.repo) insertInRepoGroup(ws, o.repo, callerWs, anchor);
   else {
     ws.group = workspaces.get(callerWs ?? "")?.group;
     const after = wsOrder.indexOf(anchor ?? "");
     wsOrder.splice(after < 0 ? wsOrder.length : after + 1, 0, ws.id);
     tidyGroups();
   }
-  lastOpened.set(from, ws.id);
-  const tab = createTab({ id: newId(), shell: S.settings.defaultShell, cwd }, ws.id);
+  lastOpened.set(o.from, ws.id);
+  const tab = createTab({ id: newId(), shell: S.settings.defaultShell, cwd: o.cwd }, ws.id);
   ws.tabs.push(tab.id);
   ws.activeTab = tab.id;
-  if (copied.length) tab.term.write(`\x1b[90m${tr("已複製：{files}", { files: copied.join(", ") })}\x1b[0m\r\n`);
+  if (o.copied.length) tab.term.write(`\x1b[90m${tr("已複製：{files}", { files: o.copied.join(", ") })}\x1b[0m\r\n`);
   // The shell reads the lines one after another, so setup finishes before the command starts.
-  if (input.length) tab.initialInput = input.join("\r");
+  if (o.input.length) tab.initialInput = o.input.join("\r");
   saveSession();
   scheduleRender();
   // Not shown, so start it here instead of on first view; xterm attaches when the user opens it.
   await spawn(tab);
   if (!tab.running) throw "the shell did not start";
-  return { tab: tab.id, cwd };
+  return tab;
 }
 
 interface WorktreeArgs {
@@ -83,49 +100,19 @@ interface WorktreeArgs {
 
 /**
  * Claude Code wants a worktree (its WorktreeCreate hook): make it panex's way, next to the repo,
- * and move the tab Claude runs in to a new workspace for it under the repo's group, so the
- * conversation carries on there. The workspace it leaves gets a fresh shell in the old folder
- * instead of going away, so the repo's main workspace stays at the top of its group.
+ * and give the folder its own workspace (a shell in it) under the repo's group. The tab Claude
+ * runs in stays where it is: the conversation belongs to the workspace it was started in, and the
+ * worktree is another folder, shown as its own row the user can open to run or look at things there.
  * @returns `{ path }`, the worktree folder Claude Code moves the session into
  * @throws when git can't create the worktree (Claude Code then reports the failure)
  */
 async function worktree(a: WorktreeArgs) {
   const wt = await addWorktree(a.cwd, a.name, null, true);
-  const tab = tabs.get(a.from);
-  const oldWs = workspaces.get(tab?.wsId ?? "");
-  if (!a.show || !tab || !oldWs) return { path: wt.path };
-
-  // Asked again for a worktree that already has a workspace (Claude resuming a session in it):
-  // nothing to do when the tab is already there, else the tab joins that workspace.
-  const at = (p?: string) => (p ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
-  const existing = wsOrder.map((id) => workspaces.get(id)!).find((w) => w.tabs.some((t) => at(tabs.get(t)?.cwd) === at(wt.path)));
-  if (existing?.id === oldWs.id) return { path: wt.path };
-  let ws: Workspace;
-  if (existing) ws = existing;
-  else {
-    ws = { id: newWsId(), tabs: [], customTitle: a.name };
-    workspaces.set(ws.id, ws);
-    // Before the tab moves: with no group yet, the caller's workspace joins one as a checkout of the repo.
-    insertInRepoGroup(ws, wt.repo, oldWs.id, oldWs.id);
-  }
-
-  const oldCwd = tab.cwd;
-  oldWs.tabs = oldWs.tabs.filter((id) => id !== tab.id);
-  ws.tabs.push(tab.id);
-  ws.activeTab = tab.id;
-  tab.wsId = ws.id;
-  // Claude moved, its shell didn't yet: followCwd has the shell cd there once Claude exits.
-  Object.assign(tab, { cwd: wt.path, repo: wt.repo, worktree: true, branch: a.name, followCwd: wt.path });
-  if (wt.copied.length) tab.term.write(`\x1b[90m${tr("已複製：{files}", { files: wt.copied.join(", ") })}\x1b[0m\r\n`);
-  if (!oldWs.tabs.length) {
-    const fresh = createTab({ id: newId(), shell: tab.shell, cwd: oldCwd }, oldWs.id);
-    oldWs.tabs.push(fresh.id);
-  }
-  if (oldWs.activeTab === tab.id) oldWs.activeTab = oldWs.tabs[0];
-  // Follow the conversation when the user was looking at it.
-  if (activeWs()?.id === oldWs.id) showWorkspace(ws.id);
-  saveSession();
-  scheduleRender();
+  if (!a.show || !tabs.has(a.from)) return { path: wt.path };
+  // Asked again for a worktree that already has a tab (Claude resuming a session in it): keep that one.
+  if ([...tabs.values()].some((t) => inFolder(t.cwd, wt.path))) return { path: wt.path };
+  const setup = worktreeSetup();
+  await openWorkspace({ cwd: wt.path, from: a.from, title: a.name, repo: wt.repo, copied: wt.copied, input: setup ? [setup] : [] });
   return { path: wt.path };
 }
 
@@ -135,8 +122,8 @@ interface WorktreeRemoveArgs {
 }
 
 /**
- * Claude Code 要刪掉一個 worktree（WorktreeRemove hook）：把 Claude 所在的分頁搬回 repo 的主工作區，
- * 再關掉其他開在那個資料夾裡的分頁，側欄才不會留下指向已刪資料夾的工作區，Windows 上也不會有 shell 卡住資料夾。
+ * Claude Code 要刪掉一個 worktree（WorktreeRemove hook）：關掉開在那個資料夾裡的分頁（worktree 建立時開的工作區），
+ * 若 Claude 所在的分頁本身就在那個資料夾裡（在 worktree 裡啟動的 claude、或舊版搬過去的分頁）則搬回 repo 的主工作區，側欄才不會留下指向已刪資料夾的工作區，Windows 上也不會有 shell 卡住資料夾。
  * 沒有主工作區時，Claude 那個工作區留下來當 repo 的工作區。還有 agent 在跑的分頁不關：中斷別人的工作比多留一列糟。
  * @param a.from Claude 所在的分頁 id；不在 panex 的話只關其他分頁
  * @param a.path 要刪的 worktree 資料夾
@@ -151,7 +138,7 @@ function worktreeRemove(a: WorktreeRemoveArgs) {
     const lead = group ? groupLead(group, groupMembers(group).filter((id) => id !== ws.id)) : undefined;
     const home = tab.repo ?? group;
     // shell 若還在 worktree 裡（重開 panex 後 shell 就是在那裡啟動的），Claude 結束後的提示字元會帶它 cd 回主 checkout。
-    Object.assign(tab, { followCwd: undefined, worktree: false, branch: undefined, branchAt: undefined, cwd: home ?? tab.cwd });
+    Object.assign(tab, { worktree: false, branch: undefined, branchAt: undefined, cwd: home ?? tab.cwd });
     if (home) tab.leaveDir = { from: a.path, to: home };
     const leadWs = workspaces.get(lead ?? "");
     if (leadWs) {
