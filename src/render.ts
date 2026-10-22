@@ -10,7 +10,7 @@ import { digitHint, keyLabel, withKey } from "./config";
 import { newWorkspace } from "./workspaces";
 import { openSshDialog } from "./ssh-dialog";
 import { gitBadges } from "./git-panel";
-import { isCollapsed, repoName, units } from "./groups";
+import { groupName, isCollapsed, repoName, units } from "./groups";
 
 export const wsListEl = $("tabs");
 export const tabbarEl = $("tabbar");
@@ -51,7 +51,7 @@ function renderSidebar() {
       head.dataset.group = group;
       head.title = group;
       head.innerHTML =
-        `<span class="grp-caret">${folded ? "▸" : "▾"}</span><span class="name">${esc(repoName(group))}</span>` +
+        `<span class="grp-caret">${folded ? "▸" : "▾"}</span><span class="name">${esc(groupName(group, run))}</span>` +
         `<span class="t-count" title="${esc(tr("{n} 個工作區", { n: run.length }))}">${run.length}</span>` +
         (status !== "idle" ? `<span class="s-ico ${status}"></span>` : "");
       box.append(head, ...(folded ? [] : run.map(wsRow)));

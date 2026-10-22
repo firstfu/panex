@@ -15,6 +15,25 @@ export const repoKey = (p?: string) => (p ? (CI ? p.toLowerCase() : p) : "");
 export const sameRepo = (a?: string, b?: string) => !!a && repoKey(a) === repoKey(b);
 export const repoName = (repo: string) => basename(repo);
 
+/**
+ * 群組標題要顯示的名字：主 checkout 那個工作區被使用者取過名就用它（例如「老犬」），否則用 repo 資料夾名。
+ * 只認使用者自訂的名字，因為自動標題會跟著終端機標題一直變，標題列會跳來跳去。
+ * @param group 群組的 key（主 checkout 的路徑）
+ * @param members 群組內的工作區 id
+ * @returns 顯示用的名字
+ */
+export function groupName(group: string, members: string[]): string {
+  for (const id of members) {
+    const ws = workspaces.get(id);
+    const main = ws?.tabs.some((t) => {
+      const tab = tabs.get(t);
+      return !!tab && !tab.worktree && sameRepo(tab.repo, group);
+    });
+    if (main && ws?.customTitle) return ws.customTitle;
+  }
+  return repoName(group);
+}
+
 /** The group's workspaces in sidebar order. */
 export const groupMembers = (group: string) => wsOrder.filter((id) => sameRepo(workspaces.get(id)?.group, group));
 

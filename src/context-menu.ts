@@ -6,7 +6,7 @@ import { $, COLORS, esc } from "./util";
 import { tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { keyLabel } from "./config";
 import { askCloseTab, askCloseTabs, askCloseWorkspaces, moveTab, newTab, setColor, showWorkspace } from "./workspaces";
-import { canMove, groupMembers, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
+import { canMove, groupMembers, groupName, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
 import { openWorktreeDialog } from "./worktree-dialog";
 import { startRename } from "./rename";
 
@@ -44,8 +44,9 @@ function groupItems(ws: Workspace): MenuItem[] {
   if (ws.group) return [{ label: tr("移出群組"), run: () => leaveGroup(ws.id) }];
   const repo = wsActiveTab(ws)?.repo;
   if (!repo) return [];
+  const members = groupMembers(repo);
+  if (members.length) return [{ label: tr("加入「{name}」群組", { name: groupName(repo, members) }), run: () => joinGroup([ws.id], repo) }];
   const name = repoName(repo);
-  if (groupMembers(repo).length) return [{ label: tr("加入「{name}」群組", { name }), run: () => joinGroup([ws.id], repo) }];
   // Other open checkouts of the same repo (its worktrees) that are in no group either.
   const same = wsOrder.filter((id) => !workspaces.get(id)!.group && inRepo(workspaces.get(id)!, repo));
   if (same.length < 2) return [];
