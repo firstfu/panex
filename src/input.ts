@@ -5,22 +5,23 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { IS_MAC } from "./platform";
 import { ACTIONS, digitFamily, eventCombo } from "./keys";
 import { $ } from "./util";
-import { S, activeTab, tabs, workspaces, wsOrder } from "./state";
+import { S, activeTab, tabs, workspaces } from "./state";
 import { setFontSize, updateSettings } from "./config";
 import { termsEl } from "./terminal";
-import { askCloseTab, askCloseWorkspaces, moveTab, moveWorkspace, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
+import { askCloseTab, askCloseWorkspaces, moveTab, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
+import { groupMembers, isCollapsed, placeRun, sameRepo, setCollapsed } from "./groups";
 import { wtEl } from "./worktree-dialog";
 import { closeGitView, gitViewEl } from "./git-panel";
 import { closeSearch, searchEl } from "./search";
 import { startRename } from "./rename";
 import { scheduleRender, shellMenuEl, tabbarEl, wsListEl } from "./render";
 import { closeAskEl } from "./close-ask";
-import { ctxEl, hideCtx, showCtx, tabMenu, wsMenu } from "./context-menu";
+import { ctxEl, groupMenu, hideCtx, showCtx, tabMenu, wsMenu } from "./context-menu";
 import { captureKey, closeSettings, isCapturing, openSettings, settingsEl } from "./settings-panel";
 import { copySelection, runAction } from "./actions";
 
 let chord: { steps: string[]; timer: number } | undefined;
-let drag: { kind: "ws" | "tab"; id: string } | undefined;
+let dragging = false;
 
 function stop(e: KeyboardEvent, fn: () => void) {
   e.preventDefault();
@@ -108,7 +109,9 @@ document.addEventListener("contextmenu", (e) => {
   const t = e.target as HTMLElement;
   const ws = workspaces.get(t.closest<HTMLElement>("[data-ws]")?.dataset.ws ?? "");
   const tab = tabs.get(t.closest<HTMLElement>("[data-tab]")?.dataset.tab ?? "");
-  if (ws) showCtx(e.clientX, e.clientY, wsMenu(ws));
+  const group = t.closest<HTMLElement>("[data-group]")?.dataset.group;
+  if (group) showCtx(e.clientX, e.clientY, groupMenu(group));
+  else if (ws) showCtx(e.clientX, e.clientY, wsMenu(ws));
   else if (tab) showCtx(e.clientX, e.clientY, tabMenu(tab));
   else hideCtx();
 });
@@ -129,6 +132,8 @@ function isDoubleClick(id: string) {
 wsListEl.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;
   if (target.closest(".rename-input")) return;
+  const group = target.closest<HTMLElement>("[data-group]")?.dataset.group;
+  if (group) return setCollapsed(group, !isCollapsed(group));
   const id = target.closest<HTMLElement>("[data-ws]")?.dataset.ws;
   if (!id) return;
   if (target.closest(".t-close")) return askCloseWorkspaces([id]);
@@ -165,60 +170,117 @@ tabbarEl.addEventListener("auxclick", (e) => {
 function clearDropMarks() {
   document.querySelectorAll(".drop-before, .drop-after").forEach((el) => el.classList.remove("drop-before", "drop-after"));
 }
-function wireDrag(container: HTMLElement, kind: "ws" | "tab", attr: string, horizontal: boolean) {
-  const itemOf = (t: EventTarget | null) => ((t as HTMLElement | null)?.closest?.(`[data-${attr}]`) as HTMLElement | null | undefined) ?? null;
+/** What a drag moves (`run`), and where it may land under the pointer. */
+interface DragPick {
+  el: HTMLElement; // dimmed while dragging
+  run: string[];
+  targetAt(node: Element | null): { el: HTMLElement; run: string[] } | undefined;
+}
+function wireDrag(
+  container: HTMLElement,
+  horizontal: boolean,
+  pick: (target: HTMLElement) => DragPick | undefined,
+  drop: (run: string[], target: string[], after: boolean) => void,
+) {
   container.addEventListener("pointerdown", (e) => {
-    const el = itemOf(e.target);
-    const id = el?.dataset[attr];
-    if (e.button !== 0 || !id || S.renaming || (e.target as HTMLElement).closest("input")) return;
+    const t = e.target as HTMLElement;
+    if (e.button !== 0 || S.renaming || t.closest("input")) return;
+    const p = pick(t);
+    if (!p) return;
     const startX = e.clientX;
     const startY = e.clientY;
-    let target: { id: string; after: boolean } | undefined;
+    let target: { run: string[]; after: boolean } | undefined;
 
     const onMove = (m: PointerEvent) => {
-      if (!drag) {
+      if (!dragging) {
         if (Math.hypot(m.clientX - startX, m.clientY - startY) < 5) return;
-        drag = { kind, id };
+        dragging = true;
         document.body.classList.add("reordering");
-        el!.classList.add("dragging");
+        p.el.classList.add("dragging");
       }
       clearDropMarks();
       target = undefined;
-      const over = itemOf(document.elementFromPoint(m.clientX, m.clientY));
-      const overId = over?.dataset[attr];
-      if (!over || !overId || !container.contains(over)) return;
-      const r = over.getBoundingClientRect();
+      const over = p.targetAt(document.elementFromPoint(m.clientX, m.clientY));
+      if (!over || !container.contains(over.el)) return;
+      const r = over.el.getBoundingClientRect();
       const after = horizontal ? m.clientX > r.left + r.width / 2 : m.clientY > r.top + r.height / 2;
-      over.classList.add(after ? "drop-after" : "drop-before");
-      target = { id: overId, after };
+      over.el.classList.add(after ? "drop-after" : "drop-before");
+      target = { run: over.run, after };
     };
     const end = () => {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", end);
       document.removeEventListener("pointercancel", end);
-      if (!drag) return;
-      const moved = drag;
-      drag = undefined;
+      if (!dragging) return;
+      dragging = false;
       document.body.classList.remove("reordering");
       clearDropMarks();
       // The release would otherwise count as a click and switch to the dragged item.
       const swallow = (c: Event) => c.stopPropagation();
       window.addEventListener("click", swallow, { capture: true, once: true });
       window.setTimeout(() => window.removeEventListener("click", swallow, true), 100);
-      const list = kind === "ws" ? wsOrder : workspaces.get(tabs.get(moved.id)?.wsId ?? "")?.tabs;
-      if (target && list) {
-        const from = list.indexOf(moved.id);
-        let to = list.indexOf(target.id) + (target.after ? 1 : 0);
-        if (from < to) to--;
-        if (kind === "ws") moveWorkspace(moved.id, to);
-        else moveTab(moved.id, to);
-      }
+      if (target) drop(p.run, target.run, target.after);
       scheduleRender();
     };
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", end);
     document.addEventListener("pointercancel", end);
   });
+}
+
+// Sidebar: a workspace in a group moves only among its group; anything else (a lone workspace,
+// or a whole group dragged by its header) moves among the top-level rows and groups.
+const topLevel = (n: Element | null) => {
+  let el = n as HTMLElement | null;
+  while (el && el.parentElement !== wsListEl) el = el.parentElement;
+  return el ?? undefined;
+};
+const runOf = (el: HTMLElement) =>
+  el.classList.contains("ws-group") ? groupMembers(el.querySelector<HTMLElement>("[data-group]")!.dataset.group!) : [el.dataset.ws!];
+function pickWorkspace(t: HTMLElement): DragPick | undefined {
+  const head = t.closest<HTMLElement>("[data-group]");
+  const row = t.closest<HTMLElement>("[data-ws]");
+  const group = !head && row ? workspaces.get(row.dataset.ws!)?.group : undefined;
+  if (row && group) {
+    return {
+      el: row,
+      run: [row.dataset.ws!],
+      targetAt: (n) => {
+        const o = (n as HTMLElement | null)?.closest?.<HTMLElement>("[data-ws]");
+        return o && sameRepo(workspaces.get(o.dataset.ws!)?.group, group) ? { el: o, run: [o.dataset.ws!] } : undefined;
+      },
+    };
+  }
+  const el = topLevel(head ?? row);
+  if (!el) return;
+  return {
+    el,
+    run: runOf(el),
+    targetAt: (n) => {
+      const o = topLevel(n);
+      return o && { el: o, run: runOf(o) };
+    },
+  };
+}
+function pickTab(t: HTMLElement): DragPick | undefined {
+  const el = t.closest<HTMLElement>("[data-tab]");
+  if (!el) return;
+  return {
+    el,
+    run: [el.dataset.tab!],
+    targetAt: (n) => {
+      const o = (n as HTMLElement | null)?.closest?.<HTMLElement>("[data-tab]");
+      return o ? { el: o, run: [o.dataset.tab!] } : undefined;
+    },
+  };
+}
+function dropTab([id]: string[], [over]: string[], after: boolean) {
+  const list = workspaces.get(tabs.get(id)?.wsId ?? "")?.tabs;
+  if (!list) return;
+  const from = list.indexOf(id);
+  let to = list.indexOf(over) + (after ? 1 : 0);
+  if (from < to) to--;
+  moveTab(id, to);
 }
 // Files dragged in from Explorer: type their paths into the current terminal, quoted when they
 // contain spaces (what Windows Terminal does). Goes through paste, so a program that asked for
@@ -235,8 +297,8 @@ getCurrentWebview()
   })
   .catch(() => {});
 
-wireDrag(wsListEl, "ws", "ws", false);
-wireDrag(tabbarEl, "tab", "tab", true);
+wireDrag(wsListEl, false, pickWorkspace, placeRun);
+wireDrag(tabbarEl, true, pickTab, dropTab);
 
 // Drag the sidebar's right edge to resize it; the width is a per-machine UI preference.
 const SIDEBAR_W = { min: 160, max: 280, def: 220 };

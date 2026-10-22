@@ -22,6 +22,7 @@ interface SavedWorkspace {
   id: string;
   title?: string | null;
   color?: string | null;
+  group?: string | null;
   tabs: SavedTab[];
   active?: string | null;
 }
@@ -91,6 +92,8 @@ export interface Tab {
   ssh?: string; // [user@]host[:port] when shell is "ssh"
   cwd?: string;
   branch?: string; // git branch of cwd (not persisted; re-read from .git/HEAD)
+  repo?: string; // main checkout of cwd's repo, the same for all its worktrees (not persisted)
+  worktree?: boolean; // cwd is in a linked worktree, not the main checkout (not persisted)
   branchAt?: number; // last refresh time, throttles the per-prompt lookup
   git?: GitStatus; // last `git status` of cwd's repo (not persisted)
   gitErr?: string; // why that status could not be read
@@ -127,6 +130,7 @@ export interface Workspace {
   id: string;
   customTitle?: string;
   color?: string;
+  group?: string; // main checkout of the repo whose sidebar group this is in (see groups.ts)
   tabs: string[];
   activeTab?: string;
 }

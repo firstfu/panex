@@ -11,11 +11,53 @@ use std::{
     process::{Command, Stdio},
 };
 
-/// Branch name for the repo containing `cwd`, or a short hash when HEAD is detached.
-/// Reads `.git/HEAD` directly (no git process); `.git` may be a file in worktrees/submodules.
+#[derive(Serialize, Debug)]
+pub struct GitHead {
+    /// Branch name, or a short hash when HEAD is detached.
+    branch: String,
+    /// The main checkout this folder belongs to: itself, or for a linked worktree the repo it
+    /// was added from. The sidebar groups workspaces by it.
+    repo: String,
+    /// A linked worktree (`git worktree add`) rather than the main checkout.
+    worktree: bool,
+}
+
+/// Branch of the repo containing `cwd`, and which repo that is. Reads `.git/HEAD` directly (no
+/// git process); `.git` may be a file in worktrees/submodules.
 #[tauri::command]
-pub fn git_branch(cwd: String) -> Option<String> {
-    read_head(&resolve_git_dir(&repo_root(Path::new(&cwd))?.join(".git"))?)
+pub fn git_branch(cwd: String) -> Option<GitHead> {
+    let root = repo_root(Path::new(&cwd))?;
+    let git_dir = resolve_git_dir(&root.join(".git"))?;
+    let branch = read_head(&git_dir)?;
+    // A linked worktree's git dir is `<main>/.git/worktrees/<name>`, whose `commondir` file
+    // points back at `<main>/.git`. Submodules have a pointer file too, but no commondir.
+    let common = fs::read_to_string(git_dir.join("commondir")).ok().map(|c| normalize(&git_dir.join(c.trim())));
+    let (repo, worktree) = match common {
+        Some(c) => (main_checkout(&c).unwrap_or(c), true),
+        None => (root, false),
+    };
+    Some(GitHead { branch, repo: normalize(&repo).to_string_lossy().into_owned(), worktree })
+}
+
+/// `<main>` for a shared git dir `<main>/.git`; None for a bare repo.
+fn main_checkout(common: &Path) -> Option<PathBuf> {
+    (common.file_name()? == ".git").then(|| common.parent().map(Path::to_path_buf)).flatten()
+}
+
+/// Resolves `.` and `..` without touching the disk (canonicalize would add `\\?\` on Windows)
+/// and uses the platform's separators, so the same folder always gives the same string.
+fn normalize(p: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in p.components() {
+        match c {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                out.pop();
+            }
+            c => out.push(c),
+        }
+    }
+    out
 }
 
 /// Nearest folder at or above `cwd` that has a `.git` (directory or worktree pointer file).
@@ -56,6 +98,8 @@ fn read_head(git_dir: &Path) -> Option<String> {
 #[derive(Serialize)]
 pub struct Worktree {
     path: String,
+    /// The main checkout, as `git_branch` reports it.
+    repo: String,
     /// `copy_files` entries that were actually copied (missing or already-present ones are skipped).
     copied: Vec<String>,
 }
@@ -113,10 +157,7 @@ pub fn git_worktree_add(cwd: String, branch: String, base: Option<String>, copy_
     let top = PathBuf::from(git(cwd, &["rev-parse", "--show-toplevel"]).map_err(|_| "not inside a git repository".to_string())?);
     // The main checkout, even when `cwd` is itself a worktree: parent of the shared `.git` dir.
     let common = PathBuf::from(git(cwd, &["rev-parse", "--path-format=absolute", "--git-common-dir"])?);
-    let root = match common.file_name() {
-        Some(n) if n == ".git" => common.parent().map(Path::to_path_buf).unwrap_or_else(|| top.clone()),
-        _ => top.clone(),
-    };
+    let root = main_checkout(&normalize(&common)).unwrap_or_else(|| top.clone());
     let name = root.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "repo".into());
     let path = root
         .parent()
@@ -155,7 +196,7 @@ pub fn git_worktree_add(cwd: String, branch: String, base: Option<String>, copy_
             copied.push(rel);
         }
     }
-    Ok(Worktree { path: path_str, copied })
+    Ok(Worktree { path: path_str, repo: normalize(&root).to_string_lossy().into_owned(), copied })
 }
 
 /// Local branch names of the repo containing `cwd`, most recently committed first.
@@ -444,4 +485,36 @@ pub async fn git_show(root: String, hash: String) -> Result<GitText, String> {
         Ok(GitText { text, truncated, binary: false })
     })
     .await?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_resolves_dots() {
+        let p = normalize(Path::new("a/b/./../c"));
+        assert_eq!(p, Path::new("a").join("c"));
+    }
+
+    #[test]
+    fn worktree_reports_its_main_checkout() {
+        let base = std::env::temp_dir().join(format!("panex-git-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let main = base.join("repo");
+        fs::create_dir_all(&main).unwrap();
+        let run = |args: &[&str]| git(&main, args).unwrap();
+        run(&["init", "-q", "-b", "main"]);
+        run(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"]);
+        let wt = git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![]).unwrap();
+        fs::create_dir_all(Path::new(&wt.path).join("sub")).unwrap();
+
+        let m = git_branch(main.to_string_lossy().into()).unwrap();
+        assert_eq!((m.branch.as_str(), m.worktree), ("main", false));
+        let w = git_branch(Path::new(&wt.path).join("sub").to_string_lossy().into()).unwrap();
+        assert_eq!((w.branch.as_str(), w.worktree), ("feat/a", true));
+        assert_eq!(w.repo, m.repo);
+        assert_eq!(wt.repo, m.repo);
+        let _ = fs::remove_dir_all(&base);
+    }
 }

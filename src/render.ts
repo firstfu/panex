@@ -5,11 +5,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { t as tr } from "./i18n";
 import { type Status, type Tab } from "./types";
 import { $, COLORS, esc, fmtDuration } from "./util";
-import { S, activeWs, shellTag, tabTitle, tabs, workspaces, wsActiveTab, wsOrder, wsStatus, wsTitle } from "./state";
+import { S, activeWs, loudest, shellTag, tabTitle, tabs, workspaces, wsActiveTab, wsOrder, wsStatus, wsTitle } from "./state";
 import { digitHint, keyLabel, withKey } from "./config";
 import { newWorkspace } from "./workspaces";
 import { openSshDialog } from "./ssh-dialog";
 import { gitBadges } from "./git-panel";
+import { isCollapsed, repoName, units } from "./groups";
 
 export const wsListEl = $("tabs");
 export const tabbarEl = $("tabbar");
@@ -35,33 +36,61 @@ export function render() {
   renderTabbar();
 }
 
+// Groups (one repo's checkouts) render as a box with a header row; the rest as plain rows.
 function renderSidebar() {
   wsListEl.replaceChildren(
-    ...wsOrder.map((wid, i) => {
-      const ws = workspaces.get(wid)!;
-      const cur = wsActiveTab(ws);
-      const { status, tab: st } = wsStatus(ws);
-      const d = document.createElement("div");
-      d.className = `tab ws st-${status}${wid === S.activeWsId ? " active" : ""}`;
-      d.dataset.ws = wid;
-      const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
-      const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
-      const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
-      const count = ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
-      const title =
-        S.renaming?.kind === "ws" && S.renaming.id === wid
-          ? renameInput
-          : `${dot}<span class="name">${esc(wsTitle(ws))}</span>${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
-      d.innerHTML =
-        `<div class="t-title">${title}</div>` +
-        (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +
-        (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${esc(cur.branch)}${gitBadges(cur)}</div>` : "") +
-        stateLine(status, st) +
-        `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
-      return d;
+    ...units().map((run) => {
+      const group = workspaces.get(run[0])!.group;
+      if (!group) return wsRow(run[0]);
+      const box = document.createElement("div");
+      const folded = isCollapsed(group);
+      const status = folded ? loudest(run) : "idle";
+      box.className = `ws-group${folded ? " folded" : ""}`;
+      const head = document.createElement("div");
+      head.className = `grp-head st-${status}${folded && run.includes(S.activeWsId ?? "") ? " active" : ""}`;
+      head.dataset.group = group;
+      head.title = group;
+      head.innerHTML =
+        `<span class="grp-caret">${folded ? "▸" : "▾"}</span><span class="name">${esc(repoName(group))}</span>` +
+        `<span class="t-count" title="${esc(tr("{n} 個工作區", { n: run.length }))}">${run.length}</span>` +
+        (status !== "idle" ? `<span class="s-ico ${status}"></span>` : "");
+      box.append(head, ...(folded ? [] : run.map(wsRow)));
+      return box;
     }),
   );
   if (wsListEl.querySelector(".t-elapsed")) startElapsedTimer();
+}
+
+function wsRow(wid: string) {
+  const i = wsOrder.indexOf(wid);
+  const ws = workspaces.get(wid)!;
+  const cur = wsActiveTab(ws);
+  const { status, tab: st } = wsStatus(ws);
+  const d = document.createElement("div");
+  d.className = `tab ws st-${status}${wid === S.activeWsId ? " active" : ""}`;
+  d.dataset.ws = wid;
+  const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
+  const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
+  const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
+  const count = ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
+  const title =
+    S.renaming?.kind === "ws" && S.renaming.id === wid
+      ? renameInput
+      : `${dot}<span class="name">${esc(wsTitle(ws))}</span>${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
+  d.innerHTML =
+    `<div class="t-title">${title}</div>` +
+    (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +
+    (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${worktreeTag(cur, !!ws.group)}${esc(cur.branch)}${gitBadges(cur)}</div>` : "") +
+    stateLine(status, st) +
+    `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
+  return d;
+}
+
+/** Marks a linked worktree; outside a group (whose header names the repo) it also names the repo. */
+function worktreeTag(tab: Tab, grouped: boolean) {
+  if (!tab.worktree || !tab.repo) return "";
+  const title = esc(tr("git worktree，主 repo：{repo}", { repo: tab.repo }));
+  return `<span class="t-wt" title="${title}">worktree${grouped ? "" : ` · ${esc(repoName(tab.repo))}`}</span>`;
 }
 
 /** The status row under a workspace: glyph, note and the turn's running/finished time; running also gets the scan line. */
@@ -153,7 +182,9 @@ export function renderShellMenu() {
 /** Updates the sidebar's hook status line; resolves to whether the hooks are installed. */
 export async function refreshHooks(): Promise<boolean> {
   const ok = await invoke<boolean>("hooks_status").catch(() => false);
-  hooksEl.textContent = ok ? tr("Claude Code 通知：已啟用") : tr("Claude Code 通知：未啟用");
+  // Installed at launch, so the line only appears when that failed, to offer a retry.
+  hooksEl.hidden = ok;
+  hooksEl.textContent = ok ? "" : tr("Claude Code 通知：未啟用");
   if (!ok) {
     const b = document.createElement("button");
     b.textContent = tr("啟用");

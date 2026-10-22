@@ -25,6 +25,7 @@ import { scheduleGit, setGitOpen } from "./git-panel";
 import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { wireControl } from "./control";
+import { tidyGroups } from "./groups";
 
 async function main() {
   document.body.classList.toggle("mac", IS_MAC);
@@ -136,12 +137,13 @@ async function main() {
   );
   let k = 0;
   for (const sw of saved) {
-    const ws: Workspace = { id: sw.id, customTitle: sw.title ?? undefined, color: sw.color ?? undefined, tabs: [] };
+    const ws: Workspace = { id: sw.id, customTitle: sw.title ?? undefined, color: sw.color ?? undefined, group: sw.group ?? undefined, tabs: [] };
     workspaces.set(ws.id, ws);
     wsOrder.push(ws.id);
     for (const st of sw.tabs) ws.tabs.push(createTab(st, ws.id, restored[k++]).id);
     ws.activeTab = sw.active && ws.tabs.includes(sw.active) ? sw.active : ws.tabs[0];
   }
+  tidyGroups();
 
   try {
     if (localStorage.getItem("panex.gitOpen")) setGitOpen(true);

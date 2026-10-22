@@ -39,6 +39,9 @@ pub struct Workspace {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// Main checkout of the repo whose sidebar group this workspace is in (worktrees of one repo).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     #[serde(default)]
     pub tabs: Vec<Tab>,
     #[serde(default)]
@@ -120,6 +123,7 @@ fn migrate_v1(v: &Value) -> Session {
             id: ws_id,
             title: str_of(t, "title"),
             color: str_of(t, "color"),
+            group: None,
             active: Some(id.clone()),
             tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), ssh: None, title: None, agent_session: None }],
         });
@@ -225,7 +229,7 @@ mod tests {
         let d = scratch("v2");
         let v2 = json!({
             "workspaces": [{
-                "id": "w1", "title": "demo", "color": "blue", "active": "t2",
+                "id": "w1", "title": "demo", "color": "blue", "group": "C:\\repo", "active": "t2",
                 "tabs": [
                     { "id": "t1", "shell": "cmd", "cwd": "C:\\a", "title": "mine", "agentSession": "0f6e1c2a-9b3d-4e5f" },
                     { "id": "t2", "shell": "ssh", "ssh": "u@h:22", "cwd": null }

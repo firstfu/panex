@@ -3,9 +3,10 @@
 import { t as tr } from "./i18n";
 import { type Tab, type Workspace } from "./types";
 import { $, COLORS, esc } from "./util";
-import { workspaces, wsOrder } from "./state";
+import { tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { keyLabel } from "./config";
-import { askCloseTab, askCloseTabs, askCloseWorkspaces, moveTab, moveWorkspace, newTab, setColor, showWorkspace } from "./workspaces";
+import { askCloseTab, askCloseTabs, askCloseWorkspaces, moveTab, newTab, setColor, showWorkspace } from "./workspaces";
+import { canMove, groupMembers, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
 import { openWorktreeDialog } from "./worktree-dialog";
 import { startRename } from "./rename";
 
@@ -22,15 +23,49 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     "-",
     { label: tr("新分頁"), keys: keyLabel("newTab"), run: () => (showWorkspace(ws.id), newTab()) },
     { label: tr("用新 worktree 開新工作區…"), keys: keyLabel("newWorktree"), run: () => (showWorkspace(ws.id), openWorktreeDialog()) },
+    ...groupItems(ws),
     "-",
-    { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveWorkspace(ws.id, i - 1), disabled: i === 0 },
-    { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveWorkspace(ws.id, i + 1), disabled: i === wsOrder.length - 1 },
-    { label: tr("移到最上面"), run: () => moveWorkspace(ws.id, 0), disabled: i === 0 },
+    { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveBy(ws.id, -1), disabled: !canMove(ws.id, -1) },
+    { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveBy(ws.id, 1), disabled: !canMove(ws.id, 1) },
+    { label: tr("移到最上面"), run: () => moveToTop(ws.id), disabled: !canMove(ws.id, -1) },
     "-",
     { label: tr("關閉工作區"), keys: keyLabel("closeWorkspace"), run: () => askCloseWorkspaces([ws.id]) },
     { label: tr("關閉其他工作區"), run: () => askCloseWorkspaces(others), disabled: !others.length },
     { label: tr("關閉下方工作區"), run: () => askCloseWorkspaces(wsOrder.slice(i + 1)), disabled: i === wsOrder.length - 1 },
     { label: tr("關閉上方工作區"), run: () => askCloseWorkspaces(wsOrder.slice(0, i)), disabled: i === 0 },
+  ];
+}
+
+/** Leave the group, or join / start the group of the repo this workspace is a checkout of. */
+function groupItems(ws: Workspace): MenuItem[] {
+  if (ws.group) return [{ label: tr("移出群組"), run: () => leaveGroup(ws.id) }];
+  const repo = wsActiveTab(ws)?.repo;
+  if (!repo) return [];
+  const name = repoName(repo);
+  if (groupMembers(repo).length) return [{ label: tr("加入「{name}」群組", { name }), run: () => joinGroup([ws.id], repo) }];
+  // Other open checkouts of the same repo (its worktrees) that are in no group either.
+  const same = wsOrder.filter((id) => !workspaces.get(id)!.group && inRepo(workspaces.get(id)!, repo));
+  if (same.length < 2) return [];
+  return [{ label: tr("把「{name}」的 {n} 個工作區設為群組", { name, n: same.length }), run: () => joinGroup(same, repo) }];
+}
+
+/** The header of a repo's group. */
+export function groupMenu(group: string): MenuItem[] {
+  const members = groupMembers(group);
+  const first = members[0];
+  const folded = isCollapsed(group);
+  // Base the new worktree on the main checkout's branch when one of its tabs shows it.
+  const main = members.flatMap((id) => workspaces.get(id)!.tabs.map((t) => tabs.get(t)!)).find((t) => t.repo && !t.worktree && t.branch);
+  return [
+    { label: tr("在這個 repo 開新 worktree…"), run: () => openWorktreeDialog({ cwd: group, base: main?.branch ?? "", after: members[members.length - 1] }) },
+    { label: folded ? tr("展開") : tr("收合"), run: () => setCollapsed(group, !folded) },
+    "-",
+    { label: tr("上移"), run: () => moveBy(first, -1, true), disabled: !canMove(first, -1, true) },
+    { label: tr("下移"), run: () => moveBy(first, 1, true), disabled: !canMove(first, 1, true) },
+    { label: tr("移到最上面"), run: () => moveToTop(first, true), disabled: !canMove(first, -1, true) },
+    "-",
+    { label: tr("解散群組"), run: () => ungroup(group) },
+    { label: tr("關閉群組內的工作區"), run: () => askCloseWorkspaces(members) },
   ];
 }
 

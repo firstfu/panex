@@ -74,6 +74,7 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 - Transparency, plus Mica or Acrylic window backgrounds on Windows 11
 - One plain JSON config file with a schema, applied the moment you save it
 - Right-click a workspace to start a new one in a fresh git worktree, with `.env` files copied over
+- A repo's checkouts (its main folder and its worktrees) are grouped in the sidebar under a collapsible header that shows the most urgent status inside; worktrees carry a `worktree` tag
 - Color emoji in the terminal, so warnings such as ⚠ in Claude Code's status line stand out
 - Pick from the monospace fonts installed on your machine; Chinese and emoji fall back automatically
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> searches the scrollback
@@ -195,7 +196,7 @@ The app isn't notarized by Apple. Go to **System Settings → Privacy & Security
 <details>
 <summary><b>Claude Code notifications don't show up</b></summary>
 
-Check the bottom of the sidebar says **Claude Code 通知：已啟用** (enabled). If it says 未啟用, panex couldn't write `~/.claude/settings.json` (for example, the file isn't valid JSON): fix the file and click **啟用** (Enable). Notifications only light up tabs for Claude Code sessions started inside panex. Desktop notifications appear only while panex isn't the active window; the tab and workspace light up either way.
+panex sets this up by itself at launch. If the bottom of the sidebar says **Claude Code 通知：未啟用** (not enabled), panex couldn't write `~/.claude/settings.json` (for example, the file isn't valid JSON): fix the file and click **啟用** (Enable). Notifications only light up tabs for Claude Code sessions started inside panex. Desktop notifications appear only while panex isn't the active window; the tab and workspace light up either way.
 </details>
 
 <details>

@@ -4,6 +4,30 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 側欄底部不再顯示「Claude Code 通知：已啟用」
+
+**變更**
+- `refreshHooks`：hooks 正常時整行隱藏，只有自動寫入失敗才顯示「未啟用」與「啟用」按鈕。README 中英文的疑難排解同步改寫。
+
+**為什麼**
+- 使用者指出 hooks 已是必要功能、啟動時自動寫入，「已啟用」永遠成立，顯示它沒有資訊量。
+
+## 2026-10-22 — 側欄標示 worktree，同 repo 的工作區排成可收合的群組
+
+**變更**
+- `git_branch` 改回傳 `{branch, repo, worktree}`（讀 gitdir 的 `commondir` 判斷 worktree 並找回主 checkout），`git_worktree_add` 也回傳 `repo`；側欄分支前加 `worktree` 標籤。
+- 新模組 `src/groups.ts`：工作區多一個 `group`（`session.json` 的可省略欄位，Rust `Workspace` 同步加上），建 worktree 時自動成組，右鍵可加入、移出、建立、解散；群組標題列可收合，收合時顯示組內最緊急的狀態。
+- 拖曳排序改成「組內只在組內動，組外與整組在頂層動」；`moveWorkspace(id, index)` 換成 `moveBy`／`moveToTop`／`placeRun`，快捷鍵上移下移照同一套規則。
+- 驗收：Rust 新增 2 個測試（`normalize`、真的建 repo＋worktree 比對 `repo`），全部 24 個通過；`tsc`、`npm test` 過。測試實例用 CDP 跑過：手動建的 worktree 顯示標籤、右鍵設為群組、對話框從工作區與從標題列各開一個 worktree、重開後群組還原、收合後標題列亮藍點、Ctrl+3 跳進收合組會展開、組內拖曳、組外工作區拖到群組上（落在整組前）、拖標題列移動整組、組內工作區拖到組外無效、快捷鍵上移、移出／加入／解散／重組、關到剩一個自動解散並寫回 `session.json`、`panex-cli open --worktree` 與不帶 worktree 的 `open` 都進呼叫者的組且順序正確、從別的 repo 的工作區連開兩個 `open --cwd <repo> --worktree` 也會成組。
+- 測試中出現過一次 `open` 之後畫面停在新工作區。在原始條件下重跑，並在頁面記錄所有輸入事件，沒有重現；記錄到的只有腳本送的 Enter。前一張截圖已經有滑鼠 hover 的痕跡，判斷是測試視窗被實際點到，`open` 本身不切畫面。
+
+**為什麼**
+- 使用者想在側欄一眼看出哪些工作區是 worktree、屬於哪個 repo。群組歸屬刻意存在工作區上、不依 cwd 即時計算：否則在終端機 `cd` 到別的 repo，工作區會自己跳到別組。
+
+**下一步**
+- 標題列可以再加「移除 worktree」（要先確認沒有未提交的內容）。
+- 沒在 macOS 測。
+
 ## 2026-10-22 — 發佈 v0.4.4（小隊模式）
 
 **變更**

@@ -60,3 +60,14 @@ export function wsStatus(ws: Workspace): { status: Status; tab?: Tab } {
   }
   return { status: best?.status ?? "idle", tab: best };
 }
+
+/** The loudest status among several workspaces (a collapsed sidebar group). */
+export function loudest(ids: string[]): Status {
+  let best: Status = "idle";
+  for (const id of ids) {
+    const ws = workspaces.get(id);
+    const s = ws ? wsStatus(ws).status : "idle";
+    if (STATUS_RANK[s] > STATUS_RANK[best]) best = s;
+  }
+  return best;
+}

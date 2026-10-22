@@ -252,11 +252,12 @@ function refreshBranch(tab: Tab, cwd = tab.cwd) {
   const now = Date.now();
   if (cwd === tab.cwd && tab.branchAt && now - tab.branchAt < 1000) return;
   tab.branchAt = now;
-  invoke<string | null>("git_branch", { cwd })
-    .then((b) => {
-      const branch = b ?? undefined;
-      if (branch === tab.branch) return;
-      tab.branch = branch;
+  invoke<{ branch: string; repo: string; worktree: boolean } | null>("git_branch", { cwd })
+    .then((h) => {
+      if (h?.branch === tab.branch && h?.repo === tab.repo && h?.worktree === tab.worktree) return;
+      tab.branch = h?.branch;
+      tab.repo = h?.repo;
+      tab.worktree = h?.worktree;
       scheduleRender();
     })
     .catch(() => {});

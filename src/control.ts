@@ -12,6 +12,7 @@ import { saveSession } from "./session";
 import { createTab, spawn } from "./terminal";
 import { scheduleRender } from "./render";
 import { addWorktree, worktreeSetup } from "./worktree-dialog";
+import { insertInRepoGroup, tidyGroups } from "./groups";
 
 interface OpenArgs {
   cwd: string;
@@ -28,11 +29,13 @@ const lastOpened = new Map<string, string>();
 async function open(a: OpenArgs) {
   let cwd = a.cwd;
   let copied: string[] = [];
+  let repo: string | undefined;
   const input: string[] = [];
   if (a.worktree) {
     const wt = await addWorktree(cwd, a.worktree, a.base || null);
     cwd = wt.path;
     copied = wt.copied;
+    repo = wt.repo;
     const setup = worktreeSetup();
     if (setup) input.push(setup);
   }
@@ -41,10 +44,18 @@ async function open(a: OpenArgs) {
   const ws: Workspace = { id: newWsId(), tabs: [], customTitle: a.title || a.worktree || undefined };
   workspaces.set(ws.id, ws);
   // Below the caller's workspace, after the ones it opened before, so they keep their order.
+  // A worktree joins its repo's group; anything else stays in the caller's group, if any.
   const from = a.from ?? "";
-  let after = wsOrder.indexOf(lastOpened.get(from) ?? "");
-  if (after < 0) after = wsOrder.indexOf(tabs.get(from)?.wsId ?? "");
-  wsOrder.splice(after < 0 ? wsOrder.length : after + 1, 0, ws.id);
+  const callerWs = tabs.get(from)?.wsId;
+  const prev = lastOpened.get(from);
+  const anchor = prev && workspaces.has(prev) ? prev : callerWs;
+  if (repo) insertInRepoGroup(ws, repo, callerWs, anchor);
+  else {
+    ws.group = workspaces.get(callerWs ?? "")?.group;
+    const after = wsOrder.indexOf(anchor ?? "");
+    wsOrder.splice(after < 0 ? wsOrder.length : after + 1, 0, ws.id);
+    tidyGroups();
+  }
   lastOpened.set(from, ws.id);
   const tab = createTab({ id: newId(), shell: S.settings.defaultShell, cwd }, ws.id);
   ws.tabs.push(tab.id);

@@ -6,8 +6,9 @@ import { DEFAULTS } from "./settings";
 import { S, activeTab, activeWs, wsOrder } from "./state";
 import { applyConfig, setFontSize, showNotice, updateSettings } from "./config";
 import { onInput } from "./terminal";
-import { askCloseTab, askCloseWorkspaces, cycleTab, cycleWorkspace, jumpToUnread, moveTab, moveWorkspace, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
+import { askCloseTab, askCloseWorkspaces, cycleTab, cycleWorkspace, jumpToUnread, moveTab, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
 import { openWorktreeDialog } from "./worktree-dialog";
+import { moveBy } from "./groups";
 import { openSshDialog } from "./ssh-dialog";
 import { isGitOpen, setGitOpen } from "./git-panel";
 import { openSearch } from "./search";
@@ -32,7 +33,6 @@ async function paste(tab?: Tab) {
 export function runAction(id: string, digit = 0) {
   const tab = activeTab();
   const ws = activeWs();
-  const wi = S.activeWsId ? wsOrder.indexOf(S.activeWsId) : -1;
   const ti = ws && S.visibleTabId ? ws.tabs.indexOf(S.visibleTabId) : -1;
   switch (id) {
     case "newWorkspace": return newWorkspace();
@@ -44,8 +44,8 @@ export function runAction(id: string, digit = 0) {
     case "selectWorkspaceByNumber": { const w = nth(wsOrder, digit); return w && showWorkspace(w); }
     case "nextWorkspace": return cycleWorkspace(1);
     case "prevWorkspace": return cycleWorkspace(-1);
-    case "moveWorkspaceUp": return S.activeWsId && moveWorkspace(S.activeWsId, wi - 1);
-    case "moveWorkspaceDown": return S.activeWsId && moveWorkspace(S.activeWsId, wi + 1);
+    case "moveWorkspaceUp": return S.activeWsId && moveBy(S.activeWsId, -1);
+    case "moveWorkspaceDown": return S.activeWsId && moveBy(S.activeWsId, 1);
     case "jumpToUnread": return jumpToUnread();
     case "newTab": return newTab();
     case "closeTab": return S.visibleTabId && askCloseTab(S.visibleTabId);

@@ -13,6 +13,7 @@ import { closeGitView, isGitOpen, renderGitPanel, scheduleGit } from "./git-pane
 import { closeSearch } from "./search";
 import { scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
+import { setCollapsed, tidyGroups } from "./groups";
 
 /** Shows a tab (switching workspace if needed). Only the visible tab keeps a WebGL context. */
 export function showTab(id: string) {
@@ -30,6 +31,7 @@ export function showTab(id: string) {
   }
   S.visibleTabId = id;
   S.activeWsId = ws.id;
+  if (ws.group) setCollapsed(ws.group, false);
   ws.activeTab = id;
   tab.el.hidden = false;
   if (!tab.opened) {
@@ -97,6 +99,7 @@ function closeTabs(ids: string[]) {
       if (S.renaming?.id === ws.id) S.renaming = undefined;
     }
   }
+  tidyGroups();
   // Save the layout without these tabs before the backend deletes their scrollback,
   // so a snapshot that is still in flight can't write the file back.
   if (!S.visibleTabId) {
@@ -152,7 +155,6 @@ function moveIn(list: string[], id: string, to: number) {
   return true;
 }
 
-export const moveWorkspace = (id: string, to: number) => moveIn(wsOrder, id, to);
 export function moveTab(id: string, to: number) {
   const ws = workspaces.get(tabs.get(id)?.wsId ?? "");
   if (ws) moveIn(ws.tabs, id, to);

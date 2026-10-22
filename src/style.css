@@ -78,13 +78,36 @@ body.resizing-sidebar #sidebar-resizer { pointer-events: auto; }
 .tab.st-attention:hover { background: rgba(59, 130, 246, 0.2); }
 .tab.active.st-attention { background: rgba(59, 130, 246, 0.22); }
 /* Drop marker while reordering: a short soft-white bar in the gap, not a coloured border. */
-.tab.drop-before::before, .tab.drop-after::after {
+.tab.drop-before::before, .tab.drop-after::after,
+.ws-group.drop-before::before, .ws-group.drop-after::after {
   content: ""; position: absolute; left: 10px; right: 10px; height: 2px; border-radius: 1px;
   background: rgba(255, 255, 255, 0.55); pointer-events: none;
 }
-.tab.drop-before::before { top: -5px; }
-.tab.drop-after::after { bottom: -5px; }
-.tab.dragging { opacity: 0.4; }
+.tab.drop-before::before, .ws-group.drop-before::before { top: -5px; }
+.tab.drop-after::after, .ws-group.drop-after::after { bottom: -5px; }
+.tab.dragging, .ws-group.dragging { opacity: 0.4; }
+
+/* A repo's group (its main checkout and worktrees): a header row, then its workspaces
+   indented along a faint guide line. Collapsed, the header carries the loudest status. */
+.ws-group {
+  position: relative; margin-bottom: 8px;
+  background: linear-gradient(rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.1)) 7px 26px / 1px calc(100% - 34px) no-repeat;
+}
+.ws-group.folded { background: none; }
+.ws-group > .tab { margin-left: 12px; }
+.ws-group > .tab:last-child { margin-bottom: 0; }
+.grp-head {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px 4px 2px; margin-bottom: 4px; border-radius: 6px; cursor: pointer;
+  font-size: 11.5px; font-weight: 600; color: var(--dim);
+}
+.grp-head:hover { background: var(--side-hover); color: var(--fg); }
+.grp-head.active { background: var(--side-active); color: var(--fg); }
+.grp-head.st-attention { background: rgba(59, 130, 246, 0.14); }
+.grp-head .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grp-head .s-ico { margin-left: auto; }
+.grp-caret { width: 12px; flex: none; text-align: center; font-size: 10px; }
+.t-wt { font-size: 10px; padding: 0 4px; margin-right: 4px; border: 1px solid rgba(168, 85, 247, 0.55); border-radius: 3px; color: #c4b5fd; }
 
 .t-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
 .t-title .name { overflow: hidden; text-overflow: ellipsis; }

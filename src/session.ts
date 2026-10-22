@@ -16,6 +16,7 @@ function sessionData(): Session {
         id: ws.id,
         title: ws.customTitle ?? null,
         color: ws.color ?? null,
+        group: ws.group ?? null,
         active: ws.activeTab ?? null,
         tabs: ws.tabs.map((tid) => {
           const t = tabs.get(tid)!;
