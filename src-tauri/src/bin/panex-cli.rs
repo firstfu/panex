@@ -536,6 +536,8 @@ fn notify(rest: &[String]) {
         "message": message,
         "notificationType": hook["notification_type"],
         "sessionId": hook["session_id"],
+        // 讓 panex 分辨這個分頁是哪一次啟動開的（notify.rs 會丟掉別次啟動的 hook）。
+        "token": std::env::var("PANEX_TOKEN").ok(),
     });
     let result = send(&pipe, payload.to_string().as_bytes());
     if std::env::var_os("PANEX_DEBUG").is_some() {

@@ -311,6 +311,24 @@ echo $? > "${tmp}/remove.code"
       await waitFor("the workspace to go", () => !evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-ext")`), 5000);
     });
 
+    await check("a hook from the previous launch's shell does not wipe the session id to resume", async () => {
+      // Claude 收到 Stop 後還在跑（sleep），這時上一次啟動殘留的程序送來 SessionEnd（token 不同）。
+      const sid = "e2e00000-1111-2222-3333-444444444444";
+      const paneFile = join(tmp, "pane.txt");
+      const hook = (event, token) =>
+        `printf '{"hook_event_name":"${event}","session_id":"${sid}"}' | ${token ? `PANEX_TOKEN=${token} ` : ""}'${CLI}' notify`;
+      evalJs(`window.__e2e.run(${JSON.stringify(`echo $PANEX_PANE_ID > '${paneFile}'; ${hook("Stop")}; sleep 1; ${hook("SessionEnd", "stale")}; sleep 30`)}); return true;`);
+      const pane = (await waitFor("the pane id", () => existsSync(paneFile) && readFileSync(paneFile, "utf8").trim(), 5000));
+      const saved = () => {
+        const s = JSON.parse(readFileSync(join(home, "Library/Application Support/dev.panex.terminal.test/session.json"), "utf8"));
+        return s.workspaces.flatMap((w) => w.tabs).find((t) => t.id === pane)?.agentSession;
+      };
+      await waitFor("the session id to be saved", () => saved() === sid, 5000);
+      await new Promise((r) => setTimeout(r, 2500)); // the stale SessionEnd has been sent by now
+      if (saved() !== sid) throw new Error(`agentSession became ${JSON.stringify(saved())}`);
+      evalJs(`window.__e2e.key("c", "KeyC", 67, { ctrlKey: true }); return true;`);
+    });
+
     await check("eval is refused without the token", () => {
       let out;
       try {

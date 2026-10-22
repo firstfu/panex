@@ -50,6 +50,14 @@ async fn handle<S: AsyncRead + AsyncWrite + Unpin>(stream: S, app: AppHandle) {
             let _ = tokio::time::timeout(std::time::Duration::from_secs(5), rd.read(&mut [0u8; 1])).await;
         }
     } else if msg.get("pane").and_then(|p| p.as_str()).is_some() {
+        // 擋掉上一次啟動的 panex 開的 shell 送來的 hook：關閉 panex 會殺掉裡面的 Claude Code，
+        // 它的 SessionEnd 約一秒後才送出，馬上重開的新 panex 已經在聽同一個 socket；還原的分頁
+        // id 相同，這則訊息會把正要自動接回的 session id 清掉。
+        // 沒帶 token 的照收：hooks 指向已安裝的 panex-cli，舊版 cli 不帶 token（例如開發中的 panex
+        // 搭配舊的安裝版）。
+        if msg["token"].as_str().is_some_and(|t| t != crate::control::token()) {
+            return;
+        }
         crate::control::record(&app, &msg);
         let _ = app.emit("agent-notify", msg);
     }
