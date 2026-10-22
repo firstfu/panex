@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 右鍵選單「複製路徑」、macOS 換行預設 Shift+Enter（`07e7715`）
+
+**變更**
+- 工作區與分頁的右鍵選單加「複製路徑」：工作區複製目前分頁的 cwd（側欄名稱下那行），分頁複製自己的 cwd；沒有 cwd（SSH 分頁）時停用。
+- `insertNewline` 的 macOS 預設由未綁定改為 `shift+enter`（Windows／Linux 仍是 `ctrl+enter`）；README 英文、繁中的快捷鍵表同步。
+- 只過 `tsc`（本機缺 `@xterm/addon-search`／`addon-web-links`，那幾個錯與這次無關），未在 App 裡實際點過、按過。
+
+**為什麼**
+- 使用者要能從側欄直接複製專案路徑；Mac 上原本沒有預設的換行鍵，Shift+Enter 在 xterm.js 送的是單純 `\r`，會直接送出訊息。
+
+**下一步**
+- 在 Mac 實測 Shift+Enter 於 Claude Code 是換行、複製路徑能貼出正確路徑。
+- 工作區另有未 commit 的預設視窗大小改動（1400×820 → 1518×806，四個檔），不是這次做的，待使用者決定。
+
 ## 2026-10-22 — 未完成：小工人測網頁用的瀏覽器（分支 feat/crew-browser，在獨立 worktree，main 未動）
 
 **變更**
