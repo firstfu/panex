@@ -60,8 +60,8 @@ export const DEFAULTS: Settings = {
   confirmClose: true,
   openFilesWith: "system",
   // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
-  windowWidth: 1400,
-  windowHeight: 820,
+  windowWidth: 1518,
+  windowHeight: 860,
 };
 
 // Appended after the chosen fonts so CJK text still has a font whatever the user picks.

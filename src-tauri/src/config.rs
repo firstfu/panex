@@ -85,7 +85,7 @@ fn with_header(mut v: Value) -> Value {
 
 /// Opening window size (logical px) when panex.json doesn't set `app.windowWidth/Height`.
 /// Keep in sync with DEFAULTS in main.ts and tauri.conf.json.
-const DEFAULT_WINDOW: (f64, f64) = (1400.0, 820.0);
+const DEFAULT_WINDOW: (f64, f64) = (1518.0, 860.0);
 
 /// Sizes the window from `app.windowWidth` / `app.windowHeight`, shrunk to fit its monitor.
 /// The window-state plugin restores position only, so this is the size every launch opens at.
