@@ -198,6 +198,27 @@ async function main() {
       if (!inSidebar) throw new Error("no e2e-a workspace in the sidebar");
     });
 
+    await check("worktree-guard: EnterWorktree is denied in a panex tab, but not inside a worktree", async () => {
+      // 在真的 panex 分頁（PANEX_PANE_ID 已注入）裡跑：主 checkout 要 deny，squad 開的 worktree 裡要放行。
+      const wt = join(tmp, "repo-worktrees", "e2e-a");
+      const script = join(tmp, "guard.sh");
+      writeFileSync(
+        script,
+        `printf '{"hook_event_name":"PreToolUse","tool_name":"EnterWorktree","cwd":"%s"}' "${repo}" | "${CLI}" worktree-guard > "${tmp}/guard-main.out"
+printf '{"hook_event_name":"PreToolUse","tool_name":"EnterWorktree","cwd":"%s"}' "${wt}" | "${CLI}" worktree-guard > "${tmp}/guard-wt.out"
+echo done > "${tmp}/guard.done"
+`,
+      );
+      evalJs(`document.querySelector("#tabbar > *").click(); return true;`);
+      evalJs(`window.__e2e.run(${JSON.stringify(`sh '${script}'`)}); return true;`);
+      await waitFor("the guard script", () => existsSync(join(tmp, "guard.done")));
+      const denied = JSON.parse(readFileSync(join(tmp, "guard-main.out"), "utf8"));
+      if (denied.hookSpecificOutput?.permissionDecision !== "deny" || !denied.hookSpecificOutput.permissionDecisionReason.includes("panex-cli open --worktree")) {
+        throw new Error(`main checkout: ${JSON.stringify(denied)}`);
+      }
+      if (readFileSync(join(tmp, "guard-wt.out"), "utf8").trim() !== "") throw new Error("inside a worktree it must let EnterWorktree through");
+    });
+
     await check("worktree hooks: Claude's tab stays, the worktree gets its own workspace, removing closes it", async () => {
       // What Claude Code does around EnterWorktree / ExitWorktree, from inside tab t1.
       const script = join(tmp, "hooks.sh");
