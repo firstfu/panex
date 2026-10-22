@@ -17,6 +17,8 @@ type MenuItem = { label: string; keys?: string; run: () => void; disabled?: bool
 export function wsMenu(ws: Workspace): MenuItem[] {
   const i = wsOrder.indexOf(ws.id);
   const others = wsOrder.filter((id) => id !== ws.id);
+  // The same path the sidebar shows under the workspace name: its active tab's cwd.
+  const cwd = wsActiveTab(ws)?.cwd;
   return [
     { label: tr("重新命名工作區…"), keys: keyLabel("renameWorkspace"), run: () => startRename("ws", ws.id) },
     { colors: ws },
@@ -24,6 +26,7 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     { label: tr("新分頁"), keys: keyLabel("newTab"), run: () => (showWorkspace(ws.id), newTab()) },
     { label: tr("用新 worktree 開新工作區…"), keys: keyLabel("newWorktree"), run: () => (showWorkspace(ws.id), openWorktreeDialog()) },
     ...groupItems(ws),
+    copyPathItem(cwd),
     "-",
     { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveBy(ws.id, -1), disabled: !canMove(ws.id, -1) },
     { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveBy(ws.id, 1), disabled: !canMove(ws.id, 1) },
@@ -69,12 +72,18 @@ export function groupMenu(group: string): MenuItem[] {
   ];
 }
 
+/** Copies a tab's cwd; disabled when there is none (e.g. an SSH tab). */
+function copyPathItem(cwd: string | undefined): MenuItem {
+  return { label: tr("複製路徑"), run: () => void navigator.clipboard.writeText(cwd!).catch(() => {}), disabled: !cwd };
+}
+
 export function tabMenu(tab: Tab): MenuItem[] {
   const ws = workspaces.get(tab.wsId)!;
   const i = ws.tabs.indexOf(tab.id);
   const others = ws.tabs.filter((id) => id !== tab.id);
   return [
     { label: tr("重新命名分頁…"), keys: keyLabel("renameTab"), run: () => startRename("tab", tab.id) },
+    copyPathItem(tab.cwd),
     "-",
     { label: tr("左移"), keys: keyLabel("moveTabLeft"), run: () => moveTab(tab.id, i - 1), disabled: i === 0 },
     { label: tr("右移"), keys: keyLabel("moveTabRight"), run: () => moveTab(tab.id, i + 1), disabled: i === ws.tabs.length - 1 },

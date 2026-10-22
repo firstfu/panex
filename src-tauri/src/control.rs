@@ -92,6 +92,10 @@ fn set(ctl: &Control, id: &str, state: &'static str, message: String) {
 }
 
 pub async fn handle(app: &AppHandle, req: &Value) -> Value {
+    #[cfg(feature = "e2e")]
+    if req["op"] == "e2e-eval" {
+        return crate::e2e::eval(app, req).await.unwrap_or_else(|e| json!({ "error": e }));
+    }
     if req["token"].as_str() != Some(token()) {
         return json!({ "error": "refused: run panex-cli from a panex tab" });
     }
@@ -108,11 +112,19 @@ async fn open(app: &AppHandle, req: &Value) -> Result<Value, String> {
     if !Path::new(cwd).is_dir() {
         return Err(format!("not a folder: {cwd}"));
     }
+    ask_frontend(app, |id| {
+        let _ = app.emit("ctl-request", json!({ "req": id, "op": "open", "args": req }));
+    })
+    .await
+}
+
+/// Hands request `id` to the frontend through `send` and waits for its `ctl_reply`.
+pub(crate) async fn ask_frontend(app: &AppHandle, send: impl FnOnce(u64)) -> Result<Value, String> {
     let ctl = app.state::<Control>();
     let id = ctl.next.fetch_add(1, Ordering::Relaxed);
     let (tx, rx) = oneshot::channel();
     ctl.replies.lock().unwrap().insert(id, tx);
-    let _ = app.emit("ctl-request", json!({ "req": id, "op": "open", "args": req }));
+    send(id);
     match tokio::time::timeout(FRONTEND_TIMEOUT, rx).await {
         Ok(Ok(result)) => result,
         _ => {

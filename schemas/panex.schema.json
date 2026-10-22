@@ -46,14 +46,14 @@
           "type": "integer",
           "minimum": 480,
           "maximum": 10000,
-          "default": 1400,
+          "default": 1518,
           "description": "每次開啟時的視窗寬度（邏輯像素），超過螢幕會自動縮小。"
         },
         "windowHeight": {
           "type": "integer",
           "minimum": 300,
           "maximum": 10000,
-          "default": 820,
+          "default": 860,
           "description": "每次開啟時的視窗高度（邏輯像素），超過螢幕會自動縮小。"
         }
       }

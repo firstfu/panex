@@ -499,7 +499,8 @@ mod tests {
 
     #[test]
     fn worktree_reports_its_main_checkout() {
-        let base = std::env::temp_dir().join(format!("panex-git-test-{}", std::process::id()));
+        // Real path: on macOS the temp dir is under /var, a link to /private/var that git resolves.
+        let base = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("panex-git-test-{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let main = base.join("repo");
         fs::create_dir_all(&main).unwrap();

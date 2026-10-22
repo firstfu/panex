@@ -179,7 +179,7 @@ A string is one combination, an array of strings is a chord, an array of arrays 
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | Jump to the tab that needs you (`jumpToUnread`) |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | Show / hide the sidebar (`toggleSidebar`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Show / hide the Git panel (`toggleGitPanel`) |
-| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Newline without sending, for Claude Code (`insertNewline`) |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (macOS: <kbd>Shift</kbd>+<kbd>Enter</kbd>) | Newline without sending, for Claude Code (`insertNewline`) |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | Font size up / down / reset (or Ctrl+wheel) |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 

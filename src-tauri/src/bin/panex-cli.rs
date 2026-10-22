@@ -28,6 +28,8 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        #[cfg(feature = "e2e")]
+        Some("e2e") => std::process::exit(e2e(&args[1..])),
         Some("help" | "--help" | "-h") | None => {
             let config = login_dir().join("cli.config.json");
             let choice = agent_config()["crewBrowser"].as_str().unwrap_or_default().to_string();
@@ -284,6 +286,36 @@ fn wait_request(args: &[String]) -> Result<Value, String> {
         return Err("give at least one tab id (from `panex-cli open`)".into());
     }
     Ok(json!({ "op": "wait", "tabs": tabs, "timeout": timeout }))
+}
+
+/// `panex-cli e2e <js | ->` (test builds only): runs the JS body in the test instance named by
+/// PANEX_PIPE_NAME and prints its JSON result. See src/e2e.rs.
+#[cfg(feature = "e2e")]
+fn e2e(args: &[String]) -> i32 {
+    let js = match args.first().map(String::as_str) {
+        Some("-") => {
+            let mut s = String::new();
+            let _ = std::io::stdin().read_to_string(&mut s);
+            s
+        }
+        Some(js) => js.to_string(),
+        None => {
+            eprintln!("usage: panex-cli e2e <js | ->");
+            return 1;
+        }
+    };
+    let pipe = std::env::var("PANEX_PIPE_NAME").unwrap_or_default();
+    let req = json!({ "op": "e2e-eval", "e2e": std::env::var("PANEX_E2E_TOKEN").unwrap_or_default(), "js": js });
+    match request(&pipe, &req) {
+        Ok(v) => {
+            println!("{v}");
+            i32::from(v.get("error").is_some())
+        }
+        Err(e) => {
+            println!("{}", json!({ "error": format!("cannot reach panex: {e}") }));
+            1
+        }
+    }
 }
 
 /// Double-quotes an argument that has spaces or quotes, so the program typed into the shell

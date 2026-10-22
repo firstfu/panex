@@ -4,6 +4,71 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — macOS 真實 App 的端對端測試（`1e028d5`）
+
+**變更**
+- 新 Cargo feature `e2e`（預設關）：開了它的建置接受 `panex-cli e2e <js>`，經既有控制通道送到後端，用 `webview.eval` 在視窗裡跑，結果走既有的 `ctl_reply` 回來（`src-tauri/src/e2e.rs`，`control::ask_frontend` 從 `open` 抽出來共用）。三道鎖：正式版不編進去、要帶啟動時設的 `PANEX_E2E_TOKEN`、identifier 是 `dev.panex.terminal` 就拒絕。
+- `tests/e2e/run.mjs`：用暫存 HOME 開測試實例（session、`~/.claude`、shell rc 都落在暫存資料夾），以合成 `session.json` 起兩個分頁，驗：工作區／分頁「複製路徑」、Shift+Enter 讓 shell 收到 ESC CR（`cat -v` 寫檔比對）、小隊模式 `panex-cli open --worktree` + `wait`（假 claude 腳本 commit 後送 Stop）、錯 token 被拒。連跑兩輪 5/5 通過，沒有殘留程序或暫存檔。
+- 順手修 `git::tests::worktree_reports_its_main_checkout` 在 macOS 必失敗（暫存路徑 `/var` 是 `/private/var` 的連結）。`cargo test`（含／不含 e2e）、`npm test`、`tsc` 全過。
+
+**為什麼**
+- Mac 的 WKWebView 沒有 WebDriver 也沒有遠端除錯埠，Windows 那套 CDP 測法用不了；使用者要能在 Mac 上全自動驗真的 App。
+- 使用者問小隊模式在 Mac 能不能用：這次在 Mac 實測通過（之前流水帳寫「macOS 沒測」）。
+
+**下一步**
+- 雷與建置方式還沒歸檔進 `reference/operations.md`（CSP 擋 `new Function` 所以 JS 直接嵌入、WebKit 的 `KeyboardEvent` 要補 `keyCode`、`/private/var`、沒有 `cargo tauri` 時用 `cargo build --features tauri/custom-protocol`）。
+- 小隊模式用真的 Claude Code 在 Mac 跑一輪（這次是假 agent）。
+- Shift+Enter 到 Claude Code 端是否換行仍未驗（shell 已確認收到 ESC CR）。
+
+## 2026-10-22 — 預設視窗大小 1400×820 → 1518×860（`0b1d8b4`）
+
+**變更**
+- `tauri.conf.json`、`config.rs` 的 `DEFAULT_WINDOW`、`settings.ts` 的 `DEFAULTS`、`panex.schema.json` 四處同步改成 1518×860。
+- 寬度取自使用者正在用的 cmux 視窗（用 `CGWindowListCopyWindowInfo` 量到 1518×806）。高度依使用者要求再加高一點，定為 860。
+- 只改了預設值，沒 build、沒在 App 裡實際開過。
+
+**為什麼**
+- 使用者要 panex 開啟時跟 cmux 差不多大。cmux 的 `NSWindow Frame` 存檔記的是 900×450，跟畫面上的視窗不一樣，所以改用量到的實際視窗大小。
+
+**下一步**
+- 重新 build 後開一次，確認開啟時是 1518×860。使用者的 `panex.json` 沒設 `app.windowWidth/Height`，會直接用新的預設值。
+
+## 2026-10-22 — 右鍵選單「複製路徑」、macOS 換行預設 Shift+Enter（`07e7715`）
+
+**變更**
+- 工作區與分頁的右鍵選單加「複製路徑」：工作區複製目前分頁的 cwd（側欄名稱下那行），分頁複製自己的 cwd；沒有 cwd（SSH 分頁）時停用。
+- `insertNewline` 的 macOS 預設由未綁定改為 `shift+enter`（Windows／Linux 仍是 `ctrl+enter`）；README 英文、繁中的快捷鍵表同步。
+- 驗收：`tsc`、`npm test` 全過。Mac 上沒有 CDP，改用 Vite 開前端＋`@tauri-apps/api/mocks` 的 `mockIPC` 當假後端，在 Chrome 裡實測：右鍵點工作區的「複製路徑」複製出目前分頁的 cwd、點分頁的則是該分頁自己的 cwd、SSH 工作區的選項是停用的；在終端機按 Shift+Enter 只送出一次 `\x1b\r`，一般 Enter 仍送 `\r`。沒在真的 Tauri App（WKWebView）裡跑，也沒接真的 Claude Code。
+
+**為什麼**
+- 使用者要能從側欄直接複製專案路徑；Mac 上原本沒有預設的換行鍵，Shift+Enter 在 xterm.js 送的是單純 `\r`，會直接送出訊息。
+
+**下一步**
+- 在真的 panex（Mac）裡用 Claude Code 按一次 Shift+Enter，確認是換行（送出的位元組已驗，Claude Code 端沒驗）。
+- 工作區另有未 commit 的預設視窗大小改動（1400×820 → 1518×806，四個檔），不是這次做的，待使用者決定。
+
+## 2026-10-22 — 未完成：小工人測網頁用的瀏覽器（分支 feat/crew-browser，在獨立 worktree，main 未動）
+
+**變更**
+- 工作不在 main，在獨立 worktree `../panex-worktrees/crew-browser`（分支 `feat/crew-browser`，已推到 GitHub、未合併；main 本身無改動）。5 個 commit：
+  - `6f89350` 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome），`panex-cli help` 依設定分流說明。
+  - `afb3514` 先做的版本：小工人用 Playwright CLI 透過 Playwright Extension 接使用者自己的 Chrome。實測發現同一時間只能一個 session 連線，第二個會報 `Could not start the session`；且擴充功能的允許頁會把整個瀏覽器（所有登入與 cookie）交給連線方。
+  - `98db5fc` 改掉 `afb3514` 那版：換成每個小工人各開自己的 Playwright 瀏覽器＋共用一份登入（`panex-cli browser-login`）。發現測試站把登入狀態放在 `sessionStorage`，Playwright 的 `state-save` 不存這個，只存 cookie／localStorage 的話換瀏覽器會被踢回登入頁；改成額外抓一次 sessionStorage 寫成 init script，開瀏覽器時補回去。
+  - `27efdf2` `skills/panex/SKILL.md` 加一條：小工人的工作動到網頁畫面時，`TASK.md` 一定要寫瀏覽器驗收（照 `panex-cli help` 的方式），通過才 commit；help 沒指定瀏覽器工具就先問使用者。
+  - `README` 英文與繁中補上「驗網頁畫面」一段；「隱私」改寫：選 Playwright 時 `npx` 會從 npm 下載 `@playwright/cli`（第一次可能連瀏覽器），是 panex 唯二的連網例外之一。
+- 驗收：`tsc`、`npm test`（6）、`cargo test`（26，`TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}'` 才跑得過，main 本身直接 `cargo test` 也會因這個不符而失敗，跟這次改動無關）全過；用本機假網站（`python -m http.server`）完整跑過 `browser-login` 存檔 → 兩個 session 同時以 `cli.config.json` 開都保持登入 → 新分頁登入狀態保留 → 不帶 config 的 session 被導回登入頁，四段都驗證過。**使用者自己還沒在畫面上看過設定頁新列的排版，也還沒拿真的小工人派工驗收過。**
+
+**為什麼**
+- 使用者想讓小工人在各自的 worktree 上做 e2e 驗收，沿用登入狀態又不互相干擾；社群評測 Playwright CLI 比 Playwright MCP 省 token、比 Claude in Chrome 快且穩，故採 Playwright CLI。
+- 在獨立 worktree 做：避免動到 main 當時一批尚未 commit 的既有修改。
+
+**下一步**
+1. 進 `../panex-worktrees/crew-browser`（或 `git switch feat/crew-browser`），驗收設定頁「小工人測網頁用」新列與「登入並儲存」按鈕的實際排版（只過 tsc，沒人眼看過）。
+2. 對一個測試站實際按一次「登入並儲存」。
+3. 真的跑一輪派工（任務要動到網頁畫面），確認帶頭的 agent 有把瀏覽器驗收寫進 `TASK.md`、小工人 playwright-cli 操作正常。
+4. README 已補（分支上），驗收時順便看文字跟畫面對不對得上。
+5. 確認沒問題後合併回 main。
+6. 設定頁新列與 `panex-cli browser-login` 在 Windows 以外沒測。
 ## 2026-10-22 — 設定「小工人測網頁用」＋共用登入（分支 feat/crew-browser，未合併）
 
 **變更**
