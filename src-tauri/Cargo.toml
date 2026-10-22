@@ -20,6 +20,11 @@ path = "src/main.rs"
 name = "panex-cli"
 path = "src/bin/panex-cli.rs"
 
+[features]
+# Test builds only: lets an end-to-end test run JavaScript in the window (src/e2e.rs). Never in
+# a release; see tests/e2e/run.mjs.
+e2e = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

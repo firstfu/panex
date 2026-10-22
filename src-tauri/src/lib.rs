@@ -4,6 +4,8 @@
 
 mod config;
 mod control;
+#[cfg(feature = "e2e")]
+mod e2e;
 mod fonts;
 mod git;
 mod hooks;

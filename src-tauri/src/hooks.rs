@@ -41,7 +41,7 @@ fn has_current(group: &Value, cli: &str) -> bool {
 }
 
 /// Identifier of the released app; test instances are built with another one.
-const RELEASE_ID: &str = "dev.panex.terminal";
+pub(crate) const RELEASE_ID: &str = "dev.panex.terminal";
 
 /// Called once at launch: adds the hooks, or repoints them at this install, when they're
 /// missing or stale. Debug and test builds never write, so testing can't point the user's
