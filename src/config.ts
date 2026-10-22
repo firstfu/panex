@@ -94,6 +94,32 @@ export function writeConfig(path: string[], value: unknown) {
   );
 }
 
+/**
+ * 不等 debounce、立刻把一個設定寫進 panex.json，寫完才 resolve。
+ * 給接著要開分頁跑 panex-cli 讀這個設定的流程用：debounce 的 250ms 比 shell 啟動還慢，
+ * 不等的話 panex-cli 會讀到舊值。
+ * @param field 要寫的設定欄位
+ * @param value 新值（等於預設值時會從 panex.json 移除，跟 updateSettings 一致）
+ * @returns 寫檔完成的 Promise；寫入失敗時 reject（錯誤訊息同時顯示在橫幅上）
+ */
+export async function writeSettingNow<K extends keyof Settings>(field: K, value: Settings[K]) {
+  S.settings = { ...S.settings, [field]: value };
+  const path = CONFIG_PATHS[field];
+  const key = path.join(".");
+  // 取消同一個 key 還在排隊的 debounce 寫入，免得它晚一步用舊值蓋掉
+  clearTimeout(writeTimers.get(key));
+  writeTimers.delete(key);
+  writesInFlight++;
+  try {
+    await invoke("config_set", { path, value: value === DEFAULTS[field] ? null : value });
+  } catch (e) {
+    showNotice(String(e));
+    throw e;
+  } finally {
+    writesInFlight--;
+  }
+}
+
 export function updateSettings(patch: Partial<Settings>) {
   S.settings = { ...S.settings, ...patch };
   applySettings();

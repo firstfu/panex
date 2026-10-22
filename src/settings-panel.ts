@@ -9,7 +9,7 @@ import { type LoadedConfig } from "./types";
 import { DEFAULTS, FONT_CUSTOM, GENERIC_FONTS, cssFont, fontNames, termFontFamily, type Settings } from "./settings";
 import { $, esc } from "./util";
 import { S, activeTab } from "./state";
-import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, writeConfig } from "./config";
+import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, writeConfig, writeSettingNow } from "./config";
 import { scheduleRender } from "./render";
 import { hideCtx } from "./context-menu";
 import { newWorkspace } from "./workspaces";
@@ -345,11 +345,16 @@ $("s-crew-browser").addEventListener("click", (e) => {
 });
 $<HTMLInputElement>("s-crew-login-url").onchange = (e) => updateSettings({ crewLoginUrl: (e.target as HTMLInputElement).value.trim() });
 // panex-cli reads the URL from panex.json, so nothing user-typed goes through the shell.
-$("s-crew-login").onclick = () => {
+// The URL has to be on disk before the tab starts, so this write skips the debounce.
+$("s-crew-login").onclick = async () => {
   const field = $<HTMLInputElement>("s-crew-login-url");
   const url = field.value.trim();
   if (!/^https?:\/\/\S+$/.test(url)) return field.focus();
-  updateSettings({ crewLoginUrl: url });
+  try {
+    await writeSettingNow("crewLoginUrl", url);
+  } catch {
+    return; // writeSettingNow already showed the error
+  }
   closeSettings();
   newWorkspace(S.settings.defaultShell, "panex-cli browser-login");
 };
