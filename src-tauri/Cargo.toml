@@ -1,3 +1,4 @@
+# panex backend crate: the app (src/main.rs → lib.rs) and the panex-cli hook helper (src/bin).
 [package]
 name = "panex"
 version = "0.4.3"

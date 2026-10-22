@@ -1,3 +1,5 @@
+// Unit tests for src/sanitize.ts (input checks and the scrollback blank-line fix). Run: npm test
+
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { squeezeBlankRuns, validSessionId, validSshTarget } from "../src/sanitize.ts";

@@ -1,3 +1,6 @@
+/* panex UI styles: sidebar, tab bar, terminals, Git panel, dialogs and the settings panel.
+   Colors come from CSS variables; --alpha sets the window's see-through level. */
+
 /* Color emoji in the terminal, limited to characters that are emoji by default plus ⚠ (U+26A0).
    Keep ⏺ ✳ ⏸ ✔ out: CLIs like Claude Code color them with the foreground color to show state. */
 @font-face {

@@ -1,3 +1,7 @@
+//! The panex backend: registers the Tauri plugins and commands, opens the session store and
+//! config, installs the Claude Code hooks and starts the notification pipe at launch, and
+//! flushes state on exit. Each concern lives in its own module below.
+
 mod config;
 mod fonts;
 mod git;

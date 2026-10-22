@@ -17,7 +17,7 @@
 
 ## 單元測試
 
-- 前端：`npm test`（Node 內建 `node --test`，跑 `tests/*.test.ts`，靠 Node 的型別剝除直接載入 TS，沒有測試框架依賴）。被測的函式必須放在不 import DOM／Tauri 的模組（例如 `src/sanitize.ts`）；`main.ts` 一載入就有副作用，不能拿來測。`tests/` 不在 `tsconfig` 的 `include` 裡，編輯器會對 `node:test` 標紅，不影響執行。
+- 前端：`npm test`（Node 內建 `node --test`，跑 `tests/*.test.ts`，靠 Node 的型別剝除直接載入 TS，沒有測試框架依賴）。被測的函式必須放在不 import DOM／Tauri 的模組（例如 `src/sanitize.ts`、`src/settings.ts`）；其他前端模組一載入就會查 DOM、掛事件，不能拿來測。`tests/` 不在 `tsconfig` 的 `include` 裡，編輯器會對 `node:test` 標紅，不影響執行。
 - Rust：在 `src-tauri/` 執行 `RUST_MIN_STACK=134217728 TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}' cargo test`。`TAURI_CONFIG` 讓 build script 看到 private API 已開、不再拒絕 `macos-private-api` feature；這只影響這次編譯，不會改到任何檔案。從零編譯偶爾還是會 `STATUS_STACK_BUFFER_OVERRUN`，重跑即可。
 - 要讀寫檔案的邏輯（遷移、`config_set`）做成吃 `&Path` 的 `_at` 版本來測，不要在測試裡改 `XDG_CONFIG_HOME` 這類全域環境變數（測試是平行跑的）。
 

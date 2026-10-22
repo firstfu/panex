@@ -1,3 +1,7 @@
+//! Git for the UI, read only (plus `git worktree add`). The branch is read straight from
+//! `.git/HEAD`; status, diffs and the log run git with `--no-optional-locks` so they never take
+//! the index lock an agent may need, with capped output, off the main thread.
+
 use serde::Serialize;
 use std::{
     collections::HashSet,

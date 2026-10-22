@@ -1,3 +1,5 @@
+// Vite build for the frontend: dev server on the fixed port Tauri expects, ES2022 output.
+
 import { defineConfig } from "vite";
 
 export default defineConfig({
