@@ -4,6 +4,22 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-23 — Claude 開 worktree 不再搬走對話；panex 外刪掉的 worktree 自動離開側欄；發佈 v0.5.2、v0.5.3，本機改裝 0.5.3（`e209c18`、`06c3dd9`、`a0820f3`）
+
+**變更**
+- `e209c18`（v0.5.2）：`WorktreeCreate` hook 不再把 Claude 所在的分頁搬進 worktree 的工作區；改成在 repo 群組底下另開一個 shell 在 worktree 裡的工作區（會跑 setupCommand、不切畫面），對話留在原分頁。拿掉 `Tab.followCwd`。`worktreeRemove` 改成關掉資料夾裡的分頁，Claude 分頁本身在資料夾裡時才搬回主工作區。
+- `06c3dd9`（v0.5.3）：新指令 `worktrees_gone`（純檔案系統判斷）＋前端 `sweepGoneWorktrees`，在焦點回來、任一分頁回到提示字元、啟動時收掉指向已刪 worktree 的分頁；開著 Claude 的搬回主工作區。e2e 新增「shell 裡 git 刪 worktree 側欄自動消失」。
+- 兩版都推 tag、CI 兩平台成功並發布；`releases/latest` 的 `.exe`、`.dmg` 回 302 指向 v0.5.3。本機 `/Applications/panex.app` 0.5.1 → 0.5.3（ditto、清 quarantine），沒關正在跑的 panex。
+
+**為什麼**
+- 使用者認為把原工作區的對話搬到縮排的 worktree 工作區很怪：worktree 是另一個資料夾，對話屬於原工作區。
+- 在 shell 直接 `git worktree remove` 後側欄留下空的 worktree 工作區；之前只處理了 Claude 的 hook 與右鍵刪除兩條路。
+
+**下一步**
+- 使用者重開 panex 才會跑 0.5.3；舊版搬過去、資料夾已刪的那個 worktree 工作區會在啟動時自動收掉。
+- 沒用真的 `claude` 跑過新版 EnterWorktree（只用模擬 hook 輸入）；Windows 沒測。
+- 中途 e2e 有兩次無法重現的失敗（改動前後各一次），之後連續全過，原因未查。
+
 ## 2026-10-22 — 發佈 v0.5.1，本機改裝 0.5.1（`8e72a96`）
 
 **變更**
