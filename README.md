@@ -40,6 +40,12 @@ When Claude Code asks for permission or finishes a task, its tab gets a dot and 
 
 panex sets up the [Claude Code hooks](#claude-code-notifications) by itself when it starts; there's nothing to turn on. Other tools can notify too: run `panex-cli notify "message"`, or print a bell, OSC 9 or OSC 777 sequence.
 
+### Panlings: let an agent start other agents
+
+Ask Claude Code in a panex tab to split a job across parallel agents, and it starts them as *panlings*: new workspaces right below its own, each in its own git worktree if you like, running in tabs you can watch and type into. It waits for them, tells you when one is waiting for your answer instead of answering for it, and collects their work from git when they're done.
+
+Behind it are two commands any agent can run inside panex. `panex-cli open` starts a command in a new workspace (optionally in a new worktree) without switching your view, and `panex-cli wait` blocks until those agents finish or need you; `panex-cli help` has the details. panex installs a small Claude Code skill that teaches Claude to use them. Only processes started inside panex can send these commands.
+
 ### Workspaces and tabs, like cmux
 
 The sidebar holds workspaces (<kbd>Ctrl</kbd>+<kbd>N</kbd>), one per project or task. Each workspace has its own row of tabs (<kbd>Ctrl</kbd>+<kbd>T</kbd>), and each tab is a shell that opens in the same folder as the one you were in. Rename workspaces and tabs, give workspaces a color, and drag either into order.
@@ -123,7 +129,7 @@ Run the new installer. Your workspaces, scrollback and settings are kept.
 
 ### Claude Code notifications
 
-panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json` when it starts, if they're missing or point at an old install. It backs the file up first and keeps your other hooks. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected.
+panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json` when it starts, if they're missing or point at an old install. It backs the file up first and keeps your other hooks. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected. It also keeps `~/.claude/skills/panex/SKILL.md` up to date, which tells Claude how to start [panlings](#panlings-let-an-agent-start-other-agents); the skill does nothing outside panex.
 
 ## Configuration
 
