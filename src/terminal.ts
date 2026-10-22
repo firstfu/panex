@@ -17,6 +17,7 @@ import { $ } from "./util";
 import { S, shellName, tabs } from "./state";
 import { saveSessionIfPending, saveSessionSoon } from "./session";
 import { agentKey, autoResume, endAgent, endRun, notify } from "./agent";
+import { sweepGoneWorktrees } from "./control";
 import { scheduleGit } from "./git-panel";
 import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
@@ -263,6 +264,8 @@ function setCwd(tab: Tab, cwd: string) {
   refreshBranch(tab, cwd);
   // A prompt also ends whatever command might have changed files or commits.
   if (!duplicate) scheduleGit(tab);
+  // ...and a `git worktree remove` typed here deletes a worktree another workspace is open in.
+  if (!duplicate) sweepGoneWorktrees();
   if (cwd === tab.cwd) return;
   tab.cwd = cwd;
   saveSessionSoon();

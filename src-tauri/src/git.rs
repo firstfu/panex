@@ -305,6 +305,26 @@ fn worktree_remove(path: &Path, force: bool, branch: Option<&str>) -> Result<(),
     Ok(())
 }
 
+/// 從 `paths`（側欄裡 worktree 分頁的 cwd）挑出「所在的 worktree 已經被刪掉」的那些，讓前端收掉側欄的工作區。
+/// panex 外刪的（`git worktree remove`、`rm -rf`）收不到任何通知，只能在焦點回來或提示字元出現時問一次。
+/// 只讀檔案系統、不開 git 程序，所以頻繁呼叫也便宜。
+/// @param paths 要檢查的資料夾
+/// @returns 其中已不在任何 linked worktree 裡的資料夾
+#[tauri::command]
+pub fn worktrees_gone(paths: Vec<String>) -> Vec<String> {
+    paths.into_iter().filter(|p| worktree_gone(Path::new(p))).collect()
+}
+
+fn worktree_gone(path: &Path) -> bool {
+    if path.exists() {
+        return false;
+    }
+    // 資料夾不在了，但最近一層還在的上層仍屬於某個 linked worktree：只是刪了子資料夾，worktree 還在。
+    // `.claude/worktrees/<name>` 在主 checkout 底下，上層會落到主 checkout（不是 worktree），照樣算刪掉。
+    let Some(alive) = path.ancestors().find(|d| d.is_dir()) else { return true };
+    !git_branch(alive.to_string_lossy().into()).is_some_and(|h| h.worktree)
+}
+
 /// Local branch names of the repo containing `cwd`, most recently committed first.
 #[tauri::command]
 pub fn git_branches(cwd: String) -> Vec<String> {
@@ -626,6 +646,24 @@ mod tests {
         assert!(git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], None).is_err());
         let again = git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], Some(true)).unwrap();
         assert_eq!(again.path, wt.path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn worktree_gone_only_when_the_worktree_is() {
+        let base = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("panex-git-gone-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let main = base.join("repo");
+        fs::create_dir_all(&main).unwrap();
+        let run = |args: &[&str]| git(&main, args).unwrap();
+        run(&["init", "-q", "-b", "main"]);
+        run(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"]);
+        let wt = PathBuf::from(git_worktree_add(main.to_string_lossy().into(), "g".into(), None, vec![], None).unwrap().path);
+        let s = |p: &Path| p.to_string_lossy().into_owned();
+        // 還在、或只是 worktree 裡的子資料夾被刪：不算。
+        assert!(worktrees_gone(vec![s(&wt), s(&wt.join("deleted-sub"))]).is_empty());
+        run(&["worktree", "remove", &s(&wt)]);
+        assert_eq!(worktrees_gone(vec![s(&wt), s(&wt.join("sub"))]), vec![s(&wt), s(&wt.join("sub"))]);
         let _ = fs::remove_dir_all(&base);
     }
 

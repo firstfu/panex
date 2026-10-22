@@ -24,7 +24,7 @@ import { closeTab, newTab, newWorkspace, showTab, showWorkspace } from "./worksp
 import { scheduleGit, setGitOpen } from "./git-panel";
 import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
-import { wireControl } from "./control";
+import { sweepGoneWorktrees, wireControl } from "./control";
 import { tidyGroups } from "./groups";
 
 async function main() {
@@ -37,6 +37,8 @@ async function main() {
     if (S.focused && tab) clearStatus(tab);
     // Files may have changed in another program meanwhile.
     if (S.focused) scheduleGit(tab);
+    // A worktree may have been deleted outside panex meanwhile.
+    if (S.focused) sweepGoneWorktrees();
   });
   win.onCloseRequested(async (e) => {
     // Closing kills the agents' processes; --resume brings the conversation back but not the turn in progress.
@@ -154,6 +156,7 @@ async function main() {
   else newWorkspace();
   // After the restore, so `panex-cli open` can place its workspace next to the caller's.
   wireControl();
+  sweepGoneWorktrees();
 }
 
 if (import.meta.env.DEV) (window as any).__panex = { tabs, workspaces, wsOrder, showTab, newTab, newWorkspace, closeTab };

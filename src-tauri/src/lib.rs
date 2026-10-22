@@ -78,6 +78,7 @@ pub fn run() {
             git::git_worktree_add,
             git::git_worktree_info,
             git::git_worktree_remove,
+            git::worktrees_gone,
             git::git_branches,
             git::git_status,
             git::git_diff,

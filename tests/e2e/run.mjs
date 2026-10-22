@@ -280,6 +280,16 @@ echo $? > "${tmp}/remove.code"
       await waitFor("the workspace to go", () => !evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-gone")`), 5000);
     });
 
+    await check("a worktree deleted with git in a shell disappears from the sidebar by itself", async () => {
+      const out = join(tmp, "ext.json");
+      evalJs(`window.__e2e.run(${JSON.stringify(`cd '${repo}' && '${CLI}' open --worktree e2e-ext > '${out}'`)}); return true;`);
+      const opened = JSON.parse(await waitFor("open", () => existsSync(out) && readFileSync(out, "utf8").trim(), 20000));
+      await waitFor("the e2e-ext workspace", () => evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-ext")`), 5000);
+      // The prompt that follows the command is what tells panex to look.
+      evalJs(`window.__e2e.run(${JSON.stringify(`git -C '${repo}' worktree remove '${opened.cwd}'`)}); return true;`);
+      await waitFor("the workspace to go", () => !evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-ext")`), 5000);
+    });
+
     await check("eval is refused without the token", () => {
       let out;
       try {

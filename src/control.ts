@@ -6,7 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { t as tr } from "./i18n";
-import { type Workspace } from "./types";
+import { type Tab, type Workspace } from "./types";
 import { basename, newId, newWsId } from "./util";
 import { S, activeWs, tabs, workspaces, wsOrder } from "./state";
 import { saveSession } from "./session";
@@ -123,49 +123,111 @@ interface WorktreeRemoveArgs {
 
 /**
  * Claude Code 要刪掉一個 worktree（WorktreeRemove hook）：關掉開在那個資料夾裡的分頁（worktree 建立時開的工作區），
- * 若 Claude 所在的分頁本身就在那個資料夾裡（在 worktree 裡啟動的 claude、或舊版搬過去的分頁）則搬回 repo 的主工作區，側欄才不會留下指向已刪資料夾的工作區，Windows 上也不會有 shell 卡住資料夾。
- * 沒有主工作區時，Claude 那個工作區留下來當 repo 的工作區。還有 agent 在跑的分頁不關：中斷別人的工作比多留一列糟。
+ * 若 Claude 所在的分頁本身就在那個資料夾裡（在 worktree 裡啟動的 claude、或舊版搬過去的分頁）則搬回 repo 的主工作區，
+ * 側欄才不會留下指向已刪資料夾的工作區，Windows 上也不會有 shell 卡住資料夾。
  * @param a.from Claude 所在的分頁 id；不在 panex 的話只關其他分頁
  * @param a.path 要刪的 worktree 資料夾
  * @returns 空物件；刪資料夾是 panex-cli 的事，這裡不會失敗
  */
 function worktreeRemove(a: WorktreeRemoveArgs) {
   const tab = tabs.get(a.from);
-  const ws = workspaces.get(tab?.wsId ?? "");
-  if (tab && ws && inFolder(tab.cwd, a.path)) {
-    const group = ws.group;
-    // 排除自己：Claude Code 預設的 .claude/worktrees 在主 checkout 底下，會被當成主工作區。
-    const lead = group ? groupLead(group, groupMembers(group).filter((id) => id !== ws.id)) : undefined;
-    const home = tab.repo ?? group;
-    // shell 若還在 worktree 裡（重開 panex 後 shell 就是在那裡啟動的），Claude 結束後的提示字元會帶它 cd 回主 checkout。
-    Object.assign(tab, { worktree: false, branch: undefined, branchAt: undefined, cwd: home ?? tab.cwd });
-    if (home) tab.leaveDir = { from: a.path, to: home };
-    const leadWs = workspaces.get(lead ?? "");
-    if (leadWs) {
-      ws.tabs = ws.tabs.filter((id) => id !== tab.id);
-      if (ws.activeTab === tab.id) ws.activeTab = ws.tabs[0];
-      leadWs.tabs.push(tab.id);
-      leadWs.activeTab = tab.id;
-      tab.wsId = leadWs.id;
-      // 使用者正看著這段對話就跟過去。
-      if (activeWs()?.id === ws.id) showWorkspace(leadWs.id);
-      if (!ws.tabs.length) {
-        workspaces.delete(ws.id);
-        wsOrder.splice(wsOrder.indexOf(ws.id), 1);
-        tidyGroups();
-      }
-    } else if (ws.customTitle === basename(a.path)) {
-      // 名字是 worktree 建立時取的，留著會誤導；清掉改回自動標題。
-      ws.customTitle = undefined;
-    }
-    refreshBranch(tab);
+  const keep = new Set<string>();
+  if (tab && inFolder(tab.cwd, a.path)) {
+    moveHome(tab, a.path);
+    keep.add(tab.id);
   }
-  const busy = new Set(workingTabs().map((t) => t.id));
-  const stale = [...tabs.values()].filter((t) => t.id !== a.from && !t.ssh && !busy.has(t.id) && inFolder(t.cwd, a.path));
-  if (stale.length) closeTabs(stale.map((t) => t.id));
+  closeInside(a.path, keep);
   saveSession();
   scheduleRender();
   return {};
+}
+
+/**
+ * 分頁所在的 worktree 要刪或已刪：把它搬回 repo 群組的主工作區；沒有主工作區就留在原工作區、清掉 worktree 取的名字。
+ * shell 若還在 worktree 裡，下一個提示字元會帶它 cd 回主 checkout。
+ * @param tab 要搬的分頁（通常是還開著 Claude 的那個）
+ * @param path worktree 資料夾
+ */
+function moveHome(tab: Tab, path: string) {
+  const ws = workspaces.get(tab.wsId);
+  if (!ws) return;
+  const group = ws.group;
+  // 排除自己：Claude Code 預設的 .claude/worktrees 在主 checkout 底下，會被當成主工作區。
+  const lead = group ? groupLead(group, groupMembers(group).filter((id) => id !== ws.id)) : undefined;
+  const home = tab.repo ?? group;
+  Object.assign(tab, { worktree: false, branch: undefined, branchAt: undefined, cwd: home ?? tab.cwd });
+  if (home) tab.leaveDir = { from: path, to: home };
+  const leadWs = workspaces.get(lead ?? "");
+  if (leadWs) {
+    ws.tabs = ws.tabs.filter((id) => id !== tab.id);
+    if (ws.activeTab === tab.id) ws.activeTab = ws.tabs[0];
+    leadWs.tabs.push(tab.id);
+    leadWs.activeTab = tab.id;
+    tab.wsId = leadWs.id;
+    // 使用者正看著這段對話就跟過去。
+    if (activeWs()?.id === ws.id) showWorkspace(leadWs.id);
+    if (!ws.tabs.length) {
+      workspaces.delete(ws.id);
+      wsOrder.splice(wsOrder.indexOf(ws.id), 1);
+      tidyGroups();
+    }
+  } else if (ws.customTitle === basename(path)) {
+    // 名字是 worktree 建立時取的，留著會誤導；清掉改回自動標題。
+    ws.customTitle = undefined;
+  }
+  refreshBranch(tab);
+}
+
+/**
+ * 關掉開在 `path` 裡的分頁（空掉的工作區跟著消失）。還有 agent 在跑的不關：中斷別人的工作比多留一列糟。
+ * @param path worktree 資料夾
+ * @param keep 不關的分頁 id
+ */
+function closeInside(path: string, keep: Set<string>) {
+  const busy = new Set(workingTabs().map((t) => t.id));
+  const stale = [...tabs.values()].filter((t) => !keep.has(t.id) && !t.ssh && !busy.has(t.id) && inFolder(t.cwd, path));
+  if (stale.length) closeTabs(stale.map((t) => t.id));
+}
+
+let sweeping = false;
+
+/**
+ * 收掉側欄裡指向已刪 worktree 的工作區。panex 外刪的（終端機裡 `git worktree remove`、`rm -rf`、別的 Claude）
+ * 不會通知 panex，所以在視窗拿回焦點、任一分頁回到提示字元、啟動時各檢查一次。
+ * 開著 Claude 的分頁搬回主工作區（關掉會中斷對話），其餘分頁關掉。
+ * 沒有 worktree 分頁時不呼叫後端；後端只讀檔案系統、不開 git 程序。
+ */
+export async function sweepGoneWorktrees() {
+  if (sweeping) return;
+  // 還原後還沒被看過的分頁沒有 git 資訊，所以也看群組：在 repo 群組裡、cwd 卻不在主 checkout 底下，就是 worktree。
+  const paths = new Set<string>();
+  for (const t of tabs.values()) {
+    const group = workspaces.get(t.wsId)?.group;
+    if (t.cwd && !t.ssh && (t.worktree || (group && !inFolder(t.cwd, group)))) paths.add(t.cwd);
+  }
+  if (!paths.size) return;
+  sweeping = true;
+  try {
+    const gone = await invoke<string[]>("worktrees_gone", { paths: [...paths] });
+    for (const path of gone) {
+      const keep = new Set<string>();
+      for (const t of [...tabs.values()]) {
+        if (t.agentLive && inFolder(t.cwd, path)) {
+          moveHome(t, path);
+          keep.add(t.id);
+        }
+      }
+      closeInside(path, keep);
+    }
+    if (gone.length) {
+      saveSession();
+      scheduleRender();
+    }
+  } catch {
+    // 檢查失敗就等下一次，側欄多留一列不要緊。
+  } finally {
+    sweeping = false;
+  }
 }
 
 export function wireControl() {
