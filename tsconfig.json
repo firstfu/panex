@@ -1,3 +1,4 @@
+// TypeScript settings for src/ (type check only; Vite does the build). tests/ is left out on purpose.
 {
   "compilerOptions": {
     "target": "ES2022",

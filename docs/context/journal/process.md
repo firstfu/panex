@@ -10,8 +10,8 @@
 - 前端依原本的 `// ──` 區塊拆成 `main`（只剩啟動與後端事件）、`state`、`settings`、`types`、`util`、`config`、`session`、`terminal`、`agent`、`workspaces`、`render`、`input`、`actions`、`git-panel`、`settings-panel`、`search`、`links`、`rename`、`context-menu`、`close-ask`、`worktree-dialog`、`ssh-dialog`，最大的 `settings-panel.ts` 約 400 行。
 - 其他模組會重新賦值的 9 個值改放在 `state.ts` 的 `S` 物件上；只有單一模組用的狀態留在原地，對外給 getter（`isGitOpen`、`isCapturing`、`configWritesPending`）；關窗前的存檔整理成 `flushForClose`。
 - 搬移用腳本按行號切、自動產生 import，再用 `tsc` 收斂。逐行比對原檔與新檔（去掉 `export`／`S.`），除了上面列的刻意改動之外，沒有一行遺失、重複或改動。打包大小幾乎不變（585.8 → 586.4 kB），搜尋仍是獨立 chunk。
-- 所有原始碼檔頂部都有說明它負責什麼的註解：新模組、`index.html`、`style.css`、`vite.config.ts`、測試、`lib.rs`、`git.rs`、`main.rs`、`build.rs`、`Cargo.toml`（JSON 檔不能有註解）。
-- 驗收：寫一份 CDP 腳本跑 32 個檢查點（還原與捲動歷史、打字、搜尋、Git 面板與 diff、新分頁／工作區、各種切換、agent 三種狀態、跳到需處理的分頁、關分頁與關視窗確認、改名、右鍵選單、worktree／SSH 對話框、設定頁與寫回 panex.json、側欄切換、縮放、關閉後存檔），拆分前後各跑多次。所有差異都能在兩個版本中各自重現（視窗焦點決定切過去時是否清掉狀態、git 徽章的時間差），沒有一個只出現在拆分後；5 次執行 0 個 JS 例外。`npm test`、Rust 16 個測試全過。
+- 所有原始碼檔頂部都有說明它負責什麼的註解：新模組、`index.html`、`style.css`、`vite.config.ts`、測試、`lib.rs`、`git.rs`、`main.rs`、`build.rs`、`Cargo.toml`、`tsconfig.json`、`.gitignore`。不能寫註解、所以沒加的只有 `package.json`、`tauri.conf.json`、`capabilities/*.json`、`schemas/*.json`。
+- 驗收：寫一份 CDP 腳本跑 32 個檢查點（還原與捲動歷史、打字、搜尋、Git 面板與 diff、新分頁／工作區、各種切換、agent 三種狀態、跳到需處理的分頁、關分頁與關視窗確認、改名、右鍵選單、worktree／SSH 對話框、設定頁與寫回 panex.json、側欄切換、縮放、關閉後存檔），拆分前後各跑多次；另外補兩條手寫接線的檢查（設定頁錄快捷鍵寫入 `panex.json`、從外部改 `panex.json` 後畫面套用），兩版結果相同。所有差異都能在兩個版本中各自重現（視窗焦點決定切過去時是否清掉狀態、git 徽章的時間差），沒有一個只出現在拆分後；5 次執行 0 個 JS 例外。`npm test`、Rust 16 個測試全過。
 - 為了不跟同時在跑的 session 撞檔，在 `../panex-worktrees/split-main` 的分支上做，完成後合回 main。
 
 **為什麼**
