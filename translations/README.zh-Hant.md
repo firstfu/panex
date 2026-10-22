@@ -163,7 +163,7 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 | <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | 跳到第 1–8 個分頁，9 是最後一個（`selectTabByNumber`） |
 | <kbd>Ctrl</kbd>+<kbd>PgDn</kbd> / <kbd>PgUp</kbd> | 下一個／上一個工作區 |
 | <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | 下一個／上一個分頁 |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> | 關閉分頁，關掉最後一個時工作區一起關（`closeTab`） |
+| <kbd>Ctrl</kbd>+<kbd>W</kbd> | 關閉分頁，關掉最後一個時工作區一起關（`closeTab`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> | 重新命名工作區／分頁（也可雙擊） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | 跳到需要處理的分頁（`jumpToUnread`） |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | 顯示／隱藏側欄（`toggleSidebar`） |

@@ -163,7 +163,7 @@ A string is one combination, an array of strings is a chord, an array of arrays 
 | <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | Go to tab 1–8, 9 = last (`selectTabByNumber`) |
 | <kbd>Ctrl</kbd>+<kbd>PgDn</kbd> / <kbd>PgUp</kbd> | Next / previous workspace |
 | <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | Next / previous tab |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> | Close tab; closing the last one closes its workspace (`closeTab`) |
+| <kbd>Ctrl</kbd>+<kbd>W</kbd> | Close tab; closing the last one closes its workspace (`closeTab`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> | Rename workspace / tab (or double-click) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | Jump to the tab that needs you (`jumpToUnread`) |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | Show / hide the sidebar (`toggleSidebar`) |

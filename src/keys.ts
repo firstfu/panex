@@ -36,7 +36,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "moveWorkspaceDown", group: WS, label: "工作區下移", default: "ctrl+shift+pagedown", mac: "meta+alt+down" },
   { id: "jumpToUnread", group: WS, label: "跳到需要處理的分頁", default: "ctrl+shift+u", mac: "meta+shift+u" },
   { id: "newTab", group: TAB, label: "在目前工作區開新分頁", default: "ctrl+t", mac: "meta+t" },
-  { id: "closeTab", group: TAB, label: "關閉分頁（最後一個會連工作區一起關）", default: "ctrl+shift+w", mac: "meta+w" },
+  { id: "closeTab", group: TAB, label: "關閉分頁（最後一個會連工作區一起關）", default: "ctrl+w", mac: "meta+w" },
   { id: "renameTab", group: TAB, label: "重新命名分頁（也可雙擊）", default: "ctrl+alt+r", mac: "meta+alt+r" },
   { id: "selectTabByNumber", group: TAB, label: "跳到第 1–8 個分頁，9 = 最後一個", default: "alt+1", mac: "alt+1", digits: true },
   { id: "nextTab", group: TAB, label: "下一個分頁", default: "ctrl+tab", mac: "meta+right" },
