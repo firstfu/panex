@@ -44,6 +44,12 @@ Ask Claude Code in a panex tab to split a job across parallel agents, and it sta
 
 Behind it are two commands any agent can run inside panex. `panex-cli open` starts a command in a new workspace (optionally in a new worktree) without switching your view, and `panex-cli wait` blocks until those agents finish or need you; `panex-cli help` has the details. panex installs a small Claude Code skill that teaches Claude to use them. Only processes started inside panex can send these commands.
 
+**Checking web pages.** Pick a browser tool in **Settings → Terminal → Crew agents test web pages with**, and when an agent's work changes a web page, the lead writes browser checks into its task and the agent commits only once they pass:
+
+- **Playwright (shared login)**: each agent opens its own [Playwright CLI](https://playwright.dev/agent-cli/sessions) browser, so several can test at once and your own browser is never touched. To have them start logged in, enter the site's login page under **Login shared by crew agents**, press **Log in and save**, and log in once in the browser that opens. panex saves the cookies, local storage and session storage of that page in its config folder (`playwright/`, outside your repos) and puts them back in every agent's browser. Press it again when the login expires.
+- **Claude in Chrome**: agents use your own Chrome through Claude in Chrome.
+- **No preference** (the default): the lead asks you how to check the pages.
+
 ### Workspaces and tabs
 
 The sidebar holds workspaces (<kbd>Ctrl</kbd>+<kbd>N</kbd>), one per project or task. Each workspace has its own row of tabs (<kbd>Ctrl</kbd>+<kbd>T</kbd>), and each tab is a shell that opens in the same folder as the one you were in. Rename workspaces and tabs, give workspaces a color, and drag either into order.
@@ -101,7 +107,7 @@ Most of the memory you'll see in Task Manager belongs to WebView2, the Edge engi
 
 ## Privacy
 
-panex makes **no network connections** of its own. There's no telemetry and no update check. The only exception is an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches.
+panex makes **no network connections** of its own. There's no telemetry and no update check. The only exceptions are an SSH connection you open yourself, which runs your system's `ssh`, and, if you pick Playwright for [crew agents' browser checks](#crew-mode-let-an-agent-start-other-agents), `npx` fetching `@playwright/cli` (and a browser, the first time) from npm. The Git panel never fetches.
 
 The only file it writes outside its own folders is `~/.claude/settings.json`: when panex starts and its Claude Code hooks are missing or point at an old install, it adds them. It backs the file up first (`settings.json.panex-bak`) and keeps your other hooks. The code is in [`src-tauri/src/hooks.rs`](src-tauri/src/hooks.rs).
 
