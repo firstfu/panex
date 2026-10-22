@@ -27,6 +27,10 @@ export function scheduleRender() {
   });
 }
 
+// Fold caret of a group: the same chevron as the shell menu button, turned sideways when folded.
+// A text ▾ is drawn tiny in some fonts and reads as a dot.
+const CARET = '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>';
+
 const renameInput = '<input class="rename-input" maxlength="80" spellcheck="false" />';
 
 export function render() {
@@ -63,7 +67,7 @@ function renderSidebar() {
       head.dataset.group = group;
       head.title = group;
       head.innerHTML =
-        `<span class="grp-caret">${folded ? "▸" : "▾"}</span><span class="name">${esc(groupName(group, run))}</span>` +
+        `<span class="grp-caret${folded ? " folded" : ""}">${CARET}</span><span class="name">${esc(groupName(group, run))}</span>` +
         `<span class="t-count" title="${esc(tr("{n} 個工作區", { n: run.length }))}">${run.length}</span>` +
         (status !== "idle" ? `<span class="s-ico ${status}"></span>` : "");
       box.append(head, ...(folded ? [] : run.map((id) => wsRow(id))));
@@ -92,7 +96,7 @@ function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
   d.dataset.ws = wid;
   const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
   const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
-  const caret = lead ? `<span class="grp-caret" data-caret title="${esc(tr(lead.folded ? "展開" : "收合"))}">${lead.folded ? "▸" : "▾"}</span>` : "";
+  const caret = lead ? `<span class="grp-caret${lead.folded ? " folded" : ""}" data-caret title="${esc(tr(lead.folded ? "展開" : "收合"))}">${CARET}</span>` : "";
   const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
   const count = whole
     ? `<span class="t-count" title="${esc(tr("{n} 個工作區", { n: whole.length }))}">${whole.length}</span>`
