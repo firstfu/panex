@@ -4,7 +4,18 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-23 — 補上 App 內更新，與 macOS 更新後權限保留（尚未 commit）
+## 2026-10-23 — 發佈 v0.6.0：第一個含 App 內更新的版本（`fcc31bb`）
+
+**變更**
+- 設好四個 GitHub secrets（`TAURI_SIGNING_PRIVATE_KEY`／`_PASSWORD`、`MACOS_CERT_P12`／`MACOS_CERT_PASSWORD`），版本號 0.5.6 → 0.6.0，tag `v0.6.0`。CI 一次跑通（憑證匯入、簽章、`latest.json` 都成功），草稿資產齊全後發布，三個下載連結都回 302 指向新版。
+
+**為什麼**
+- 使用者要求發新版；這版帶有更新功能，裝了之後才收得到之後的更新。
+
+**下一步**
+- **還沒驗證**：從已發布的 v0.6.0 實際更新到下一版（要等 0.6.1 才能測 Windows 與 macOS 的真實路徑）。reference 歸檔（operations 的 secrets 與發版步驟、boundaries 的金鑰不可遺失）仍待確認路由。
+
+## 2026-10-23 — 補上 App 內更新，與 macOS 更新後權限保留（`3fc92de`）
 
 **變更**
 - 參考 Liftoff（Sparkle＋固定自簽憑證）：用 `tauri-plugin-updater`（minisign 驗簽）加 App 內更新。後端 `src-tauri/src/updater.rs` 兩個指令 `update_check`／`update_install`，前端 `src/update.ts`：啟動與視窗取回焦點（距上次 ≥ 6 小時）才檢查，沒有計時器；找到新版在側欄 `#update-row` 顯示，**按下才**下載、安裝、重啟；有 agent 在工作時沿用關閉確認對話框（`openCloseAsk` 多一個確認鈕文字參數）。重啟不經視窗關閉處理，所以安裝前先 `flushForClose()`。
