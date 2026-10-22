@@ -18,6 +18,9 @@ use crate::AppState;
 pub struct Tab {
     pub id: String,
     pub shell: String,
+    /// `[user@]host[:port]` for `shell == "ssh"` tabs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh: Option<String>,
     #[serde(default)]
     pub cwd: Option<String>,
     /// User-chosen name; None means "derive from program title / cwd".
@@ -118,7 +121,7 @@ fn migrate_v1(v: &Value) -> Session {
             title: str_of(t, "title"),
             color: str_of(t, "color"),
             active: Some(id.clone()),
-            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), title: None, agent_session: None }],
+            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), ssh: None, title: None, agent_session: None }],
         });
     }
     s

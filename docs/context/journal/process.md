@@ -4,6 +4,25 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — SSH 連線
+
+**變更**
+- ⌄ 選單最下面新增「SSH 連線…」，也可以綁快捷鍵（`newSsh`，預設沒有綁）。點了會開對話框，主機清單來自 `~/.ssh/config` 的 `Host`，會跟著 `Include` 讀，略過萬用字元和行尾註解；也可以手打 `帳號@主機:埠號`。每個連線開一個新工作區。
+- 分頁裡直接跑系統的 `ssh`（`src-tauri/src/ssh.rs`），分頁的 shell 設為 `"ssh"`，`session.json` 的分頁多一個可省略的 `ssh` 欄位，所以舊檔不必轉換。主機字串會變成 ssh 的參數，前後端都會檢查格式：不能用 `-` 開頭，只允許主機、帳號、埠號會用到的字元；另外在主機前面加 `--`。
+- SSH 分頁不記錄 cwd（遠端路徑對本機沒有意義，免得新分頁或 git 分支誤用）。斷線時顯示「連線已中斷，按 Enter 重新連線」。
+- 測試實例實測：主機清單正確，錯誤格式會被擋，實際連上遠端主機、全螢幕 `top` 顯示正常，關掉再重開會自動重連，連不上的主機會顯示中斷提示。
+
+**為什麼**
+- 使用者要 SSH 功能。改用系統的 ssh、不內建 SSH 函式庫：金鑰、config、known_hosts、agent 都能照常沿用，panex 不碰密碼，沒在用時也不佔資源。
+
+**影響檔案**
+- `src-tauri/src/ssh.rs`（新增）、`pty.rs`、`session.rs`、`lib.rs`
+- `src/main.ts`、`src/keys.ts`、`src/i18n.ts`、`src/style.css`、`index.html`、`schemas/panex.schema.json`
+
+**下一步**
+- 已 commit。
+- 遠端 cwd 與 Claude Code 通知目前不支援，要做得另外設計。
+
 ## 2026-10-22 — 終端機彩色 emoji＋字型改下拉選單
 
 **變更**

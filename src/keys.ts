@@ -26,6 +26,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "newWorkspace", group: WS, label: "新工作區", default: "ctrl+n", mac: "meta+n" },
   { id: "newWorkspaceWithShell", group: WS, label: "用 ⌄ 選單第 N 個 shell 開新工作區", default: "ctrl+shift+1", mac: "meta+shift+1", digits: true },
   { id: "newWorktree", group: WS, label: "用新 git worktree 開新工作區", default: null },
+  { id: "newSsh", group: WS, label: "開 SSH 連線（新工作區）", default: null },
   { id: "closeWorkspace", group: WS, label: "關閉工作區（含裡面所有分頁）", default: null },
   { id: "renameWorkspace", group: WS, label: "重新命名工作區（也可雙擊）", default: "ctrl+shift+r", mac: "meta+shift+r" },
   { id: "selectWorkspaceByNumber", group: WS, label: "跳到第 1–8 個工作區，9 = 最後一個", default: "ctrl+1", mac: "meta+1", digits: true },
@@ -46,6 +47,8 @@ export const ACTIONS: ActionDef[] = [
   { id: "clearScrollback", group: "編輯", label: "清除捲動歷史", default: "ctrl+shift+k", mac: "meta+k" },
   { id: "copy", group: "編輯", label: "複製選取文字", default: "ctrl+shift+c", mac: "meta+c" },
   { id: "paste", group: "編輯", label: "貼上", default: "ctrl+shift+v", mac: null },
+  // Sends ESC+CR (what Alt+Enter sends): Claude Code inserts a newline instead of submitting.
+  { id: "insertNewline", group: "編輯", label: "換行而不送出（Claude Code 等）", default: "ctrl+enter", mac: null },
   { id: "increaseFontSize", group: "檢視", label: "放大字型", default: "ctrl+equal", mac: "meta+equal" },
   { id: "decreaseFontSize", group: "檢視", label: "縮小字型", default: "ctrl+minus", mac: "meta+minus" },
   { id: "resetFontSize", group: "檢視", label: "重設字型大小", default: "ctrl+0", mac: "meta+0" },

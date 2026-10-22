@@ -57,6 +57,7 @@ pub fn pty_spawn(
     state: State<AppState>,
     id: String,
     shell: String,
+    ssh: Option<String>,
     cwd: Option<String>,
     cols: u16,
     rows: u16,
@@ -79,7 +80,11 @@ pub fn pty_spawn(
         .map(PathBuf::from)
         .filter(|p| p.is_dir())
         .or_else(home_dir);
-    let mut cmd = build_command(&shell);
+    let mut cmd = match (shell.as_str(), ssh.as_deref()) {
+        ("ssh", Some(target)) => crate::ssh::command(target)?,
+        ("ssh", None) => return Err("missing ssh target".into()),
+        _ => build_command(&shell),
+    };
     if let Some(d) = &dir {
         cmd.cwd(d);
     }

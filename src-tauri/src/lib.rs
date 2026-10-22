@@ -5,6 +5,7 @@ mod hooks;
 mod notify;
 mod pty;
 mod session;
+mod ssh;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Manager, RunEvent};
@@ -71,6 +72,7 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::tab_close,
+            ssh::ssh_hosts,
             session::session_load,
             session::session_save,
             config::config_load,

@@ -31,6 +31,7 @@ type Status = "idle" | "running" | "attention" | "done";
 interface SavedTab {
   id: string;
   shell: string;
+  ssh?: string | null;
   cwd?: string | null;
   title?: string | null;
   agentSession?: string | null;
@@ -110,6 +111,7 @@ interface Tab {
   id: string;
   wsId: string;
   shell: string;
+  ssh?: string; // [user@]host[:port] when shell is "ssh"
   cwd?: string;
   branch?: string; // git branch of cwd (not persisted; re-read from .git/HEAD)
   branchAt?: number; // last refresh time, throttles the per-prompt lookup
@@ -241,7 +243,9 @@ const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const newWsId = () => `w${newId().slice(0, 11)}`;
 const basename = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 const shellName = (id: string) => tr(shells.find((s) => s.id === id)?.name ?? id);
-const shellTag = (id: string) => (id === "cmd" ? "cmd" : id === "default" ? "sh" : "PS");
+const shellTag = (id: string) => (id === "cmd" ? "cmd" : id === "default" ? "sh" : id === "ssh" ? "SSH" : "PS");
+/** Mirrors ssh.rs `valid_target`: the target lands on ssh's command line. */
+const validSshTarget = (t: string) => /^[A-Za-z0-9@._:\[\]%-]{1,255}$/.test(t) && !t.startsWith("-");
 const activeTab = () => (visibleTabId ? tabs.get(visibleTabId) : undefined);
 const activeWs = () => (activeWsId ? workspaces.get(activeWsId) : undefined);
 const wsActiveTab = (ws: Workspace) => tabs.get(ws.activeTab ?? "") ?? tabs.get(ws.tabs[0] ?? "");
@@ -258,7 +262,7 @@ function autoTabTitle(tab: Tab): string {
   if (t && !/^[A-Za-z]:\\/.test(t) && !/\.exe$/i.test(t) && !/^(Windows PowerShell|PowerShell|系統管理員|Administrator)/.test(t)) {
     return t;
   }
-  return tab.cwd ? basename(tab.cwd) : shellName(tab.shell);
+  return tab.ssh ?? (tab.cwd ? basename(tab.cwd) : shellName(tab.shell));
 }
 
 const tabTitle = (tab: Tab) => tab.customTitle || autoTabTitle(tab);
@@ -454,7 +458,7 @@ function sessionData(): Session {
         active: ws.activeTab ?? null,
         tabs: ws.tabs.map((tid) => {
           const t = tabs.get(tid)!;
-          return { id: t.id, shell: t.shell, cwd: t.cwd ?? null, title: t.customTitle ?? null, agentSession: t.agentSession ?? null };
+          return { id: t.id, shell: t.shell, ssh: t.ssh ?? null, cwd: t.cwd ?? null, title: t.customTitle ?? null, agentSession: t.agentSession ?? null };
         }),
       };
     }),
@@ -503,7 +507,8 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
     id: meta.id,
     wsId,
     shell: meta.shell,
-    cwd: meta.cwd ?? undefined,
+    ssh: meta.shell === "ssh" && meta.ssh && validSshTarget(meta.ssh) ? meta.ssh : undefined,
+    cwd: meta.shell === "ssh" ? undefined : meta.cwd ?? undefined,
     customTitle: meta.title ?? undefined,
     agentSession: validSessionId(meta.agentSession) ? meta.agentSession : undefined,
     term,
@@ -533,14 +538,6 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
   }
 
   term.onData((d) => onInput(tab, d));
-  // xterm sends a bare \r for Ctrl+Enter; send ESC+CR (what Alt+Enter sends) so Claude Code inserts a newline.
-  if (isWindows) {
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.key !== "Enter" || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return true;
-      if (e.type === "keydown") onInput(tab, "\x1b\r");
-      return false;
-    });
-  }
   term.onResize(({ cols, rows }) => {
     if (tab.running) invoke("pty_resize", { id: tab.id, cols, rows }).catch(() => {});
   });
@@ -621,6 +618,7 @@ async function spawn(tab: Tab) {
     await invoke("pty_spawn", {
       id: tab.id,
       shell: tab.shell,
+      ssh: tab.ssh ?? null,
       cwd: tab.cwd ?? null,
       cols: tab.term.cols,
       rows: tab.term.rows,
@@ -634,7 +632,7 @@ async function spawn(tab: Tab) {
   } catch (e) {
     tab.running = false;
     tab.exited = true;
-    tab.term.write(`\r\n\x1b[31m${tr("無法啟動 {shell}：{e}", { shell: shellName(tab.shell), e: String(e) })}\x1b[0m\r\n`);
+    tab.term.write(`\r\n\x1b[31m${tr("無法啟動 {shell}：{e}", { shell: tab.ssh ? `ssh ${tab.ssh}` : shellName(tab.shell), e: String(e) })}\x1b[0m\r\n`);
   }
 }
 
@@ -803,6 +801,59 @@ wtEl.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeWorktreeDialog();
 });
 
+// ── New SSH connection ──────────────────────────────────────────────────────
+
+const sshEl = $("ssh");
+const sshTargetEl = $<HTMLInputElement>("ssh-target");
+const sshErrEl = $("ssh-err");
+let sshHostsLoaded = false;
+
+function openSshDialog() {
+  hideCtx();
+  sshTargetEl.value = "";
+  sshErrEl.textContent = "";
+  sshEl.hidden = false;
+  sshTargetEl.focus();
+  // ~/.ssh/config is read once, the first time the dialog opens.
+  if (sshHostsLoaded) return;
+  sshHostsLoaded = true;
+  invoke<string[]>("ssh_hosts")
+    .then((list) => $("ssh-hosts").replaceChildren(...list.map((h) => Object.assign(document.createElement("option"), { value: h }))))
+    .catch(() => (sshHostsLoaded = false));
+}
+
+function closeSshDialog() {
+  sshEl.hidden = true;
+  activeTab()?.term.focus();
+}
+
+/** Each connection gets its own workspace, like picking a shell from the ⌄ menu. */
+function newSshWorkspace(target: string) {
+  const ws: Workspace = { id: newWsId(), tabs: [] };
+  workspaces.set(ws.id, ws);
+  wsOrder.push(ws.id);
+  const tab = createTab({ id: newId(), shell: "ssh", ssh: target }, ws.id);
+  ws.tabs.push(tab.id);
+  showTab(tab.id);
+}
+
+$("ssh-cancel").onclick = closeSshDialog;
+sshEl.addEventListener("mousedown", (e) => e.target === sshEl && closeSshDialog());
+sshEl.querySelector("form")!.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const target = sshTargetEl.value.trim();
+  if (!validSshTarget(target)) {
+    sshErrEl.textContent = tr("格式是 主機、帳號@主機 或 帳號@主機:埠號");
+    return;
+  }
+  sshEl.hidden = true;
+  newSshWorkspace(target);
+});
+sshEl.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Escape") closeSshDialog();
+});
+
 /** New tab in the current workspace, right after the visible one, in the same folder. */
 function newTab(shell = settings.defaultShell) {
   const ws = activeWs();
@@ -901,7 +952,8 @@ function setColor(ws: Workspace, color?: string) {
 }
 
 function setCwd(tab: Tab, cwd: string) {
-  if (!cwd) return;
+  // A remote path means nothing locally (git branch, a new tab's folder), so SSH tabs keep none.
+  if (!cwd || tab.ssh) return;
   // A shell prompt means Claude Code has exited. ConPTY can report one prompt twice within
   // a millisecond, so reports that close together count as one.
   const now = performance.now();
@@ -1054,7 +1106,7 @@ function renderSidebar() {
           : `${dot}<span class="name">${esc(wsTitle(ws))}</span>${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
       d.innerHTML =
         `<div class="t-title">${title}</div>` +
-        (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.cwd ?? "")}</div>` : "") +
+        (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +
         (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${esc(cur.branch)}</div>` : "") +
         stateLine(status, st) +
         `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
@@ -1123,6 +1175,12 @@ function renderTabbar() {
   tabbarEl.replaceChildren(...items, add);
 }
 
+const sshBtn = document.createElement("button");
+sshBtn.onclick = () => {
+  shellMenuEl.hidden = true;
+  openSshDialog();
+};
+
 function renderShellMenu() {
   shellMenuEl.replaceChildren(
     ...shells.map((s, i) => {
@@ -1135,7 +1193,10 @@ function renderShellMenu() {
       };
       return b;
     }),
+    sshBtn,
   );
+  const sshKey = keyLabel("newSsh");
+  sshBtn.textContent = `${tr("SSH 連線…")}${sshKey ? `　${sshKey}` : ""}`;
   $("new-tab").title = withKey("新工作區", "newWorkspace");
   $("sidebar-toggle").title = withKey("顯示 / 隱藏側欄", "toggleSidebar");
 }
@@ -1474,7 +1535,8 @@ function captureKey(e: KeyboardEvent) {
   }
   let combo = eventCombo(e);
   if (!combo) return; // lone modifier: keep waiting
-  if (!/^(ctrl|alt|meta)\+/.test(combo) && !/^(shift\+)?f\d+$/.test(combo)) {
+  // Shift+Enter types nothing of its own (xterm sends a bare \r), so it may be bound like a modifier combo.
+  if (!/^(ctrl|alt|meta)\+/.test(combo) && !/^(shift\+)?f\d+$/.test(combo) && combo !== "shift+enter") {
     keysNote = tr(WARN_NOTES[0]);
     return renderKeys();
   }
@@ -1681,6 +1743,7 @@ function runAction(id: string, digit = 0) {
     case "newWorkspace": return newWorkspace();
     case "newWorkspaceWithShell": return shells[digit - 1] && newWorkspace(shells[digit - 1].id);
     case "newWorktree": return openWorktreeDialog();
+    case "newSsh": return openSshDialog();
     case "closeWorkspace": return activeWsId && closeWorkspaces([activeWsId]);
     case "renameWorkspace": return activeWsId && startRename("ws", activeWsId);
     case "selectWorkspaceByNumber": { const w = nth(wsOrder, digit); return w && showWorkspace(w); }
@@ -1701,6 +1764,7 @@ function runAction(id: string, digit = 0) {
     case "clearScrollback": return tab?.term.clear();
     case "copy": return copySelection(tab);
     case "paste": return paste(tab);
+    case "insertNewline": return tab && onInput(tab, "\x1b\r");
     case "increaseFontSize": return setFontSize(settings.fontSize + 1);
     case "decreaseFontSize": return setFontSize(settings.fontSize - 1);
     case "resetFontSize": return updateSettings({ fontSize: DEFAULTS.fontSize });
@@ -2001,7 +2065,10 @@ async function main() {
       tab.exited = true;
       const close = keyLabel("closeTab");
       const closeHint = close ? tr("，{key} 關閉分頁", { key: close }) : "";
-      tab.term.write(`\r\n\x1b[90m${tr("[程序已結束（代碼 {code}）。按 Enter 重新啟動{close}]", { code: payload.code, close: closeHint })}\x1b[0m\r\n`);
+      const msg = tab.ssh
+        ? tr("[連線已中斷（代碼 {code}）。按 Enter 重新連線{close}]", { code: payload.code, close: closeHint })
+        : tr("[程序已結束（代碼 {code}）。按 Enter 重新啟動{close}]", { code: payload.code, close: closeHint });
+      tab.term.write(`\r\n\x1b[90m${msg}\x1b[0m\r\n`);
       scheduleRender();
     }
   });

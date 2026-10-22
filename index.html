@@ -41,6 +41,20 @@
       </form>
     </div>
 
+    <div id="ssh" class="overlay" hidden>
+      <form class="wt-panel" role="dialog" aria-modal="true" aria-labelledby="ssh-title" autocomplete="off">
+        <h2 id="ssh-title" data-i18n>SSH 連線</h2>
+        <label><span data-i18n>主機（可從清單選，或輸入 帳號@主機:埠號）</span><input id="ssh-target" class="field" type="text" spellcheck="false" list="ssh-hosts" placeholder="user@example.com" /></label>
+        <datalist id="ssh-hosts"></datalist>
+        <p class="ask-text muted" data-i18n>使用電腦內建的 ssh，金鑰與 ~/.ssh/config 照常生效；要密碼時會在終端機裡問，panex 不會儲存。</p>
+        <p id="ssh-err" class="wt-err" aria-live="polite"></p>
+        <div class="wt-actions">
+          <button type="button" id="ssh-cancel" class="ghost" data-i18n>取消</button>
+          <button type="submit" class="primary" data-i18n>連線</button>
+        </div>
+      </form>
+    </div>
+
     <div id="hooks-ask" class="overlay" hidden>
       <div class="wt-panel" role="dialog" aria-modal="true" aria-labelledby="hooks-ask-title" tabindex="-1">
         <h2 id="hooks-ask-title" data-i18n>啟用 Claude Code 通知？</h2>
