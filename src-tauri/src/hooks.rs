@@ -183,11 +183,8 @@ mod tests {
         fs::write(d.join("SKILL.md"), "old version").unwrap();
         assert!(skill_at(&d).unwrap(), "stale: replaced");
         assert_eq!(fs::read_to_string(d.join("SKILL.md")).unwrap(), SKILL);
-        assert!(SKILL.starts_with("---
-name: panex
-") || SKILL.starts_with("---
-name: panex
-"));
+        // The embedded file is the real skill (git may check it out with either line ending).
+        assert!(SKILL.starts_with("---") && SKILL.lines().nth(1) == Some("name: panex"));
     }
 
     #[test]
