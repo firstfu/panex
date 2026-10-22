@@ -1,11 +1,12 @@
 import "@xterm/xterm/css/xterm.css";
 import "./style.css";
-import { Terminal } from "@xterm/xterm";
+import { Terminal, type IBufferLine, type ILink, type ILinkProvider } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import type { SearchAddon } from "@xterm/addon-search";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
@@ -111,6 +112,7 @@ interface Settings {
   modifierHints: boolean;
   language: LangPref;
   resumeSession: boolean;
+  openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
   askEnableHooks: boolean; // offer to enable the Claude Code hooks at startup while they're off
   windowWidth: number; // size the window opens at (logical px)
   windowHeight: number;
@@ -129,6 +131,7 @@ const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   modifierHints: ["shortcuts", "showModifierHoldHints"],
   language: ["app", "language"],
   resumeSession: ["agent", "resumeSession"],
+  openFilesWith: ["terminal", "openFilesWith"],
   askEnableHooks: ["agent", "askToEnableHooks"],
   windowWidth: ["app", "windowWidth"],
   windowHeight: ["app", "windowHeight"],
@@ -201,6 +204,7 @@ const DEFAULTS: Settings = {
   modifierHints: false,
   language: "auto",
   resumeSession: true,
+  openFilesWith: "system",
   askEnableHooks: true,
   // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
   windowWidth: 1400,
@@ -390,6 +394,7 @@ function settingsFrom(cfg: any): Settings {
   s.windowHeight = Math.min(10000, Math.max(300, Math.round(s.windowHeight)));
   if (!["none", "mica", "acrylic"].includes(s.effect)) s.effect = "none";
   if (!["auto", "en", "zh-Hant"].includes(s.language)) s.language = "auto";
+  if (!["system", "vscode", "cursor"].includes(s.openFilesWith)) s.openFilesWith = "system";
   return s;
 }
 
@@ -579,6 +584,11 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
       term.write(`\x1b[0m\x1b[?25h\x1b[${row};1H\r\n\x1b[90m${tr("── 已還原工作階段（{time}）──", { time })}\x1b[0m\r\n`);
     });
   }
+
+  // Ctrl/⌘+click opens web links and file paths; both are matched only while the mouse is over a line.
+  const hint = { hover: () => linkHint(tab, true), leave: () => linkHint(tab, false) };
+  term.loadAddon(new WebLinksAddon((e, uri) => linkClick(e) && openLink("open_url", { url: uri }), hint));
+  term.registerLinkProvider(fileLinks(tab));
 
   term.onData((d) => onInput(tab, d));
   term.onResize(({ cols, rows }) => {
@@ -1381,6 +1391,78 @@ function notify(tab: Tab, status: Status, note: string) {
   if (!focused) invoke("alert", { title: `panex · ${where}`, body: note }).catch(() => {});
 }
 
+// ── Links ───────────────────────────────────────────────────────────────────
+
+const LINK_KEY = IS_MAC ? "⌘" : "Ctrl";
+// A plain click stays a click (selecting text); only Ctrl/⌘+click opens.
+const linkClick = (e: MouseEvent) => (IS_MAC ? e.metaKey : e.ctrlKey);
+const linkHint = (tab: Tab, on: boolean) => (tab.el.title = on ? tr("按住 {key} 點擊開啟", { key: LINK_KEY }) : "");
+const openLink = (cmd: string, args: Record<string, unknown>) => invoke(cmd, args).catch((e) => showNotice(String(e)));
+
+// One path segment: no separators, whitespace, or characters that don't occur in file names or
+// usually wrap them in output (quotes, brackets, commas…).
+const SEG = String.raw`[^\s\\/:"'` + "`" + String.raw`<>|*?()\[\]{},;]+`;
+// [C:|~][/]dir/dir/name[:line[:col]]
+const PATH_RE = new RegExp(String.raw`(?:[A-Za-z]:|~)?[\\/]?(?:${SEG}[\\/])*${SEG}(?::(\d+)(?::(\d+))?)?`, "g");
+
+/** A buffer line's text plus, for each UTF-16 unit, the 1-based cell column and width it occupies (CJK takes two). */
+function lineCells(line: IBufferLine, cols: number) {
+  let text = "";
+  const at: number[] = [];
+  const wid: number[] = [];
+  for (let x = 0; x < cols; x++) {
+    const cell = line.getCell(x);
+    if (!cell) break;
+    const w = cell.getWidth();
+    if (w === 0) continue; // right half of a wide character
+    const ch = cell.getChars() || " ";
+    for (let k = 0; k < ch.length; k++) at.push(x + 1), wid.push(w);
+    text += ch;
+  }
+  return { text, at, wid };
+}
+
+/** File paths printed in the terminal (`src/main.ts:120`, `D:\x\y.rs`), linked only if they exist. Not for SSH tabs: remote paths can't be opened here. */
+function fileLinks(tab: Tab): ILinkProvider {
+  return {
+    provideLinks(y, done) {
+      const line = tab.term.buffer.active.getLine(y - 1);
+      if (tab.ssh || !line) return done(undefined);
+      const { text, at, wid } = lineCells(line, tab.term.cols);
+      const found: { path: string; line?: number; col?: number; start: number; end: number }[] = [];
+      for (const m of text.matchAll(PATH_RE)) {
+        // Starting mid-token means part of a URL or longer word, e.g. the "/x.com/a" of "https://x.com/a".
+        if (m.index > 0 && /[\w/\\:.~-]/.test(text[m.index - 1])) continue;
+        const path = m[0].replace(/:\d+(?::\d+)?$/, "").replace(/\.+$/, ""); // drop the line suffix and a sentence's full stop
+        if (path.length < 2 || !(/[\\/]/.test(path) || /\.[A-Za-z][\w-]*$/.test(path))) continue;
+        const len = m[1] ? m[0].length : path.length;
+        found.push({ path, line: m[1] ? +m[1] : undefined, col: m[2] ? +m[2] : undefined, start: m.index, end: m.index + len });
+        if (found.length >= 32) break;
+      }
+      if (!found.length) return done(undefined);
+      invoke<(string | null)[]>("links_resolve", { cwd: tab.cwd ?? null, paths: found.map((f) => f.path) }).then(
+        (resolved) => {
+          const links: ILink[] = [];
+          found.forEach((f, i) => {
+            const path = resolved[i];
+            if (!path) return;
+            links.push({
+              range: { start: { x: at[f.start], y }, end: { x: at[f.end - 1] + wid[f.end - 1] - 1, y } },
+              text: text.slice(f.start, f.end),
+              activate: (e) =>
+                linkClick(e) && openLink("open_file", { path, line: f.line ?? null, col: f.col ?? null, editor: settings.openFilesWith }),
+              hover: () => linkHint(tab, true),
+              leave: () => linkHint(tab, false),
+            });
+          });
+          done(links.length ? links : undefined);
+        },
+        () => done(undefined),
+      );
+    },
+  };
+}
+
 // ── Search ──────────────────────────────────────────────────────────────────
 
 const searchEl = $("search");
@@ -1879,6 +1961,7 @@ function fillSettings() {
   $("s-opacity-v").textContent = `${settings.opacity}%`;
   setSeg("s-effect", settings.effect);
   setSeg("s-language", settings.language);
+  setSeg("s-open-with", settings.openFilesWith);
   $<HTMLInputElement>("s-font-size").value = String(settings.fontSize);
   fillFontPicker();
   const sample = $("font-sample");
@@ -2075,6 +2158,12 @@ $("s-effect").addEventListener("click", (e) => {
   // An effect behind a fully opaque window is invisible; pick a sensible see-through level.
   updateSettings({ effect: v, opacity: v !== "none" && settings.opacity === 100 ? 80 : settings.opacity });
   fillSettings();
+});
+$("s-open-with").addEventListener("click", (e) => {
+  const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as Settings["openFilesWith"] | undefined;
+  if (!v) return;
+  updateSettings({ openFilesWith: v });
+  setSeg("s-open-with", v);
 });
 $("s-language").addEventListener("click", (e) => {
   const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as LangPref | undefined;

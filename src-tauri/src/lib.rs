@@ -2,6 +2,7 @@ mod config;
 mod fonts;
 mod git;
 mod hooks;
+mod links;
 mod notify;
 mod pty;
 mod session;
@@ -83,6 +84,9 @@ pub fn run() {
             config::config_set,
             config::config_open,
             fonts::fonts_list,
+            links::links_resolve,
+            links::open_url,
+            links::open_file,
             session::scrollback_load,
             session::scrollback_save,
             notify::alert,

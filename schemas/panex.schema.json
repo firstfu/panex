@@ -98,6 +98,11 @@
           "type": "boolean",
           "default": true,
           "description": "有選取文字時 Ctrl+C 複製（沒選取仍是中斷），Ctrl+V 貼上。關掉後只用 shortcuts 的 copy／paste。"
+        },
+        "openFilesWith": {
+          "enum": ["system", "vscode", "cursor"],
+          "default": "system",
+          "description": "按住 Ctrl（mac 是 ⌘）點終端機裡的檔案路徑時用什麼開。system＝系統預設程式（可執行檔只會在檔案總管中顯示，不會執行）；vscode／cursor＝用該編輯器開並跳到行號。網址一律用預設瀏覽器開。"
         }
       }
     },

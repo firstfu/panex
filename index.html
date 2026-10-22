@@ -183,6 +183,16 @@
               <label class="row-ctl switch"><input id="s-resume" type="checkbox" /><i></i></label>
             </div>
             <div class="row">
+              <div class="row-text"><b data-i18n>用什麼開啟檔案路徑</b><span data-i18n>按住 Ctrl 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號</span></div>
+              <div class="row-ctl">
+                <div class="seg" id="s-open-with" role="radiogroup">
+                  <button data-v="system" role="radio" data-i18n>系統預設</button>
+                  <button data-v="vscode" role="radio">VS Code</button>
+                  <button data-v="cursor" role="radio">Cursor</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
               <div class="row-text"><b data-i18n>游標閃爍</b><span data-i18n>關掉比較省電</span></div>
               <label class="row-ctl switch"><input id="s-blink" type="checkbox" /><i></i></label>
             </div>

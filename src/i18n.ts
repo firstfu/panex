@@ -181,6 +181,11 @@ const EN: Record<string, string> = {
   "，{key} 關閉分頁": ", {key} to close the tab",
   "已完成": "Done",
   "已中斷": "Interrupted",
+  "按住 {key} 點擊開啟": "{key}+click to open",
+  "用什麼開啟檔案路徑": "Open file paths with",
+  "按住 Ctrl 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號": "Used when you Ctrl+click a file path in the terminal; an editor jumps to the line",
+  "系統預設": "System default",
+  "按住 ⌘ 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號": "Used when you ⌘+click a file path in the terminal; an editor jumps to the line",
   "搜尋捲動歷史": "Search scrollback",
   "搜尋": "Search",
   "沒有符合": "No matches",
@@ -265,6 +270,7 @@ const MAC: Record<string, string> = {
   "按住 Ctrl 或 Alt 時，在工作區與分頁上顯示快捷鍵編號": "按住 ⌘ 或 ⌥ 時，在工作區與分頁上顯示快捷鍵編號",
   "按住 Ctrl 或 Alt": "按住 ⌘ 或 ⌥",
   "Ctrl": "⌘",
+  "按住 Ctrl 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號": "按住 ⌘ 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號",
   "請加上 Ctrl、Alt 或 Win 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。":
     "請加上 ⌘、⌃ 或 ⌥ 鍵（F1–F12 可單獨使用），一般按鍵要留給終端機輸入。",
   "這個動作要用「修飾鍵＋數字」，例如按 Ctrl+Alt+1 就代表 Ctrl+Alt+1–9。":

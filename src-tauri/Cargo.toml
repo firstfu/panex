@@ -37,6 +37,10 @@ notify = { version = "8", default-features = false, features = ["macos_kqueue"] 
 # Font picker: pure-Rust font enumeration (no system font API bindings), used only when settings open.
 fontdb = { version = "0.23", default-features = false, features = ["std", "fs", "memmap"] }
 
+# ShellExecuteW for opening links from terminal output without a shell (already in the tree via tauri).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.60", features = ["Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_Foundation"] }
+
 # Transparent windows on macOS need the private API (enabled in tauri.macos.conf.json).
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri = { version = "2", features = ["macos-private-api"] }
