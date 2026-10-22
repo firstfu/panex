@@ -42,8 +42,10 @@ Start-Process <target>\release\panex.exe
 
 ## 發布 release
 
-1. 改版本號（`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`package.json`），README／繁中版的安裝檔檔名一起改。
-2. 用要 tag 的那份原始碼重新 `cargo tauri build`（安裝檔要跟推上去的程式碼一致）。
-3. commit、`git push origin main`。
-4. `gh release create v<版本> <安裝檔路徑> --repo firstfu/panex --title "panex <版本>" --notes-file <notes.md> --target main`。
-5. 驗證：`curl -sI https://github.com/firstfu/panex/releases/latest/download/<安裝檔名>` 回 302。
+安裝檔由 CI 建（`.github/workflows/release.yml`），本機不必建置：
+
+1. 改版本號，六個檔：`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（`name = "panex"` 那段）、`package.json`，以及 README 與繁中版裡的安裝檔檔名（`.exe`、`.dmg` 各處）。提交前確認 `Cargo.toml` 的 `macos-private-api` 還在（見上方「建置」）。
+2. commit、`git push origin main`，再 `git tag v<版本>` 並 `git push origin v<版本>`。
+3. tag 觸發 CI：先建草稿 release，再由 Windows、macOS 兩個 job 各自建安裝檔並上傳。草稿這時的說明只是 `Notes pending.`。兩個平台平行跑，LTO＋沒有快取，約 8–15 分鐘；`gh run watch <run id> --exit-status` 可以等它結束。
+4. 兩個安裝檔都上傳後才發布：`gh release edit v<版本> --repo firstfu/panex --title "panex <版本>" --notes-file <notes.md> --draft=false --latest`。說明的格式照前一版（New／Changed／Install，英文）。
+5. 驗證：`curl -sI https://github.com/firstfu/panex/releases/latest/download/<安裝檔名>`，兩個檔名都要回 302、`Location` 指向新版。只看轉址就好，不要跟著轉址把檔案下載下來，免得算進 GitHub 的下載次數。
