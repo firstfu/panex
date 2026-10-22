@@ -1,5 +1,5 @@
 // Requests from `panex-cli open` (an agent in one tab starting another agent) and
-// `panex-cli worktree-create` (Claude Code's WorktreeCreate hook): the backend checks the token
+// `panex-cli worktree-create` / `worktree-remove` (Claude Code's worktree hooks): the backend checks the token
 // and hands them here because the frontend owns the layout. A tab `open` starts runs right away
 // but stays in the background; the user sees it in the sidebar.
 
@@ -7,14 +7,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { t as tr } from "./i18n";
 import { type Workspace } from "./types";
-import { newId, newWsId } from "./util";
+import { basename, newId, newWsId } from "./util";
 import { S, activeWs, tabs, workspaces, wsOrder } from "./state";
 import { saveSession } from "./session";
-import { createTab, spawn } from "./terminal";
+import { createTab, refreshBranch, spawn } from "./terminal";
 import { scheduleRender } from "./render";
 import { addWorktree, worktreeSetup } from "./worktree-dialog";
-import { insertInRepoGroup, tidyGroups } from "./groups";
-import { showWorkspace } from "./workspaces";
+import { groupLead, groupMembers, inFolder, insertInRepoGroup, tidyGroups } from "./groups";
+import { closeTabs, showWorkspace } from "./workspaces";
+import { workingTabs } from "./agent";
 
 interface OpenArgs {
   cwd: string;
@@ -128,6 +129,58 @@ async function worktree(a: WorktreeArgs) {
   return { path: wt.path };
 }
 
+interface WorktreeRemoveArgs {
+  from: string; // Claude 所在的分頁
+  path: string; // 要刪掉的 worktree 資料夾（panex-cli 等這裡回答後才刪）
+}
+
+/**
+ * Claude Code 要刪掉一個 worktree（WorktreeRemove hook）：把 Claude 所在的分頁搬回 repo 的主工作區，
+ * 再關掉其他開在那個資料夾裡的分頁，側欄才不會留下指向已刪資料夾的工作區，Windows 上也不會有 shell 卡住資料夾。
+ * 沒有主工作區時，Claude 那個工作區留下來當 repo 的工作區。還有 agent 在跑的分頁不關：中斷別人的工作比多留一列糟。
+ * @param a.from Claude 所在的分頁 id；不在 panex 的話只關其他分頁
+ * @param a.path 要刪的 worktree 資料夾
+ * @returns 空物件；刪資料夾是 panex-cli 的事，這裡不會失敗
+ */
+function worktreeRemove(a: WorktreeRemoveArgs) {
+  const tab = tabs.get(a.from);
+  const ws = workspaces.get(tab?.wsId ?? "");
+  if (tab && ws && inFolder(tab.cwd, a.path)) {
+    const group = ws.group;
+    // 排除自己：Claude Code 預設的 .claude/worktrees 在主 checkout 底下，會被當成主工作區。
+    const lead = group ? groupLead(group, groupMembers(group).filter((id) => id !== ws.id)) : undefined;
+    const home = tab.repo ?? group;
+    // shell 若還在 worktree 裡（重開 panex 後 shell 就是在那裡啟動的），Claude 結束後的提示字元會帶它 cd 回主 checkout。
+    Object.assign(tab, { followCwd: undefined, worktree: false, branch: undefined, branchAt: undefined, cwd: home ?? tab.cwd });
+    if (home) tab.leaveDir = { from: a.path, to: home };
+    const leadWs = workspaces.get(lead ?? "");
+    if (leadWs) {
+      ws.tabs = ws.tabs.filter((id) => id !== tab.id);
+      if (ws.activeTab === tab.id) ws.activeTab = ws.tabs[0];
+      leadWs.tabs.push(tab.id);
+      leadWs.activeTab = tab.id;
+      tab.wsId = leadWs.id;
+      // 使用者正看著這段對話就跟過去。
+      if (activeWs()?.id === ws.id) showWorkspace(leadWs.id);
+      if (!ws.tabs.length) {
+        workspaces.delete(ws.id);
+        wsOrder.splice(wsOrder.indexOf(ws.id), 1);
+        tidyGroups();
+      }
+    } else if (ws.customTitle === basename(a.path)) {
+      // 名字是 worktree 建立時取的，留著會誤導；清掉改回自動標題。
+      ws.customTitle = undefined;
+    }
+    refreshBranch(tab);
+  }
+  const busy = new Set(workingTabs().map((t) => t.id));
+  const stale = [...tabs.values()].filter((t) => t.id !== a.from && !t.ssh && !busy.has(t.id) && inFolder(t.cwd, a.path));
+  if (stale.length) closeTabs(stale.map((t) => t.id));
+  saveSession();
+  scheduleRender();
+  return {};
+}
+
 export function wireControl() {
   listen<{ req: number; op: string; args: any }>("ctl-request", async ({ payload: p }) => {
     let ok = true;
@@ -135,6 +188,7 @@ export function wireControl() {
     try {
       if (p.op === "open") value = await open(p.args);
       else if (p.op === "worktree") value = await worktree(p.args);
+      else if (p.op === "worktree-remove") value = worktreeRemove(p.args);
       else throw "unknown request";
     } catch (e) {
       ok = false;

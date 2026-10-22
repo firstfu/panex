@@ -20,6 +20,7 @@ import { agentKey, autoResume, endAgent, endRun, notify } from "./agent";
 import { scheduleGit } from "./git-panel";
 import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
+import { inFolder } from "./groups";
 
 const SNAPSHOT_DELAY_MS = 4000;
 const SNAPSHOT_LINES = 1000;
@@ -259,6 +260,15 @@ function setCwd(tab: Tab, cwd: string) {
       return;
     }
   }
+  // 所在的 worktree 被刪了（Claude 的 WorktreeRemove）：shell 還留在已刪的資料夾裡才帶它回主 checkout。
+  if (tab.leaveDir && !duplicate) {
+    const { from, to } = tab.leaveDir;
+    tab.leaveDir = undefined;
+    if (inFolder(cwd, from)) {
+      invoke("pty_write", { id: tab.id, data: `${cdCommand(tab.shell, to)}\r` }).catch(() => {});
+      return;
+    }
+  }
   // Every prompt reports the cwd, so this also catches `git checkout` in place.
   refreshBranch(tab, cwd);
   // A prompt also ends whatever command might have changed files or commits.
@@ -269,7 +279,7 @@ function setCwd(tab: Tab, cwd: string) {
   scheduleRender();
 }
 
-function refreshBranch(tab: Tab, cwd = tab.cwd) {
+export function refreshBranch(tab: Tab, cwd = tab.cwd) {
   if (!cwd) return;
   const now = Date.now();
   if (cwd === tab.cwd && tab.branchAt && now - tab.branchAt < 1000) return;

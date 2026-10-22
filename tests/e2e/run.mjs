@@ -198,6 +198,83 @@ async function main() {
       if (!inSidebar) throw new Error("no e2e-a workspace in the sidebar");
     });
 
+    await check("WorktreeRemove hook: worktree deleted, Claude's tab back in the main workspace", async () => {
+      // What Claude Code does around EnterWorktree / ExitWorktree, from inside tab t1.
+      const script = join(tmp, "hooks.sh");
+      writeFileSync(
+        script,
+        `cd "${repo}"
+printf '{"hook_event_name":"WorktreeCreate","name":"e2e-rm","cwd":"%s"}' "$PWD" | "${CLI}" worktree-create > "${tmp}/create.out"
+echo $? > "${tmp}/create.code"
+sleep 1
+printf '{"hook_event_name":"WorktreeRemove","worktree_path":"%s","cwd":"%s"}' "$(cat "${tmp}/create.out")" "$PWD" | "${CLI}" worktree-remove 2> "${tmp}/remove.err"
+echo $? > "${tmp}/remove.code"
+`,
+      );
+      evalJs(`document.querySelector("#tabbar > *").click(); return true;`);
+      evalJs(`window.__e2e.run(${JSON.stringify(`sh '${script}'`)}); return true;`);
+      await waitFor("the create hook", () => existsSync(join(tmp, "create.code")));
+      const path = readFileSync(join(tmp, "create.out"), "utf8").trim();
+      if (readFileSync(join(tmp, "create.code"), "utf8").trim() !== "0" || !path.endsWith("repo-worktrees/e2e-rm")) throw new Error(`create gave ${path}`);
+      await waitFor("the e2e-rm workspace", () => evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-rm")`), 5000);
+      await waitFor("the remove hook", () => existsSync(join(tmp, "remove.code")));
+      const code = readFileSync(join(tmp, "remove.code"), "utf8").trim();
+      if (code !== "0") throw new Error(`remove exited ${code}: ${readFileSync(join(tmp, "remove.err"), "utf8")}`);
+      if (existsSync(path)) throw new Error("the worktree folder is still there");
+      if (sh("git", ["worktree", "list"], { cwd: repo }).includes("e2e-rm")) throw new Error("git still lists the worktree");
+      if (evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-rm")`)) throw new Error("the e2e-rm workspace is still in the sidebar");
+      const session = join(home, "Library/Application Support/dev.panex.terminal.test/session.json");
+      await waitFor("t1 back in w1", () => JSON.parse(readFileSync(session, "utf8")).workspaces.find((w) => w.id === "w1")?.tabs.some((t) => t.id === "t1"), 5000);
+    });
+
+    await check("workspace menu: 關閉工作區並刪除 worktree", async () => {
+      const wt = join(tmp, "repo-worktrees", "e2e-a");
+      writeFileSync(join(wt, "scratch.txt"), "uncommitted\n");
+      const main = evalJs(`
+        const ws = [...document.querySelectorAll("#tabs .ws")].find((e) => !e.textContent.includes("e2e-a"));
+        const items = window.__e2e.menu(ws).map((d) => d.textContent);
+        document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        return items;`);
+      if (main.some((t) => t.includes("刪除 worktree"))) throw new Error("offered on the main checkout's workspace");
+      evalJs(`
+        const ws = [...document.querySelectorAll("#tabs .ws")].find((e) => e.textContent.includes("e2e-a"));
+        window.__e2e.menu(ws).find((d) => d.textContent === "關閉工作區並刪除 worktree…").click();
+        return true;`);
+      const dlg = await waitFor("the dialog filled in", () => {
+        const d = evalJs(`return { ok: document.querySelector("#wt-rm-ok").textContent, disabled: document.querySelector("#wt-rm-ok").disabled,
+          warn: [...document.querySelectorAll("#wt-rm-warn li")].map((l) => l.textContent), branch: document.querySelector("#wt-rm-branch").checked,
+          label: document.querySelector("#wt-rm-branch-label").textContent, focus: document.activeElement?.id }`);
+        return !d.disabled && d;
+      }, 5000);
+      // One untracked file; the fake agent's commit is only on e2e-a, so the branch is kept by default.
+      if (dlg.ok !== "仍要刪除" || dlg.warn.length !== 1 || !dlg.warn[0].startsWith("1 個檔案") || dlg.branch || dlg.focus !== "wt-rm-cancel")
+        throw new Error(JSON.stringify(dlg));
+      evalJs(`document.querySelector("#wt-rm-branch").click(); return true;`);
+      const warn = evalJs(`return [...document.querySelectorAll("#wt-rm-warn li")].map((l) => l.textContent)`);
+      if (warn.length !== 2 || !warn[1].includes("e2e-a")) throw new Error(`with the branch ticked: ${JSON.stringify(warn)}`);
+      evalJs(`document.querySelector("#wt-rm-branch").click(); document.querySelector("#wt-rm-ok").click(); return true;`);
+      await waitFor("the dialog to close", () => evalJs(`return document.querySelector("#wt-rm").hidden`), 10000);
+      if (existsSync(wt)) throw new Error("the worktree folder is still there");
+      if (evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-a")`)) throw new Error("the e2e-a workspace is still in the sidebar");
+      sh("git", ["rev-parse", "--verify", "--quiet", "refs/heads/e2e-a"], { cwd: repo }); // kept: throws if gone
+      if (existsSync(join(tmp, "repo-worktrees"))) throw new Error("the empty repo-worktrees folder is left");
+    });
+
+    await check("workspace menu: a worktree deleted outside panex only closes its workspace", async () => {
+      const out = join(tmp, "gone.json");
+      evalJs(`window.__e2e.run(${JSON.stringify(`cd '${repo}' && '${CLI}' open --worktree e2e-gone > '${out}'`)}); return true;`);
+      const opened = JSON.parse(await waitFor("open", () => existsSync(out) && readFileSync(out, "utf8").trim(), 20000));
+      await waitFor("the e2e-gone workspace", () => evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-gone")`), 5000);
+      sh("git", ["worktree", "remove", "--force", opened.cwd], { cwd: repo });
+      evalJs(`
+        const ws = [...document.querySelectorAll("#tabs .ws")].find((e) => e.textContent.includes("e2e-gone"));
+        window.__e2e.menu(ws).find((d) => d.textContent === "關閉工作區並刪除 worktree…").click();
+        return true;`);
+      await waitFor("the missing-folder notice", () => evalJs(`return document.querySelector("#wt-rm-warn").textContent === "這個資料夾已經不在了" && document.querySelector("#wt-rm-ok").textContent === "關閉工作區"`), 5000);
+      evalJs(`document.querySelector("#wt-rm-ok").click(); return true;`);
+      await waitFor("the workspace to go", () => !evalJs(`return document.querySelector("#tabs").textContent.includes("e2e-gone")`), 5000);
+    });
+
     await check("eval is refused without the token", () => {
       let out;
       try {

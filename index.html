@@ -83,6 +83,21 @@
       </form>
     </div>
 
+    <div id="wt-rm" class="overlay" hidden>
+      <div class="wt-panel" role="alertdialog" aria-modal="true" aria-labelledby="wt-rm-title" tabindex="-1">
+        <h2 id="wt-rm-title" data-i18n>關閉工作區並刪除 worktree</h2>
+        <p class="ask-text" data-i18n>會關閉開在這個資料夾裡的分頁，並用 git worktree remove 刪除資料夾：</p>
+        <p id="wt-rm-path" class="ask-text muted wt-rm-path"></p>
+        <ul id="wt-rm-warn" class="wt-rm-warn"></ul>
+        <label id="wt-rm-branch-row" class="wt-rm-check" hidden><input id="wt-rm-branch" type="checkbox" /><span id="wt-rm-branch-label"></span></label>
+        <p id="wt-rm-err" class="wt-err" aria-live="polite"></p>
+        <div class="wt-actions">
+          <button type="button" id="wt-rm-cancel" class="ghost" data-i18n>取消</button>
+          <button type="button" id="wt-rm-ok" class="primary danger" data-i18n>刪除</button>
+        </div>
+      </div>
+    </div>
+
     <div id="close-ask" class="overlay" hidden>
       <div class="wt-panel" role="alertdialog" aria-modal="true" aria-labelledby="close-ask-title" tabindex="-1">
         <h2 id="close-ask-title"></h2>

@@ -2,7 +2,7 @@
 //! wait for them. They arrive over the notification pipe (notify.rs) and must carry the token
 //! that only shells started by this panex get in PANEX_TOKEN; any other local process is refused.
 //!
-//! `open` is carried out by the frontend, which owns the layout: we emit `ctl-request` and the
+//! `open`, `worktree` and `worktree-remove` (Claude Code's worktree hooks) are carried out by the frontend, which owns the layout: we emit `ctl-request` and the
 //! answer comes back through `ctl_reply`. `wait` is answered here, from the hook events that
 //! pass through the pipe anyway, so a waiting agent costs nothing until one of them arrives.
 
@@ -101,6 +101,8 @@ pub async fn handle(app: &AppHandle, req: &Value) -> Value {
     }
     let result = match req["op"].as_str() {
         Some("open" | "worktree") => open(app, req).await,
+        // worktree 正要被刪，panex 只整理側欄，所以不檢查資料夾。
+        Some("worktree-remove") => to_frontend(app, req).await,
         Some("wait") => wait(app, req).await,
         _ => Err("unknown request".into()),
     };
@@ -112,6 +114,11 @@ async fn open(app: &AppHandle, req: &Value) -> Result<Value, String> {
     if !Path::new(cwd).is_dir() {
         return Err(format!("not a folder: {cwd}"));
     }
+    to_frontend(app, req).await
+}
+
+/// 把整個請求當 `ctl-request` 交給前端，等它的答覆。
+async fn to_frontend(app: &AppHandle, req: &Value) -> Result<Value, String> {
     ask_frontend(app, |id| {
         let _ = app.emit("ctl-request", json!({ "req": id, "op": req["op"], "args": req }));
     })

@@ -1,4 +1,4 @@
-//! Git for the UI, read only (plus `git worktree add`). The branch is read straight from
+//! Git for the UI, read only (plus `git worktree add` / `remove`). The branch is read straight from
 //! `.git/HEAD`; status, diffs and the log run git with `--no-optional-locks` so they never take
 //! the index lock an agent may need, with capped output, off the main thread.
 
@@ -203,6 +203,106 @@ pub fn git_worktree_add(cwd: String, branch: String, base: Option<String>, copy_
         }
     }
     Ok(Worktree { path: path_str, repo: normalize(&root).to_string_lossy().into_owned(), copied })
+}
+
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WorktreeInfo {
+    /// `cwd` 所在 linked worktree 的最上層資料夾。
+    path: String,
+    /// 它的主 checkout。
+    repo: String,
+    /// 簽出的分支；HEAD 是 detached 時為 None。
+    branch: Option<String>,
+    /// 已修改、已暫存與未追蹤的檔案數（`git status --porcelain` 的行數）。
+    changes: usize,
+    /// 從 HEAD 走得到、但其他分支與遠端分支都走不到的 commit 數：連分支一起刪就找不回來。
+    unique: u32,
+}
+
+/// 刪掉 `cwd` 所在的 worktree 會失去什麼，給確認對話框用。
+/// 錯誤：`cwd` 不存在（固定回 `"missing"`）、在主 checkout 裡（主 checkout 永遠不刪）或不在 repo 裡。
+#[tauri::command]
+pub async fn git_worktree_info(cwd: String) -> Result<WorktreeInfo, String> {
+    blocking(move || worktree_info(Path::new(&cwd))).await?
+}
+
+fn worktree_info(cwd: &Path) -> Result<WorktreeInfo, String> {
+    // 固定字串，前端靠它分辨「資料夾已經被刪了」，改成只提供關閉工作區。
+    if !cwd.exists() {
+        return Err("missing".into());
+    }
+    let top = PathBuf::from(git(cwd, &["rev-parse", "--show-toplevel"]).map_err(|_| "not inside a git repository".to_string())?);
+    let common = PathBuf::from(git(cwd, &["rev-parse", "--path-format=absolute", "--git-common-dir"])?);
+    let repo = main_checkout(&normalize(&common)).ok_or("the repository has no main checkout")?;
+    if normalize(&top) == normalize(&repo) {
+        return Err("this is the main checkout, not a worktree".into());
+    }
+    let branch = git(&top, &["symbolic-ref", "--short", "-q", "HEAD"]).ok().filter(|b| !b.is_empty());
+    let (status, _) = git_capped(&top, &["status", "--porcelain"], MAX_STATUS_BYTES)?;
+    // `--exclude` 只作用在緊接的 `--branches`，而且要寫不含 refs/heads/ 的名字：除了這個分支以外的所有分支
+    // （分支名不能含 glob 字元，不必跳脫）。
+    let exclude = branch.as_ref().map(|b| format!("--exclude={b}"));
+    let mut args = vec!["rev-list", "--count", "HEAD", "--not"];
+    args.extend(exclude.as_deref());
+    args.extend(["--branches", "--remotes"]);
+    let unique = git(&top, &args)?.parse().unwrap_or(0);
+    Ok(WorktreeInfo {
+        path: top.to_string_lossy().into_owned(),
+        repo: normalize(&repo).to_string_lossy().into_owned(),
+        branch,
+        changes: status.lines().filter(|l| !l.is_empty()).count(),
+        unique,
+    })
+}
+
+/// 用 `git worktree remove` 刪掉 `path` 的 linked worktree（`force` 連未 commit 的變更一起丟掉），
+/// 有給 `branch` 就接著刪分支，`<repo>-worktrees` 空了也一併刪。
+/// 錯誤：主 checkout、不是 worktree、有變更卻沒 `force`；刪分支失敗時 worktree 已經刪掉，訊息會說明。
+#[tauri::command]
+pub async fn git_worktree_remove(path: String, force: bool, branch: Option<String>) -> Result<(), String> {
+    blocking(move || worktree_remove(Path::new(&path), force, branch.as_deref())).await?
+}
+
+fn worktree_remove(path: &Path, force: bool, branch: Option<&str>) -> Result<(), String> {
+    let info = worktree_info(path)?;
+    let (top, repo) = (PathBuf::from(&info.path), PathBuf::from(&info.repo));
+    let top_str = info.path.as_str();
+    let mut args = vec!["worktree", "remove"];
+    if force {
+        args.push("--force");
+    }
+    args.push(top_str);
+    // 從主 checkout 執行：git 不刪自己正在裡面的 worktree。剛關掉的 shell 可能還沒結束
+    // （Windows 會鎖住程序的 cwd），所以失敗時重試幾次。
+    let mut last = Ok(String::new());
+    for attempt in 0..4 {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+        }
+        last = git(&repo, &args);
+        if last.is_ok() || !top.exists() {
+            break;
+        }
+        // git 先刪了 `.git` 檔才卡在被鎖的檔案：對 git 來說已經不是 worktree，改成自己刪完
+        // （只在使用者已同意丟掉裡面東西時）。
+        if force && !top.join(".git").exists() {
+            last = fs::remove_dir_all(&top).map(|_| String::new()).map_err(|e| e.to_string());
+            let _ = git(&repo, &["worktree", "prune"]);
+            if last.is_ok() {
+                break;
+            }
+        }
+    }
+    last?;
+    if let Some(b) = branch.filter(|b| !b.is_empty()) {
+        git(&repo, &["branch", "-D", b]).map_err(|e| format!("the worktree is removed, but not the branch {b}: {e}"))?;
+    }
+    // 只有空資料夾刪得掉，裡面其他 worktree 不受影響。
+    if let Some(parent) = top.parent().filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().ends_with("-worktrees"))) {
+        let _ = fs::remove_dir(parent);
+    }
+    Ok(())
 }
 
 /// Local branch names of the repo containing `cwd`, most recently committed first.
@@ -526,6 +626,37 @@ mod tests {
         assert!(git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], None).is_err());
         let again = git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], Some(true)).unwrap();
         assert_eq!(again.path, wt.path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn worktree_info_and_remove() {
+        let base = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("panex-git-rm-test-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let main = base.join("repo");
+        fs::create_dir_all(&main).unwrap();
+        let run = |dir: &Path, args: &[&str]| git(dir, args).unwrap();
+        run(&main, &["init", "-q", "-b", "main"]);
+        run(&main, &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"]);
+        assert!(worktree_info(&main).is_err(), "the main checkout is never offered for removal");
+
+        let wt = PathBuf::from(git_worktree_add(main.to_string_lossy().into(), "feat/b".into(), None, vec![], None).unwrap().path);
+        let i = worktree_info(&wt).unwrap();
+        assert_eq!((i.branch.as_deref(), i.changes, i.unique), (Some("feat/b"), 0, 0));
+        assert_eq!(i.repo, main.to_string_lossy());
+
+        fs::write(wt.join("new.txt"), "x").unwrap();
+        run(&wt, &["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "only here"]);
+        let i = worktree_info(&wt).unwrap();
+        assert_eq!((i.changes, i.unique), (1, 1), "an untracked file, a commit on no other branch");
+
+        assert!(worktree_remove(&wt, false, None).is_err(), "uncommitted work: refused without force");
+        assert!(wt.exists());
+        worktree_remove(&wt, true, Some("feat/b")).unwrap();
+        assert!(!wt.exists());
+        assert!(!base.join("repo-worktrees").exists(), "the empty -worktrees folder goes too");
+        assert!(git(&main, &["rev-parse", "--verify", "--quiet", "refs/heads/feat/b"]).is_err(), "branch deleted");
+        assert_eq!(git(&main, &["worktree", "list", "--porcelain"]).unwrap().matches("worktree ").count(), 1);
         let _ = fs::remove_dir_all(&base);
     }
 }

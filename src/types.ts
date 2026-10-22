@@ -120,6 +120,7 @@ export interface Tab {
   asking?: boolean; // the agent is waiting on a permission prompt or question inside its turn (whatever the badge shows)
   initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
   followCwd?: string; // folder Claude moved into (its worktree); the shell cd's there at its next prompt (not persisted)
+  leaveDir?: { from: string; to: string }; // 已刪的 worktree：下一個提示字元若還在 from 裡面，就 cd 到 to（不存檔）
   agentSession?: string; // id of the Claude Code session running here (persisted; dropped once Claude exits)
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
   skipPrompt?: boolean; // an auto-resume was queued: the shell's first prompt is its startup one, not Claude exiting

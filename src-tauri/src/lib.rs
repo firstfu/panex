@@ -76,6 +76,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             git::git_branch,
             git::git_worktree_add,
+            git::git_worktree_info,
+            git::git_worktree_remove,
             git::git_branches,
             git::git_status,
             git::git_diff,

@@ -4,6 +4,7 @@
 //!   panex-cli open … / wait …       (an agent starting other agents in new tabs; see HELP)
 //!   panex-cli browser-login         (saves a login for crew agents' Playwright browsers)
 //!   panex-cli worktree-create       (Claude Code's WorktreeCreate hook; see worktree_create)
+//!   panex-cli worktree-remove       (Claude Code's WorktreeRemove hook; see worktree_remove)
 //!
 //! notify reads the hook JSON from stdin (Claude Code passes it there), adds the pane id from
 //! PANEX_PANE_ID and sends it to the running panex over PANEX_PIPE. Outside panex those
@@ -24,6 +25,7 @@ fn main() {
         Some("open") => std::process::exit(run(open_request(&args[1..]))),
         Some("wait") => std::process::exit(run(wait_request(&args[1..]))),
         Some("worktree-create") => std::process::exit(worktree_create()),
+        Some("worktree-remove") => std::process::exit(worktree_remove()),
         Some("browser-login") => {
             if let Err(e) = browser_login() {
                 eprintln!("panex-cli: {e}");
@@ -263,6 +265,68 @@ fn worktree_create() -> i32 {
             1
         }
     }
+}
+
+/// `panex-cli worktree-remove`：Claude Code 的 WorktreeRemove hook，跟 worktree-create 一起安裝。
+/// Claude Code 刪除 worktree-create 建的 worktree 時（ExitWorktree 選擇移除、離開 `claude --worktree`）呼叫它；
+/// 有這個 hook 時 Claude Code 自己不刪任何東西，所以這裡照它原本的做法跑 `git worktree remove --force`。
+/// 分支保留（Claude Code 也不刪分支）。到這一步 Claude Code 已經檢查過、或被告知可以丟掉未 commit 的內容。
+/// - 在 panex 分頁裡：先通知 panex，讓它把 Claude 的分頁搬回 repo 的主工作區、關掉 worktree 的工作區，
+///   資料夾裡就沒有 shell 了（Windows 刪不掉程序正當作 cwd 的資料夾）。
+/// - panex 外或連不到 panex：只刪 worktree。
+///
+/// 回傳 exit code：非 0（原因寫在 stderr）會讓 Claude Code 回報 worktree 沒刪掉。
+fn worktree_remove() -> i32 {
+    let hook = read_stdin_json().unwrap_or(Value::Null);
+    let Some(path) = hook["worktree_path"].as_str().map(PathBuf::from) else {
+        eprintln!("panex-cli: the hook input has no worktree_path");
+        return 1;
+    };
+    if let (Ok(pane), Ok(pipe), Ok(token)) = (std::env::var("PANEX_PANE_ID"), std::env::var("PANEX_PIPE"), std::env::var("PANEX_TOKEN")) {
+        let req = json!({ "op": "worktree-remove", "token": token, "from": pane, "path": path });
+        // 側欄整理不了不是保留 worktree 的理由。
+        if let Err(e) = request(&pipe, &req) {
+            eprintln!("panex-cli: cannot reach panex ({e}); removing the worktree anyway");
+        }
+    }
+    match remove_worktree(&path) {
+        Ok(()) => 0,
+        Err(e) => {
+            eprintln!("panex-cli: {e}");
+            1
+        }
+    }
+}
+
+/// 從主 checkout 跑 `git worktree remove --force <path>`（git 不刪自己正在裡面的 worktree），
+/// `<repo>-worktrees` 因此空了就一併刪。資料夾已經不在算成功。panex 剛關掉的 shell 可能還沒結束，失敗會重試幾次。
+/// 錯誤：不是 git worktree（照 Claude Code 的做法留在原地）或重試後仍刪不掉。
+fn remove_worktree(path: &Path) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let common = PathBuf::from(git(path, &["rev-parse", "--path-format=absolute", "--git-common-dir"]).map_err(|_| format!("{} is not a git worktree; left as it is", path.display()))?);
+    let root = match common.file_name() {
+        Some(n) if n == ".git" => common.parent().map(Path::to_path_buf).ok_or("the repository has no main checkout")?,
+        _ => return Err("the repository has no main checkout".into()),
+    };
+    let path_str = path.to_string_lossy().into_owned();
+    let mut last = Ok(String::new());
+    for attempt in 0..4 {
+        if attempt > 0 {
+            std::thread::sleep(Duration::from_millis(400));
+        }
+        last = git(&root, &["worktree", "remove", "--force", &path_str]);
+        if last.is_ok() || !path.exists() {
+            last = Ok(String::new());
+            break;
+        }
+    }
+    last?;
+    if let Some(parent) = path.parent().filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().ends_with("-worktrees"))) {
+        let _ = std::fs::remove_dir(parent);
+    }
+    Ok(())
 }
 
 /// Runs git in `dir`; its output never reaches our stdout (Claude Code reads the path there).

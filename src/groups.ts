@@ -22,6 +22,17 @@ export const repoName = (repo: string) => basename(repo);
 const normPath = (p?: string) => repoKey(p).replace(/\\/g, "/").replace(/\/+$/, "");
 
 /**
+ * 路徑 `p` 是否就是 `root` 或在它底下（依 normPath 的規則比對）。
+ * @param p 要檢查的路徑（通常是分頁的 cwd）
+ * @param root 資料夾
+ */
+export function inFolder(p: string | undefined, root: string): boolean {
+  const a = normPath(p);
+  const r = normPath(root);
+  return !!a && (a === r || a.startsWith(r + "/"));
+}
+
+/**
  * 群組的「主工作區」：有分頁開在主 checkout 資料夾（或它的子資料夾）裡的那個，側欄把它當群組的最上層。
  * 看的是有存進 session 的 cwd，不是 git 偵測結果：還原的分頁要被看到才會啟動 shell，啟動前沒有 git 資訊。
  * @param group 群組的 key（主 checkout 的路徑）
@@ -29,13 +40,7 @@ const normPath = (p?: string) => repoKey(p).replace(/\\/g, "/").replace(/\/+$/, 
  * @returns 主工作區的 id；沒有（例如主資料夾那個已經關掉）就是 undefined
  */
 export function groupLead(group: string, members: string[]): string | undefined {
-  const root = normPath(group);
-  return members.find((id) =>
-    workspaces.get(id)?.tabs.some((t) => {
-      const cwd = normPath(tabs.get(t)?.cwd);
-      return cwd === root || cwd.startsWith(root + "/");
-    }),
-  );
+  return members.find((id) => workspaces.get(id)?.tabs.some((t) => inFolder(tabs.get(t)?.cwd, group)));
 }
 
 /**

@@ -4,6 +4,23 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 刪除 worktree：右鍵「關閉工作區並刪除 worktree」＋ Claude 的 WorktreeRemove hook（未 commit）
+
+**變更**
+- `hooks.rs`：`WorktreeCreate` 與新的 `WorktreeRemove`（`panex-cli worktree-remove`）成對安裝、成對移除；使用者自己有任一個 worktree hook 就兩個都不加。舊安裝（只有我們的 WorktreeCreate）下次啟動會補上 WorktreeRemove。
+- `panex-cli worktree-remove`：在 panex 分頁裡先送控制請求 `worktree-remove`，前端（`control.ts`）把 Claude 的分頁搬回群組的主工作區（沒有主工作區就留在原工作區，清掉 worktree 名稱），關掉其他開在資料夾裡、沒在工作的分頁；shell 還在已刪資料夾裡的話，下一個提示字元 cd 回主 checkout（`Tab.leaveDir`）。接著自己 `git worktree remove --force`（從主 checkout 跑，失敗重試），空掉的 `<repo>-worktrees` 一併刪；分支保留（同 Claude Code）。panex 外只刪 worktree。
+- 右鍵「關閉工作區並刪除 worktree…」（`src/worktree-remove.ts`）：只在 worktree 的工作區出現。新指令 `git_worktree_info`（未提交檔案數、其他分支與遠端都沒有的 commit 數）、`git_worktree_remove`（可選刪分支）。有會遺失的東西時按鈕變「仍要刪除」、焦點留在取消，分支有獨有 commit 時預設不勾刪分支。資料夾已不存在時只提供「關閉工作區」。
+- README 中英文、`overview.md`（hooks.rs 列與一鍵 worktree 列）更新。
+- 驗證：Rust 23（新增 worktree_info／remove 與 hook 成對安裝的測試）、前端 6、e2e 8（新增 3 項：模擬 Create→Remove hook、右鍵刪除含警告與分支勾選、panex 外刪掉的 worktree）連跑兩輪都過。
+
+**為什麼**
+- 使用者回報 worktree 刪了側欄還在：只有 WorktreeCreate hook 時，Claude Code 自己用 git 刪，panex 收不到通知；panex 本身也沒有任何刪除 worktree 的功能。使用者要兩個都做。
+
+**下一步**
+- 沒用真的 `claude` 跑過 ExitWorktree（只照官方文件模擬 hook 輸入）；對話框外觀沒截圖（沒有螢幕錄製權限）。Windows 沒測（刪除時 shell 鎖住資料夾的重試）。
+- 使用者側欄裡那個已刪 worktree 的工作區是舊版留下的，直接關閉即可（新版右鍵會顯示「資料夾已經不在了」）。
+- 還沒 commit、沒發版。
+
 ## 2026-10-22 — 發佈 v0.5.0，本機改裝 0.5.0
 
 **變更**

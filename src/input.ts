@@ -16,6 +16,7 @@ import { closeSearch, searchEl } from "./search";
 import { startRename } from "./rename";
 import { scheduleRender, shellMenuEl, tabbarEl, wsListEl } from "./render";
 import { closeAskEl } from "./close-ask";
+import { wtRmEl } from "./worktree-remove";
 import { ctxEl, groupMenu, hideCtx, showCtx, tabMenu, wsMenu } from "./context-menu";
 import { captureKey, closeSettings, isCapturing, openSettings, settingsEl } from "./settings-panel";
 import { copySelection, runAction } from "./actions";
@@ -51,7 +52,7 @@ document.addEventListener(
   "keydown",
   (e) => {
     if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.add("show-nums");
-    if (S.renaming || !wtEl.hidden || !closeAskEl.hidden) return;
+    if (S.renaming || !wtEl.hidden || !closeAskEl.hidden || !wtRmEl.hidden) return;
     if (!gitViewEl.hidden && e.key === "Escape") return stop(e, () => closeGitView());
     // Esc in the search box closes it; with the terminal focused it still goes to the program (interrupting Claude).
     if (e.key === "Escape" && searchEl.contains(document.activeElement)) return stop(e, () => closeSearch());

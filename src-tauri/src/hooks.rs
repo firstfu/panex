@@ -8,6 +8,8 @@
 //! is added too, so worktrees Claude opens land next to the repo and in panex's sidebar. Unlike
 //! notify it changes what Claude Code does everywhere (the hook replaces its own `git worktree`
 //! step), so it is removed again when the setting is turned off.
+//! WorktreeRemove（`panex-cli worktree-remove`）跟它成對裝、成對移除：有了 WorktreeCreate hook，Claude Code
+//! 刪 worktree 時要靠它刪資料夾，panex 也藉此關掉那個 worktree 的工作區。
 
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -15,7 +17,8 @@ use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 const EVENTS: [&str; 5] = ["Notification", "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd"];
-const WORKTREE_EVENT: &str = "WorktreeCreate";
+/// panex 的 worktree hooks 與對應的 panex-cli 子指令；一律成對安裝、成對移除。
+const WORKTREE_HOOKS: [(&str, &str); 2] = [("WorktreeCreate", "worktree-create"), ("WorktreeRemove", "worktree-remove")];
 
 /// Shipped inside the binary, so the skill always matches this version's panex-cli.
 const SKILL: &str = include_str!("../../skills/panex/SKILL.md");
@@ -96,15 +99,18 @@ pub fn hooks_status() -> bool {
     status_at(&path, &cli, worktree_via_panex())
 }
 
-/// Whether settings.json has the notify hooks for `cli` and, exactly when `worktree` is on, its WorktreeCreate hook.
+/// 使用者是否有自己的 worktree hook（不是指向 panex-cli 的）。
+fn foreign_worktree_hook(hooks: &Value) -> bool {
+    WORKTREE_HOOKS.iter().any(|(e, _)| hooks[e].as_array().is_some_and(|gs| gs.iter().any(|g| !is_panex_group(g))))
+}
+
+/// Whether settings.json has the notify hooks for `cli` and, exactly when `worktree` is on, its worktree hooks.
 fn status_at(path: &Path, cli: &str, worktree: bool) -> bool {
     let Ok(v) = fs::read(path).map(|b| serde_json::from_slice::<Value>(&b).unwrap_or(Value::Null)) else { return false };
     let has = |e: &str| v["hooks"][e].as_array().is_some_and(|gs| gs.iter().any(|g| has_current(g, cli)));
-    let wt = v["hooks"][WORKTREE_EVENT].as_array();
-    let any_panex = wt.is_some_and(|gs| gs.iter().any(is_panex_group));
-    let foreign = wt.is_some_and(|gs| gs.iter().any(|g| !is_panex_group(g)));
-    // The user's own WorktreeCreate hook wins: ours is not added next to it (see install_at).
-    let worktree_ok = if worktree && !foreign { has(WORKTREE_EVENT) } else { !any_panex };
+    let any_panex = WORKTREE_HOOKS.iter().any(|(e, _)| v["hooks"][e].as_array().is_some_and(|gs| gs.iter().any(is_panex_group)));
+    // 使用者自己的 worktree hook 優先：不在旁邊加我們的（見 install_at）。
+    let worktree_ok = if worktree && !foreign_worktree_hook(&v["hooks"]) { WORKTREE_HOOKS.iter().all(|(e, _)| has(e)) } else { !any_panex };
     EVENTS.iter().all(|e| has(e)) && worktree_ok
 }
 
@@ -141,20 +147,21 @@ fn install_at(path: &Path, cli: &str, worktree: bool) -> Result<(), String> {
         // Exec form: no shell, so paths with spaces or backslashes need no quoting.
         groups.push(json!({ "hooks": [{ "type": "command", "command": cli, "args": ["notify"], "timeout": 10 }] }));
     }
-    // Only one WorktreeCreate hook can supply the path, so ours goes in or out as a whole.
-    if let Some(groups) = hooks.get_mut(WORKTREE_EVENT) {
-        let groups = groups.as_array_mut().ok_or(format!("hooks.{WORKTREE_EVENT} is not an array, left unchanged"))?;
-        groups.retain(|g| !is_panex_group(g));
-        if groups.is_empty() {
-            hooks.remove(WORKTREE_EVENT);
+    // WorktreeCreate 只能有一個提供路徑，WorktreeRemove 要收拾的是它建的東西，所以我們的兩個一起進出。
+    for (e, _) in WORKTREE_HOOKS {
+        if let Some(groups) = hooks.get_mut(e) {
+            let groups = groups.as_array_mut().ok_or(format!("hooks.{e} is not an array, left unchanged"))?;
+            groups.retain(|g| !is_panex_group(g));
+            if groups.is_empty() {
+                hooks.remove(e);
+            }
         }
     }
-    // Claude Code takes the worktree path from the hook, so two hooks would fight over it; a
-    // WorktreeCreate hook the user set up themselves is left in charge.
-    if worktree && !hooks.contains_key(WORKTREE_EVENT) {
-        let groups = hooks.entry(WORKTREE_EVENT).or_insert_with(|| Value::Array(vec![]));
-        let groups = groups.as_array_mut().ok_or(format!("hooks.{WORKTREE_EVENT} is not an array, left unchanged"))?;
-        groups.push(json!({ "hooks": [{ "type": "command", "command": cli, "args": ["worktree-create"], "timeout": 120 }] }));
+    // 兩個 WorktreeCreate 會搶路徑；使用者自己設的 worktree hook 就交給它（這時剩下的都是使用者的）。
+    if worktree && WORKTREE_HOOKS.iter().all(|(e, _)| !hooks.contains_key(*e)) {
+        for (e, arg) in WORKTREE_HOOKS {
+            hooks.insert(e.into(), json!([{ "hooks": [{ "type": "command", "command": cli, "args": [arg], "timeout": 120 }] }]));
+        }
     }
     if path.exists() {
         fs::copy(path, path.with_extension("json.panex-bak")).map_err(|e| e.to_string())?;
@@ -239,11 +246,13 @@ mod tests {
         install_at(&p, CLI, true).unwrap();
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert_eq!(v["hooks"]["WorktreeCreate"][0]["hooks"][0]["args"], json!(["worktree-create"]));
+        assert_eq!(v["hooks"]["WorktreeRemove"][0]["hooks"][0]["args"], json!(["worktree-remove"]));
         assert!(!status_at(&p, CLI, false), "setting turned off: the hook must go");
 
         install_at(&p, CLI, false).unwrap();
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert!(v["hooks"].get("WorktreeCreate").is_none(), "removed, not left as an empty list");
+        assert!(v["hooks"].get("WorktreeRemove").is_none());
         assert!(status_at(&p, CLI, false));
 
         // The user's own WorktreeCreate hook stays alone, whatever the setting.
@@ -252,7 +261,18 @@ mod tests {
         install_at(&p, CLI, true).unwrap();
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert_eq!(v["hooks"]["WorktreeCreate"], own["hooks"]["WorktreeCreate"]);
+        assert!(v["hooks"].get("WorktreeRemove").is_none(), "no WorktreeRemove of ours next to their WorktreeCreate");
         assert!(status_at(&p, CLI, true), "nothing left to do, so launch does not rewrite the file");
+
+        // An install from before WorktreeRemove existed (only our WorktreeCreate) gets the partner added.
+        let old = json!({ "hooks": { "WorktreeCreate": [{ "hooks": [{ "type": "command", "command": CLI, "args": ["worktree-create"] }] }] } });
+        fs::write(&p, old.to_string()).unwrap();
+        assert!(!status_at(&p, CLI, true));
+        install_at(&p, CLI, true).unwrap();
+        let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
+        assert_eq!(v["hooks"]["WorktreeCreate"].as_array().unwrap().len(), 1);
+        assert_eq!(v["hooks"]["WorktreeRemove"][0]["hooks"][0]["args"], json!(["worktree-remove"]));
+        assert!(status_at(&p, CLI, true));
     }
 
     #[test]

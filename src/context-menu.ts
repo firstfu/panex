@@ -8,6 +8,7 @@ import { keyLabel } from "./config";
 import { askCloseTab, askCloseTabs, askCloseWorkspaces, moveTab, newTab, setColor, showWorkspace } from "./workspaces";
 import { canMove, groupLead, groupMembers, groupName, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
 import { openWorktreeDialog } from "./worktree-dialog";
+import { isWorktreeWs, openWorktreeRemove } from "./worktree-remove";
 import { startRename } from "./rename";
 
 export const ctxEl = $("ctx");
@@ -33,6 +34,7 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     { label: tr("移到最上面"), run: () => moveToTop(ws.id), disabled: !canMove(ws.id, -1) },
     "-",
     { label: tr("關閉工作區"), keys: keyLabel("closeWorkspace"), run: () => askCloseWorkspaces([ws.id]) },
+    ...(isWorktreeWs(ws) ? [{ label: tr("關閉工作區並刪除 worktree…"), run: () => openWorktreeRemove(ws) }] : []),
     { label: tr("關閉其他工作區"), run: () => askCloseWorkspaces(others), disabled: !others.length },
     { label: tr("關閉下方工作區"), run: () => askCloseWorkspaces(wsOrder.slice(i + 1)), disabled: i === wsOrder.length - 1 },
     { label: tr("關閉上方工作區"), run: () => askCloseWorkspaces(wsOrder.slice(0, i)), disabled: i === 0 },

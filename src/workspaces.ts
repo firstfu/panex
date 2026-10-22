@@ -81,7 +81,7 @@ export function newTab(shell = S.settings.defaultShell) {
 }
 
 /** Closes tabs; a workspace left empty goes too, and the last workspace is replaced by a fresh one. */
-function closeTabs(ids: string[]) {
+export function closeTabs(ids: string[]) {
   const gone = ids.map((id) => tabs.get(id)).filter((t): t is Tab => !!t);
   if (!gone.length) return;
   const wasVisible = S.visibleTabId;
