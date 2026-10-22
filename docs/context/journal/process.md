@@ -38,7 +38,7 @@
 - 第一性分析的「不丟狀態」缺口：只擋了關視窗，Ctrl+W 誤關一個跑著 agent 的分頁反而損失更大（不會自動接回）。
 
 **下一步**
-- 尚未 commit。
+- 已 commit（`78a2998`）並推上 main，還沒發版。
 - 建置時遇到另一個程序在跑 `rustup update`，工具鏈裝到一半，`rustc` 暫時消失，tauri-cli 會在 `rustc -vV` 的 `unwrap` panic。等它跑完就好；另外 PowerShell 5.1 會吃掉 `cargo tauri build … -- --profile` 的 `--`，要改用 Bash 建置。
 
 ## 2026-10-22 — agent 工作中關閉前先確認
