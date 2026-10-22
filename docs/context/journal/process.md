@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 預設視窗大小 1400×820 → 1518×860（`0b1d8b4`）
+
+**變更**
+- `tauri.conf.json`、`config.rs` 的 `DEFAULT_WINDOW`、`settings.ts` 的 `DEFAULTS`、`panex.schema.json` 四處同步改成 1518×860。
+- 寬度取自使用者正在用的 cmux 視窗（用 `CGWindowListCopyWindowInfo` 量到 1518×806）。高度依使用者要求再加高一點，定為 860。
+- 只改了預設值，沒 build、沒在 App 裡實際開過。
+
+**為什麼**
+- 使用者要 panex 開啟時跟 cmux 差不多大。cmux 的 `NSWindow Frame` 存檔記的是 900×450，跟畫面上的視窗不一樣，所以改用量到的實際視窗大小。
+
+**下一步**
+- 重新 build 後開一次，確認開啟時是 1518×860。使用者的 `panex.json` 沒設 `app.windowWidth/Height`，會直接用新的預設值。
+
 ## 2026-10-22 — 右鍵選單「複製路徑」、macOS 換行預設 Shift+Enter（`07e7715`）
 
 **變更**
