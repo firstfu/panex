@@ -4,6 +4,26 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 未完成：小工人測網頁用的瀏覽器（分支 feat/crew-browser，在獨立 worktree，main 未動）
+
+**變更**
+- 工作不在 main，在獨立 worktree `../panex-worktrees/crew-browser`（分支 `feat/crew-browser`，未合併、未推送；main 乾淨、本身無改動）。3 個 commit：
+  - `6f89350` 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome），`panex-cli help` 依設定分流說明。
+  - `afb3514` 先做的版本：小工人用 Playwright CLI 透過 Playwright Extension 接使用者自己的 Chrome。實測發現同一時間只能一個 session 連線，第二個會報 `Could not start the session`；且擴充功能的允許頁會把整個瀏覽器（所有登入與 cookie）交給連線方。
+  - `98db5fc` 改掉 `afb3514` 那版：換成每個小工人各開自己的 Playwright 瀏覽器＋共用一份登入（`panex-cli browser-login`）。發現測試站把登入狀態放在 `sessionStorage`，Playwright 的 `state-save` 不存這個，只存 cookie／localStorage 的話換瀏覽器會被踢回登入頁；改成額外抓一次 sessionStorage 寫成 init script，開瀏覽器時補回去。
+- 驗收：`tsc`、`npm test`（6）、`cargo test`（26，`TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}'` 才跑得過，main 本身直接 `cargo test` 也會因這個不符而失敗，跟這次改動無關）全過；用本機假網站（`python -m http.server`）完整跑過 `browser-login` 存檔 → 兩個 session 同時以 `cli.config.json` 開都保持登入 → 新分頁登入狀態保留 → 不帶 config 的 session 被導回登入頁，四段都驗證過。**使用者自己還沒在畫面上看過設定頁新列的排版，也還沒拿真的小工人派工驗收過。**
+
+**為什麼**
+- 使用者想讓小工人在各自的 worktree 上做 e2e 驗收，沿用登入狀態又不互相干擾；社群評測 Playwright CLI 比 Playwright MCP 省 token、比 Claude in Chrome 快且穩，故採 Playwright CLI。
+- 在獨立 worktree 做：避免動到 main 當時一批尚未 commit 的既有修改。
+
+**下一步**
+1. 進 `../panex-worktrees/crew-browser`（或 `git switch feat/crew-browser`），驗收設定頁「小工人測網頁用」新列與「登入並儲存」按鈕的實際排版（只過 tsc，沒人眼看過）。
+2. 對一個測試站實際按一次「登入並儲存」。
+3. 真的跑一輪派工，確認 playwright-cli 操作正常。
+4. 確認沒問題後合併回 main。
+5. 設定頁新列與 `panex-cli browser-login` 在 Windows 以外沒測。
+
 ## 2026-10-22 — 發佈 v0.4.5（側欄 worktree 標示與群組）
 
 **變更**
