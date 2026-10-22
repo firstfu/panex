@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — feat/crew-browser 驗收：合併 main、修「登入並儲存」第一次按會失敗（`9aca664`、`c23e7f9`）
+
+**變更**
+- 把 main 合進分支（`9aca664`），解 `panex-cli.rs`（`browser-login`／`help` 與 `e2e` 指令並存）和本檔的衝突。
+- 修 bug（`c23e7f9`）：新增 `config.ts` 的 `writeSettingNow`，立刻寫入並等寫完；「登入並儲存」改用它寫網址，寫完才開新分頁。
+- 驗收：在測試實例用本機假網站跑 8 項（設定列顯示／隱藏與版面、寫入 panex.json、三種 `panex-cli help`、無效網址、存登入、兩個小工人同時登入＋新分頁、不帶 config 被導回登入頁），全過且連跑兩次穩定。假網站的登入拆成 cookie 和 sessionStorage 兩半。原有 e2e 5 項、Rust 26、前端 6 也都過。驗收腳本只放在 scratchpad，沒進 repo。
+
+**為什麼**
+- 設定頁寫 panex.json 有 250ms debounce，新分頁的 `panex-cli browser-login` 比這更早讀檔，讀到舊網址（第一次用時是空的）就報錯退出。修正前照真人速度直接按，3 次都重現失敗。
+
+**下一步**
+- 沒驗到：設定列的實際畫面（這台 Mac 沒給螢幕錄製權限，`screencapture` 失敗，版面只量了座標）、真實網站與 SSO 跨網域登入。
+- 由使用者決定是否合併進 main 並 push；目前只在本地 commit。
+
 ## 2026-10-22 — macOS 真實 App 的端對端測試（`1e028d5`）
 
 **變更**
