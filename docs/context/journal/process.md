@@ -4,7 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-22 — 刪除 worktree：右鍵「關閉工作區並刪除 worktree」＋ Claude 的 WorktreeRemove hook（未 commit）
+## 2026-10-22 — 發佈 v0.5.1，本機改裝 0.5.1（`8e72a96`）
+
+**變更**
+- 版本號改 0.5.1（六個檔），推 main 與 tag `v0.5.1`，CI 兩個平台都成功；release notes 寫右鍵刪除 worktree、Claude 刪 worktree 後側欄殘留的修正、兩個 worktree hook 成對進出。`releases/latest` 的 `.exe`、`.dmg` 都回 302 指向 v0.5.1。
+- 本機：換掉 `/Applications/panex.app`（0.5.0 → 0.5.1，dmg 內容用 `ditto` 複製、清掉 quarantine）。沒關掉正在執行的 panex，工作區與設定資料都沒動。
+
+**為什麼**
+- 使用者要求發布並在本機安裝最新版。
+
+**下一步**
+- 使用者重開 panex 才會跑新版；重開後第一次啟動會在 `~/.claude/settings.json` 補上 `WorktreeRemove` hook。
+- 側欄那個已刪 worktree 的工作區：右鍵「關閉工作區並刪除 worktree…」會顯示資料夾已不在、只關工作區（或直接「關閉工作區」）。
+
+## 2026-10-22 — 刪除 worktree：右鍵「關閉工作區並刪除 worktree」＋ Claude 的 WorktreeRemove hook（`d4419d9`）
 
 **變更**
 - `hooks.rs`：`WorktreeCreate` 與新的 `WorktreeRemove`（`panex-cli worktree-remove`）成對安裝、成對移除；使用者自己有任一個 worktree hook 就兩個都不加。舊安裝（只有我們的 WorktreeCreate）下次啟動會補上 WorktreeRemove。
@@ -19,7 +32,7 @@
 **下一步**
 - 沒用真的 `claude` 跑過 ExitWorktree（只照官方文件模擬 hook 輸入）；對話框外觀沒截圖（沒有螢幕錄製權限）。Windows 沒測（刪除時 shell 鎖住資料夾的重試）。
 - 使用者側欄裡那個已刪 worktree 的工作區是舊版留下的，直接關閉即可（新版右鍵會顯示「資料夾已經不在了」）。
-- 還沒 commit、沒發版。
+- 已在 v0.5.1 發布（見上一筆）。
 
 ## 2026-10-22 — 發佈 v0.5.0，本機改裝 0.5.0
 
