@@ -27,6 +27,18 @@
 - 使用者要裝 v0.4.1，並在 panex 按一次「啟用」：一方面補上兩個新 hook，另一方面把 hook 從 `target/test-build/panex-cli.exe` 改回指向安裝版的路徑。
 - 值得歸檔、還沒歸檔的雷：①`vscode://` 網址會觸發 VS Code 的確認框；②測試實例覆寫 `USERPROFILE` 會起不來；③Git Bash 會把 `/exit` 這類開頭是 `/` 的參數轉成路徑（`MSYS_NO_PATHCONV=1`）；④`operations.md` 的版本號檔案清單要補上 `package-lock.json`。
 
+## 2026-10-22 — 發佈 v0.4.3（hooks 自動寫入），本機更新
+
+**變更**
+- 版本改成 0.4.3，推 tag，CI 兩個平台成功後發布；`releases/latest/download` 兩個檔名都轉到 v0.4.3，下載的安裝檔 SHA-256 與 GitHub 記錄一致。
+- 本機更新沿用上次的排程器腳本，另外在重開 panex 後把 `settings.json` 裡 panex-cli 的路徑寫進 log，確認 `hooks::ensure` 真的把 hooks 改回正式路徑。
+
+**為什麼**
+- 使用者要求發版並更新本機，讓 hooks 不必按「啟用」就修好。
+
+**下一步**
+- 重開後看 log：版本應為 0.4.3，hooks 應指向 `%LOCALAPPDATA%\panex\panex-cli.exe`。
+
 ## 2026-10-22 — Claude Code hooks 改成啟動時自動寫入，不再詢問
 
 **變更**
