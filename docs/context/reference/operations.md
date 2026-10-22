@@ -27,7 +27,9 @@ Start-Process <target>\release\panex.exe
 
 - app data 在 `%APPDATA%\dev.panex.terminal.test\`、WebView2 資料在 `%LOCALAPPDATA%\dev.panex.terminal.test\`，測完兩個都刪。
 - 要測遷移就把使用者的 `session.json`、`scrollback\`、`panex.json` **複製**進去，不要直接指向原檔。
-- 自動化：用 CDP（port 9556）的 `Input.dispatchKeyEvent` 送真實按鍵、`Runtime.evaluate` 讀 DOM；只連 URL 是 `tauri.localhost` 的頁面。從 Bash 送通知時 `\\.\pipe\...` 的反斜線會被吃掉，改用 PowerShell 跑 `panex-cli notify`。
+- 要測多工作區／多分頁的固定情境（例如每個工作區指到一個準備好狀態的測試資料夾），直接寫一份合成的 `session.json`（`{active, workspaces:[{id,title,tabs:[{id,shell,cwd}],active}]}`）再啟動，比在 UI 手動建快。**用 Python `json.dumps` 寫，不要用 PowerShell `ConvertTo-Json | Out-File -Encoding utf8`**：2026-10-22 這樣寫出的檔案 panex 不認，默默改開一個預設工作區（沒細查是 BOM 還是單一元素陣列被攤平成物件）。
+- 自動化：用 CDP（port 9556）的 `Input.dispatchKeyEvent` 送真實按鍵、`Runtime.evaluate` 讀 DOM；只連 URL 是 `tauri.localhost` 的頁面。從 Bash 送通知時 `\\.\pipe\...` 的反斜線會被吃掉，改用 PowerShell 跑 `panex-cli notify`。Python `websocket-client` 連 CDP 預設帶 Origin，WebView2 會回 403（`Rejected an incoming WebSocket connection`），`create_connection(..., suppress_origin=True)` 即可。
+- 驗證「閒置零成本」：`window.__TAURI_INTERNALS__.invoke` 是不可寫屬性，monkey-patch 不會生效（計數永遠是 0，看起來像通過）。改用 CDP `Network.enable` 收 `Network.requestWillBeSent`，數 URL 含 `ipc.localhost` 的請求；每次 invoke 會有一筆 `POST` 加一筆 CORS 預檢 `OPTIONS`，只數 `POST`。用 `Win32_Process` 輪詢 git.exe 這類短命子程序太慢、抓不到，也不可靠。
 - 測 `claude --resume` 這類流程時，在測試實例啟動前把一個假的 `claude.cmd`（印一行字再 `ping -n 40 127.0.0.1`）放進 `PATH` 最前面：真的 `claude` 會對假 session id 報 `No conversation found`、跳信任資料夾詢問，還會用真的 hook 回報新 session id 干擾結果。
 - 截圖：`PrintWindow` 擷取該程序的視窗；CDP 的 `Page.captureScreenshot` 只擷取網頁內容。
 - 機器上同時有使用者正在用的 panex，視窗標題也是 `panex`；操作視窗時一律用測試實例的行程 ID，不要用名稱。
