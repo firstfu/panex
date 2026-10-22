@@ -57,10 +57,43 @@ pub fn open_file(path: String, line: Option<u32>, col: Option<u32>, editor: Stri
     let runnable = p.is_file()
         && p.extension().and_then(|e| e.to_str()).is_some_and(|e| RUNNABLE.contains(&e.to_ascii_lowercase().as_str()));
     match editor.as_str() {
-        "vscode" | "cursor" => shell_open(&editor_url(&editor, &path, line, col)),
+        "vscode" | "cursor" => open_in_editor(&editor, &path, line, col),
         _ if runnable => reveal(p),
         _ => shell_open(&path),
     }
+}
+
+/// Through the editor's CLI (`code -g file:line:col`) when it's on PATH: opening a `vscode://` URL
+/// makes VS Code ask "an external application wants to open…" on every click. Rust escapes
+/// arguments for .cmd launchers safely and refuses ones it can't, so the path stays a plain argument.
+fn open_in_editor(editor: &str, path: &str, line: Option<u32>, col: Option<u32>) -> Result<(), String> {
+    let cli = if editor == "vscode" { "code" } else { "cursor" };
+    if let Some(exe) = find_on_path(cli) {
+        let mut target = path.to_string();
+        if let Some(l) = line {
+            target.push_str(&format!(":{l}"));
+            if let Some(c) = col {
+                target.push_str(&format!(":{c}"));
+            }
+        }
+        let mut cmd = std::process::Command::new(exe);
+        cmd.arg("-g").arg(target);
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW: no console flash for code.cmd
+        }
+        if cmd.spawn().is_ok() {
+            return Ok(());
+        }
+    }
+    shell_open(&editor_url(editor, path, line, col))
+}
+
+/// `code` / `cursor` on PATH (`.cmd` or `.exe` on Windows).
+fn find_on_path(name: &str) -> Option<PathBuf> {
+    let names: Vec<String> = if cfg!(windows) { vec![format!("{name}.cmd"), format!("{name}.exe")] } else { vec![name.into()] };
+    std::env::split_paths(&std::env::var_os("PATH")?).find_map(|dir| names.iter().map(|n| dir.join(n)).find(|p| p.is_file()))
 }
 
 /// `vscode://file/C:/src/main.ts:12:3` (Cursor registers the same form under `cursor://`).
