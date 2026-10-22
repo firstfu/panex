@@ -9,8 +9,9 @@ export const closeAskEl = $("close-ask");
 
 let closeAskConfirm: (() => void) | undefined;
 
-export function openCloseAsk(working: Tab[], text: string, confirm: () => void) {
+export function openCloseAsk(working: Tab[], text: string, confirm: () => void, okLabel = tr("仍要關閉")) {
   closeAskConfirm = confirm;
+  $("close-ask-ok").textContent = okLabel;
   $("close-ask-title").textContent = tr("還有 {n} 個 agent 在工作", { n: working.length });
   $("close-ask-text").textContent = text;
   $("close-ask-list").replaceChildren(

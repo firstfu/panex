@@ -1,5 +1,12 @@
 # Builds the Windows installer and the macOS (Apple Silicon) dmg for a version tag and
-# attaches both to a draft GitHub release. Publishing the draft stays a manual step.
+# attaches both to a draft GitHub release, together with the signed update packages and the
+# latest.json manifest that the in-app updater reads. Publishing the draft stays a manual step.
+#
+# Secrets (see docs/context/reference/operations.md):
+#   TAURI_SIGNING_PRIVATE_KEY / _PASSWORD  signs the update packages; the matching public key is in tauri.conf.json
+#   MACOS_CERT_P12 / MACOS_CERT_PASSWORD   the self-signed "panex Release Signing" certificate (base64 .p12).
+#     Every macOS release must be signed with this same certificate: macOS ties the Accessibility,
+#     Files & Folders… permissions to the signing identity, so a new one means everyone re-grants them.
 #
 # Trigger: push a tag like v0.3.0 (or re-run by hand with that tag).
 
@@ -38,9 +45,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: src-tauri/target/release/bundle/nsis/*-setup.exe
+            artifact: src-tauri/target/release/bundle/nsis/*-setup.exe src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           - os: macos-latest # Apple Silicon runner
-            artifact: src-tauri/target/release/bundle/dmg/*.dmg
+            artifact: src-tauri/target/release/bundle/dmg/*.dmg src-tauri/target/release/bundle/macos/panex.app.tar.gz src-tauri/target/release/bundle/macos/panex.app.tar.gz.sig
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -58,11 +65,80 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # Fail in seconds instead of after a 10-minute build when a signing secret is missing.
+      - name: Check the signing secrets
+        env:
+          UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          MAC_CERT: ${{ secrets.MACOS_CERT_P12 }}
+        run: |
+          [ -n "$UPDATER_KEY" ] || { echo "::error::secret TAURI_SIGNING_PRIVATE_KEY is not set"; exit 1; }
+          if [ "$RUNNER_OS" = macOS ] && [ -z "$MAC_CERT" ]; then echo "::error::secret MACOS_CERT_P12 is not set"; exit 1; fi
+      # A temporary keychain holds the certificate for this job only. The certificate is
+      # self-signed (not trusted by macOS), which codesign accepts; it only has to stay the same.
+      - name: Import the macOS signing certificate
+        if: runner.os == 'macOS'
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          PW="$(uuidgen)"
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$PW" "$KC"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$PW" "$KC"
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          security find-identity -p codesigning "$KC" | grep -q "panex Release Signing"
       # RUST_MIN_STACK: rustc can overflow its stack compiling the windows/tokio crates
       # from scratch (see docs/context/reference/operations.md).
-      - run: npx -y @tauri-apps/cli@2.12.3 build
+      # The macOS config signs ad hoc ("-") for local builds; releases override it with the
+      # certificate so the app's identity (and with it the user's permissions) survives updates.
+      - run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            npx -y @tauri-apps/cli@2.12.3 build --config '{"bundle":{"macOS":{"signingIdentity":"panex Release Signing"}}}'
+          else
+            npx -y @tauri-apps/cli@2.12.3 build
+          fi
         env:
           RUST_MIN_STACK: "134217728"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       - run: gh release upload "$TAG" ${{ matrix.artifact }} --repo "$GITHUB_REPOSITORY" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
+
+  # latest.json is what installed copies fetch from releases/latest/download/. It lists, per
+  # platform, the update package and its signature (read from the .sig assets the build jobs uploaded).
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build and upload latest.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir sigs && cd sigs
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.sig'
+          python3 - <<'PY'
+          import datetime, glob, json, os
+          tag = os.environ["TAG"]
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}/"
+          def entry(pattern):
+              (sig,) = glob.glob(pattern)  # exactly one file, or the release is incomplete
+              return {"signature": open(sig).read().strip(), "url": base + sig[: -len(".sig")]}
+          manifest = {
+              "version": tag.lstrip("v"),
+              "notes": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/tag/{tag}",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "platforms": {
+                  "windows-x86_64": entry("*-setup.exe.sig"),
+                  "darwin-aarch64": entry("panex.app.tar.gz.sig"),
+              },
+          }
+          json.dump(manifest, open("../latest.json", "w"), indent=2)
+          PY
+          cd .. && cat latest.json
+          gh release upload "$TAG" latest.json --repo "$GITHUB_REPOSITORY" --clobber

@@ -22,7 +22,7 @@ English · [繁體中文](translations/README.zh-Hant.md)
 </div>
 
 > [!NOTE]
-> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The downloads **aren't code-signed**, so Windows SmartScreen and macOS Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex makes [no network connections of its own](#privacy).
+> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The downloads **aren't code-signed**, so Windows SmartScreen and macOS Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex's only network connection is the [update check](#privacy), which you can turn off.
 
 ## Why panex
 
@@ -103,7 +103,7 @@ Most of the memory you'll see in Task Manager belongs to WebView2, the Edge engi
 
 ## Privacy
 
-panex makes **no network connections** of its own. There's no telemetry and no update check. The only exception is an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches.
+There's no telemetry. The one network connection panex makes on its own is the **update check**: at launch, and when the window regains focus after at least six hours, it asks GitHub for `latest.json` from the newest release. Nothing about you or your machine is sent beyond what any HTTPS request carries. Turn it off under **Settings → Look → Check for updates automatically** (`app.checkForUpdates` in `panex.json`) and panex makes no connections at all, apart from an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches. Updates are never installed on their own, and every download is verified against a public key built into the app.
 
 The only file it writes outside its own folders is `~/.claude/settings.json`: when panex starts and its Claude Code hooks are missing or point at an old install, it adds them. It backs the file up first (`settings.json.panex-bak`) and keeps your other hooks. The code is in [`src-tauri/src/hooks.rs`](src-tauri/src/hooks.rs).
 
@@ -126,7 +126,11 @@ Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: 
 
 ### Updating
 
-Run the new installer. Your workspaces, scrollback and settings are kept.
+When a newer version is out, a line appears at the bottom of the sidebar. Click **Update and restart**: panex downloads the new version, installs it and restarts. Restarting ends the programs running in your tabs (with an agent mid-turn, panex asks first); workspaces, scrollback and Claude Code conversations come back. You can also check by hand in **Settings → Look**.
+
+- **macOS**: releases are signed with the same certificate every time, so Accessibility, Files & Folders and the other permissions you granted stay allowed after an update, and an update installed from inside panex doesn't need **Open Anyway** again. The first release with this needs one last re-allow if you ran an older one.
+- **Windows**: the installer runs in passive mode (a small progress window, no questions) and starts panex again.
+- The first version with in-app updates has to be installed by hand, like any other. You can always run a new installer yourself instead; your workspaces, scrollback and settings are kept.
 
 ### Claude Code notifications
 
@@ -192,7 +196,13 @@ The installer isn't code-signed yet. Click **More info**, then **Run anyway**. Y
 <details>
 <summary><b>macOS says panex "can't be opened" or "is damaged"</b></summary>
 
-The app isn't notarized by Apple. Go to **System Settings → Privacy & Security** and click **Open Anyway**, or run `xattr -cr /Applications/panex.app` and open it again. You only need to do this once per version.
+The app isn't notarized by Apple. Go to **System Settings → Privacy & Security** and click **Open Anyway**, or run `xattr -cr /Applications/panex.app` and open it again. You only need to do this once per version (not for updates installed from inside panex).
+</details>
+
+<details>
+<summary><b>Do I lose macOS permissions when I update?</b></summary>
+
+No. Releases are signed with the same certificate every time, and macOS ties permissions to that signature, not to the file. If you build panex yourself it is signed ad hoc, and macOS asks again after every rebuild.
 </details>
 
 <details>

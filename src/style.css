@@ -172,11 +172,11 @@ body.show-nums .t-num { opacity: 1; }
 
 #new-row { display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--line); }
 button { font: inherit; }
-#new-row button, #shell-menu button, #hooks-row button {
+#new-row button, #shell-menu button, #hooks-row button, #update-row button {
   border: 0; border-radius: 5px; background: rgba(255, 255, 255, 0.07); color: var(--fg);
   padding: 6px 8px; cursor: pointer;
 }
-#new-row button:hover, #shell-menu button:hover, #hooks-row button:hover { background: rgba(255, 255, 255, 0.14); }
+#new-row button:hover, #shell-menu button:hover, #hooks-row button:hover, #update-row button:hover { background: rgba(255, 255, 255, 0.14); }
 #new-tab { flex: 1; text-align: left; min-width: 0; white-space: nowrap; overflow: hidden; }
 #new-row button { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 #new-row #new-tab { flex: 1; }
@@ -188,6 +188,10 @@ button { font: inherit; }
 
 #hooks-row { padding: 6px 10px 8px; font-size: 11px; color: var(--dim); }
 #hooks-row button { padding: 2px 6px; font-size: 11px; margin-left: 4px; }
+#update-row { padding: 6px 10px 2px; font-size: 11px; color: var(--fg); }
+#update-row[hidden] { display: none; }
+#update-row button { padding: 2px 6px; font-size: 11px; margin-left: 4px; }
+#update-row.err { color: var(--dim); }
 
 #main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg); }
 #terms { flex: 1; position: relative; min-height: 0; }

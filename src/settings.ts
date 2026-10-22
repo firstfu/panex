@@ -17,6 +17,7 @@ export interface Settings {
   sidebarHidden: boolean;
   modifierHints: boolean;
   language: LangPref;
+  autoUpdate: boolean; // look for a newer panex at launch and when the window regains focus (never a timer)
   resumeSession: boolean;
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
@@ -37,6 +38,7 @@ export const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   sidebarHidden: ["sidebar", "hidden"],
   modifierHints: ["shortcuts", "showModifierHoldHints"],
   language: ["app", "language"],
+  autoUpdate: ["app", "checkForUpdates"],
   resumeSession: ["agent", "resumeSession"],
   confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
@@ -58,6 +60,7 @@ export const DEFAULTS: Settings = {
   sidebarHidden: false,
   modifierHints: false,
   language: "auto",
+  autoUpdate: true,
   resumeSession: true,
   confirmClose: true,
   openFilesWith: "system",

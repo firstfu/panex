@@ -22,7 +22,7 @@
 </div>
 
 > [!NOTE]
-> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。下載檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 與 macOS Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex [自己不會連網](#隱私)。
+> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。下載檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 與 macOS Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex 唯一會自己連的網路是[檢查更新](#隱私)，可以關掉。
 
 ## 為什麼做 panex
 
@@ -103,7 +103,7 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 ## 隱私
 
-panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例外是你自己開的 SSH 連線，用的是電腦內建的 `ssh`。Git 面板不會 fetch。
+沒有任何遙測。panex 自己會連的網路只有**檢查更新**：啟動時、以及視窗取回焦點且距上次檢查超過六小時，向 GitHub 取最新 release 的 `latest.json`，除了 HTTPS 請求本身帶的東西，不會送出關於你或你電腦的資訊。到 **設定 → 外觀 → 自動檢查更新**（`panex.json` 的 `app.checkForUpdates`）關掉後，panex 就完全不連網，只剩你自己開的 SSH 連線，用的是電腦內建的 `ssh`。Git 面板不會 fetch。更新不會自己安裝，而且每個下載檔都會用內建在 App 裡的公鑰驗證。
 
 它唯一會寫到自己資料夾以外的檔案是 `~/.claude/settings.json`：panex 啟動時，如果 Claude Code hooks 還沒設定，或指向舊的安裝位置，就會把它們加進去。寫入前會先備份（`settings.json.panex-bak`），並保留你原本的其他 hooks。相關程式碼在 [`src-tauri/src/hooks.rs`](../src-tauri/src/hooks.rs)。
 
@@ -126,7 +126,11 @@ panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例�
 
 ### 更新
 
-執行新版安裝檔即可，工作區、捲動歷史和設定都會保留。
+有新版時，側欄底部會出現一行提示。按 **更新並重新啟動**，panex 會下載新版、安裝並重新啟動。重新啟動會結束分頁裡正在跑的程式（有 agent 正在工作時會先問你）；工作區、捲動歷史和 Claude Code 對話都會接回。也可以到 **設定 → 外觀** 手動檢查。
+
+- **macOS**：每一版都用同一張憑證簽章，所以你授權過的輔助使用、檔案與檔案夾等權限在更新後依然有效；從 panex 內更新的版本也不必再按一次 **強制打開**。如果你原本用的是更舊的版本，第一次換到這個機制時需要最後再授權一次。
+- **Windows**：安裝程式以 passive 模式執行（只有一個小小的進度視窗、不問問題），裝完自動再開 panex。
+- 第一個內建更新功能的版本仍要自己安裝，跟其他版本一樣。你也隨時可以自己執行新版安裝檔，工作區、捲動歷史和設定都會保留。
 
 ### Claude Code 通知
 
@@ -192,7 +196,13 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 <details>
 <summary><b>macOS 說 panex「無法打開」或「已損毀」</b></summary>
 
-App 沒有經過 Apple 公證。到 **系統設定 → 隱私權與安全性** 按 **強制打開**，或執行 `xattr -cr /Applications/panex.app` 後再開。每個版本只需要做一次。
+App 沒有經過 Apple 公證。到 **系統設定 → 隱私權與安全性** 按 **強制打開**，或執行 `xattr -cr /Applications/panex.app` 後再開。每個版本只需要做一次（從 panex 內更新的版本不用）。
+</details>
+
+<details>
+<summary><b>更新後 macOS 權限會不見嗎？</b></summary>
+
+不會。每一版都用同一張憑證簽章，macOS 的權限是跟著這個簽章走，而不是跟著檔案。自己從原始碼建置的版本是 ad-hoc 簽章，每次重建 macOS 都會再問一次。
 </details>
 
 <details>

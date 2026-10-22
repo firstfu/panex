@@ -4,6 +4,24 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-23 — 補上 App 內更新，與 macOS 更新後權限保留（尚未 commit）
+
+**變更**
+- 參考 Liftoff（Sparkle＋固定自簽憑證）：用 `tauri-plugin-updater`（minisign 驗簽）加 App 內更新。後端 `src-tauri/src/updater.rs` 兩個指令 `update_check`／`update_install`，前端 `src/update.ts`：啟動與視窗取回焦點（距上次 ≥ 6 小時）才檢查，沒有計時器；找到新版在側欄 `#update-row` 顯示，**按下才**下載、安裝、重啟；有 agent 在工作時沿用關閉確認對話框（`openCloseAsk` 多一個確認鈕文字參數）。重啟不經視窗關閉處理，所以安裝前先 `flushForClose()`。
+- 新設定 `app.checkForUpdates`（預設開，設定頁「外觀」有開關與「立即檢查」）。debug／測試實例（`hooks::may_write` 為 false）不檢查也不安裝；e2e 測試版可用 `PANEX_E2E_UPDATES` 開啟。
+- `tauri.conf.json` 加 `createUpdaterArtifacts`、公鑰、端點 `releases/latest/download/latest.json`。`release.yml`：檢查 secrets、匯入 macOS 憑證到臨時 keychain 並以 `panex Release Signing` 簽章、上傳 `.sig` 與 `panex.app.tar.gz`，新增 `manifest` job 產 `latest.json`。
+- README 英／繁中：「隱私」不再說沒有任何連網（更新檢查是唯一例外、可關）、新增更新與 macOS 權限說明。
+- 金鑰與憑證產在 `~/.config/panex-signing/`（更新簽章金鑰＋密碼、憑證 p12＋密碼，權限 600）。
+- 驗證：前端 6 項、Rust 24＋3 項過。本機用臨時 keychain 與測試 identifier 建 0.5.6／0.5.7，實測整條流程：偵測、側欄按鈕、下載驗簽、換檔、重啟成 0.5.7，重啟後 single-instance 沒擋；兩版簽章 designated requirement 同為 `identifier … and certificate leaf = H"b163…"`（ad-hoc 則是 cdhash）；竄改更新檔會被拒（`The signature verification failed`）、舊版不受影響。
+
+**為什麼**
+- 使用者要求參考 Liftoff 補上更新功能，且更新後不必重設權限。macOS 原本 ad-hoc 簽章，身分是程式碼雜湊，每次更新權限都失效。
+
+**下一步**
+- **發版前必做**：在 GitHub repo 設四個 secrets：`TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`、`MACOS_CERT_P12`（p12 的 base64）、`MACOS_CERT_PASSWORD`，缺任何一個 CI 會在檢查步驟就失敗。金鑰與憑證要另外做異地備份，遺失更新金鑰＝已安裝的版本再也收不到更新，換憑證＝使用者要重新授權。
+- 沒測到的：CI 本身（沒跑過）、Windows 更新（只在 Mac 上開發）、自簽憑證從 GitHub secret 匯入的那段步驟。第一個含更新功能的版本要使用者手動裝；舊 macOS 使用者換到固定憑證時要最後再授權一次。
+- reference 歸檔（operations 發版步驟與 secrets、boundaries 的金鑰不可遺失）待使用者確認路由後用 archive-to-context 處理。
+
 ## 2026-10-23 — 發佈 v0.5.6：拿掉小工人測網頁用的設定（`5541a49`）
 
 **變更**

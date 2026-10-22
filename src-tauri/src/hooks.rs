@@ -86,7 +86,7 @@ fn skill_at(dir: &Path) -> Result<bool, String> {
     Ok(true)
 }
 
-fn may_write(debug_build: bool, identifier: &str) -> bool {
+pub(crate) fn may_write(debug_build: bool, identifier: &str) -> bool {
     !debug_build && identifier == RELEASE_ID
 }
 

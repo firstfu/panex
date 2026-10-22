@@ -12,6 +12,7 @@ import { S, activeTab } from "./state";
 import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, writeConfig, writeSettingNow } from "./config";
 import { scheduleRender } from "./render";
 import { hideCtx } from "./context-menu";
+import { checkForUpdate, showManualResult } from "./update";
 
 export const settingsEl = $("settings");
 let capturingId: string | undefined;
@@ -139,6 +140,8 @@ export function fillSettings() {
   $<HTMLInputElement>("s-smart").checked = S.settings.smartCopyPaste;
   $<HTMLInputElement>("s-hints").checked = S.settings.modifierHints;
   $<HTMLInputElement>("s-resume").checked = S.settings.resumeSession;
+  $<HTMLInputElement>("s-update").checked = S.settings.autoUpdate;
+  showManualResult();
   $<HTMLInputElement>("s-confirm-close").checked = S.settings.confirmClose;
   $<HTMLInputElement>("s-worktree-panex").checked = S.settings.worktreeViaPanex;
   $<HTMLInputElement>("s-scrollback").value = String(S.settings.scrollback);
@@ -377,6 +380,8 @@ $<HTMLInputElement>("s-resume").onchange = (e) => {
   updateSettings({ resumeSession: (e.target as HTMLInputElement).checked });
   scheduleRender();
 };
+$<HTMLInputElement>("s-update").onchange = (e) => updateSettings({ autoUpdate: (e.target as HTMLInputElement).checked });
+$("s-update-check").onclick = () => void checkForUpdate(true);
 $<HTMLInputElement>("s-confirm-close").onchange = (e) =>
   updateSettings({ confirmClose: (e.target as HTMLInputElement).checked });
 // The WorktreeCreate hook in ~/.claude/settings.json follows this switch, and the backend reads

@@ -14,6 +14,7 @@ mod notify;
 mod pty;
 mod session;
 mod ssh;
+mod updater;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Manager, RunEvent};
@@ -55,6 +56,8 @@ pub fn run() {
         // Size comes from panex.json (config::apply_window_size); only position etc. are restored.
         .plugin(tauri_plugin_window_state::Builder::default().with_state_flags(StateFlags::all() - StateFlags::SIZE).build())
         .plugin(tauri_plugin_notification::init())
+        // Only the Rust side calls it (updater.rs), so no JS permission is granted.
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             pty::init_shell_integration(&dir);
@@ -107,6 +110,8 @@ pub fn run() {
             hooks::hooks_status,
             hooks::hooks_install,
             hooks::hooks_sync,
+            updater::update_check,
+            updater::update_install,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build panex")

@@ -26,6 +26,7 @@ import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { sweepGoneWorktrees, wireControl } from "./control";
 import { tidyGroups } from "./groups";
+import { checkForUpdateSoon } from "./update";
 
 async function main() {
   document.body.classList.toggle("mac", IS_MAC);
@@ -39,6 +40,8 @@ async function main() {
     if (S.focused) scheduleGit(tab);
     // A worktree may have been deleted outside panex meanwhile.
     if (S.focused) sweepGoneWorktrees();
+    // Throttled inside (every 6 h); no timer, so an idle panex never wakes up on its own.
+    if (S.focused) checkForUpdateSoon();
   });
   win.onCloseRequested(async (e) => {
     // Closing kills the agents' processes; --resume brings the conversation back but not the turn in progress.
@@ -157,6 +160,7 @@ async function main() {
   // After the restore, so `panex-cli open` can place its workspace next to the caller's.
   wireControl();
   sweepGoneWorktrees();
+  checkForUpdateSoon();
 }
 
 if (import.meta.env.DEV) (window as any).__panex = { tabs, workspaces, wsOrder, showTab, newTab, newWorkspace, closeTab };

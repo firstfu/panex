@@ -42,6 +42,11 @@
           "default": "auto",
           "description": "介面語言：auto 跟隨系統（中文系統用繁體中文，其他用英文）、en 英文、zh-Hant 繁體中文。"
         },
+        "checkForUpdates": {
+          "type": "boolean",
+          "default": true,
+          "description": "啟動時與視窗取回焦點時（距上次檢查超過 6 小時）向 GitHub 查詢有沒有新版，有的話在側欄提示；不會自動安裝，要按下「更新並重新啟動」才會下載、安裝並重啟。關掉後 panex 不再連網，只有設定頁的「檢查更新」會查一次。"
+        },
         "windowWidth": {
           "type": "integer",
           "minimum": 480,
