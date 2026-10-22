@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 發佈 v0.4.4（小隊模式）
+
+**變更**
+- 功能名稱定為「小隊模式」（英文 Crew mode）：README 中英文版、skill 描述、`panex-cli help` 都用這個名字。中間試過 panlings，使用者不喜歡，已移除。
+- README 拿掉所有 cmux 的描述（「跟類似工具的差別」只留 Windows Terminal 那句），頂部拿掉 Tauri、Rust 兩個徽章；「從原始碼建置」照舊列出 Rust 與 `cargo tauri`。
+- 版本號改成 0.4.4（`c7981b6`），推 main 與 tag `v0.4.4`，CI 兩個平台都成功；release notes 寫小隊模式、`panex-cli open`／`wait`、skill、核准後側欄狀態修正、Ctrl+W 關分頁。`releases/latest` 的 `.exe`、`.dmg` 都回 302 指向 v0.4.4。
+
+**為什麼**
+- 使用者要求發布。
+
+**下一步**
+- Ctrl+W 關分頁仍沒有人實按驗過（d1e6475 那筆的下一步），使用者裝 0.4.4 時順手試一下。
+- macOS 的小隊模式沒測。
+
 ## 2026-10-22 — agent 驅動 panex：`panex-cli open`／`wait`，skill 自動安裝
 
 **變更**
