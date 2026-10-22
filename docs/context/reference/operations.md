@@ -44,6 +44,26 @@ Start-Process <target>\release\panex.exe
 - **不要對桌面注入真實滑鼠輸入**（`SetCursorPos`／`mouse_event` 做 OLE 拖放）：自製的拖曳來源視窗沒有浮到最上層，按下、拖曳、放開全落在使用者前景的 Claude Code 視窗上（2026-10-20 發生，只造成文字被反白選取）。檔案拖入只靠 CDP 對 `tauri://drag-drop` 發 `plugin:event|emit_to`（`target: {kind:'Webview', label:'main'}`）驗證處理邏輯，原生拖放請使用者實測。
 - CDP 的 `Input.dispatchKeyEvent` 不帶字元，表單的 Enter 不會送出；要送出就直接 `.click()` 送出鈕。拖曳排序可用 `Input.dispatchMouseEvent` 驗（pointer 事件）。
 
+## macOS 端對端測試（`--features e2e`）
+
+Mac 的 WKWebView 沒有 WebDriver 也沒有遠端除錯埠，上面的 CDP 測法用不了；改用測試版專屬的 `panex-cli e2e '<js>'` 在真的 App 裡跑 JS。
+
+```bash
+npm run build
+cd src-tauri && TAURI_CONFIG='{"identifier":"dev.panex.terminal.test","productName":"panex-test","app":{"macOSPrivateApi":true}}' \
+  cargo build --profile test-build --features e2e,tauri/custom-protocol
+cd .. && node tests/e2e/run.mjs [--keep]   # --keep 留下暫存資料夾供檢查
+```
+
+- 本機沒有 `cargo tauri`：直接 `cargo build`，加 `tauri/custom-protocol` 把 `dist/` 嵌進執行檔（不加會去連 dev server），`TAURI_CONFIG` 換成測試 identifier。
+- 機制：`panex-cli e2e` 走既有控制通道（`PANEX_PIPE_NAME`）→ `src-tauri/src/e2e.rs` 用 `webview.eval` 執行 → 結果經 `ctl_reply` 傳回（共用 `control::ask_frontend`）。三道鎖：feature 預設關、要帶啟動時設的 `PANEX_E2E_TOKEN`、identifier 是 `dev.panex.terminal` 一律拒絕。
+- 隔離：`run.mjs` 把 `HOME` 指到暫存資料夾，app data（含合成的 `session.json`）、`~/.claude`、shell rc 都落在那裡；剪貼簿改成在視窗裡攔 `navigator.clipboard.writeText` 記錄，不碰系統剪貼簿。小隊模式用假 `claude` 腳本（commit 後自己送 Stop 給 `panex-cli notify`）。
+- 雷：
+  - **CSP 擋 `new Function`／`eval`**：視窗內動態編譯 JS 會丟錯（WebKit 的 stack 還不帶訊息，只看到 `AsyncFunction@[native code]`）。原生的 `webview.eval` 不受 CSP 限制，所以 JS 本體直接嵌進注入的腳本。
+  - **送進去的 JS 有語法錯誤 → 整段不執行，60 秒後才逾時**，不會回錯誤訊息。看到 `panex did not answer` 先查語法。
+  - **WebKit 的 `new KeyboardEvent` 忽略 `keyCode`**，xterm 卻是讀它：用 `Object.defineProperty` 補上 `keyCode`／`which`。送文字用 textarea 的 `paste` 事件（`DataTransfer`），xterm 會照真的貼上轉給 shell。
+  - **macOS 暫存資料夾在 `/var`，它是 `/private/var` 的連結**；shell 回報的 cwd 和 git 給的路徑都是 `/private/var/...`。比對路徑前先 `realpath`／`fs::canonicalize`（`git::tests` 與 `run.mjs` 都踩過）。
+
 ## 重拍 README 截圖
 
 用上面的測試實例、全新空資料夾開一個示範版面（例如 `D:\demo\panex`、`api-server`、`docs` 三個工作區，一個送 permission_prompt 通知、一個送 Stop），截圖存到 `assets/`。截圖裡不能出現使用者真實的分頁名稱或路徑；拍完刪掉示範資料夾與測試實例資料。
