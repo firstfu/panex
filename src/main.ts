@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import type { SearchAddon } from "@xterm/addon-search";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getVersion } from "@tauri-apps/api/app";
@@ -160,6 +161,7 @@ interface Tab {
   fit: FitAddon;
   serializer: SerializeAddon;
   webgl?: WebglAddon;
+  search?: SearchAddon; // loaded the first time this tab is searched
   el: HTMLDivElement;
   opened: boolean; // xterm attached to the DOM (done lazily on first view)
   running: boolean; // a shell process is attached
@@ -762,6 +764,7 @@ function showTab(id: string) {
   // Restored tabs start their shell only when first viewed.
   if (!tab.running && !tab.exited) spawn(tab);
   closeGitView(false);
+  closeSearch(false);
   if (!renaming) tab.term.focus();
   if (focused) clearStatus(tab);
   if (gitOpen || tab.gitStale) scheduleGit(tab);
@@ -1377,6 +1380,82 @@ function notify(tab: Tab, status: Status, note: string) {
   const where = ws && ws.tabs.length > 1 ? `${wsTitle(ws)} › ${tabTitle(tab)}` : tabTitle(tab);
   if (!focused) invoke("alert", { title: `panex · ${where}`, body: note }).catch(() => {});
 }
+
+// ── Search ──────────────────────────────────────────────────────────────────
+
+const searchEl = $("search");
+const searchInput = $<HTMLInputElement>("search-input");
+const searchCountEl = $("search-count");
+let searchTab: Tab | undefined;
+// Decoration colors must be #RRGGBB.
+const SEARCH_DECOR = {
+  matchBackground: "#4d3d0a",
+  matchOverviewRuler: "#eab308",
+  activeMatchBackground: "#a16207",
+  activeMatchBorder: "#fbbf24",
+  activeMatchColorOverviewRuler: "#f59e0b",
+};
+
+/** Opens the find bar over the visible terminal; the search addon is fetched and loaded only on first use. */
+async function openSearch() {
+  const tab = activeTab();
+  if (!tab?.opened) return;
+  if (!tab.search) {
+    const { SearchAddon } = await import("@xterm/addon-search");
+    tab.search ??= new SearchAddon();
+    tab.term.loadAddon(tab.search);
+    tab.search.onDidChangeResults(({ resultIndex, resultCount }) => {
+      if (searchTab !== tab) return;
+      searchCountEl.textContent = !searchInput.value
+        ? ""
+        : resultCount === 0
+          ? tr("沒有符合")
+          : resultIndex < 0
+            ? `${resultCount}+`
+            : `${resultIndex + 1} / ${resultCount}`;
+    });
+  }
+  searchTab = tab;
+  const sel = tab.term.getSelection();
+  if (sel && !sel.includes("\n")) searchInput.value = sel;
+  searchEl.hidden = false;
+  searchInput.focus();
+  searchInput.select();
+  if (searchInput.value) runSearch(true);
+}
+
+function runSearch(next: boolean, incremental = false) {
+  const s = searchTab?.search;
+  if (!s) return;
+  const q = searchInput.value;
+  if (!q) {
+    s.clearDecorations();
+    searchCountEl.textContent = "";
+    return;
+  }
+  const opts = { decorations: SEARCH_DECOR, incremental };
+  if (next) s.findNext(q, opts);
+  else s.findPrevious(q, opts);
+}
+
+function closeSearch(focusTerm = true) {
+  if (searchEl.hidden) return;
+  searchEl.hidden = true;
+  searchTab?.search?.clearDecorations();
+  if (focusTerm) searchTab?.term.focus();
+  searchTab = undefined;
+}
+
+// Typing searches from the current match on (incremental); Enter / Shift+Enter step through.
+searchInput.addEventListener("input", () => runSearch(true, true));
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  runSearch(!e.shiftKey);
+});
+$("search-next").addEventListener("click", () => runSearch(true));
+$("search-prev").addEventListener("click", () => runSearch(false));
+$("search-close").addEventListener("click", () => closeSearch());
 
 // ── Rename ──────────────────────────────────────────────────────────────────
 
@@ -2118,6 +2197,7 @@ function runAction(id: string, digit = 0) {
     case "toggleSidebar": return updateSettings({ sidebarHidden: !settings.sidebarHidden });
     case "toggleGitPanel": return setGitOpen(!gitOpen);
     case "clearScrollback": return tab?.term.clear();
+    case "find": return openSearch();
     case "copy": return copySelection(tab);
     case "paste": return paste(tab);
     case "insertNewline": return tab && onInput(tab, "\x1b\r");
@@ -2154,6 +2234,8 @@ document.addEventListener(
     if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.add("show-nums");
     if (renaming || !wtEl.hidden || !askEl.hidden) return;
     if (!gitViewEl.hidden && e.key === "Escape") return stop(e, () => closeGitView());
+    // Esc in the search box closes it; with the terminal focused it still goes to the program (interrupting Claude).
+    if (e.key === "Escape" && searchEl.contains(document.activeElement)) return stop(e, () => closeSearch());
     if (capturingId) return stop(e, () => captureKey(e));
     const combo = eventCombo(e);
     if (!settingsEl.hidden || !ctxEl.hidden) {

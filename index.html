@@ -24,6 +24,13 @@
         <button id="git-toggle" aria-label="顯示 / 隱藏 Git 面板" data-i18n-aria><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.5" /><circle cx="4.5" cy="12.5" r="1.5" /><circle cx="11.5" cy="5.5" r="1.5" /><path d="M4.5 5v6M11.5 7c0 2.5-3 2.5-6.2 4.3" /></svg></button>
       </div>
       <main id="terms">
+        <div id="search" hidden>
+          <input id="search-input" type="text" spellcheck="false" autocomplete="off" placeholder="搜尋" data-i18n-ph />
+          <span id="search-count"></span>
+          <button id="search-prev" title="上一個（Shift+Enter）" data-i18n-title>↑</button>
+          <button id="search-next" title="下一個（Enter）" data-i18n-title>↓</button>
+          <button id="search-close" title="關閉（Esc）" data-i18n-title>×</button>
+        </div>
         <div id="git-view" hidden>
           <div class="gv-head">
             <span id="gv-title"></span>
