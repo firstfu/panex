@@ -4,7 +4,7 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-23 — 拿掉「小工人測網頁用」設定與 Playwright 共用登入（尚未 commit）
+## 2026-10-23 — 拿掉「小工人測網頁用」設定與 Playwright 共用登入（`26f848c`）
 
 **變更**
 - 刪除設定頁「小工人測網頁用」與「小工人共用的登入」兩列，以及 `agent.crewBrowser`／`agent.crewLoginUrl`（settings.ts、settings-panel.ts、i18n、style.css、schema）。
@@ -18,7 +18,7 @@
 - 使用者決定不要這些預設值與處理：小工人測網頁就用 Claude in Chrome，使用者想用別的工具就自己用，panex 不介入。
 
 **下一步**
-- commit；已裝過舊版的人 `panex.json` 可能留著 `agent.crewBrowser`，schema 的 `agent` 是 `additionalProperties: false`，編輯器會標警告，但不影響執行。
+- 已裝過舊版的人 `panex.json` 可能留著 `agent.crewBrowser`，schema 的 `agent` 是 `additionalProperties: false`，編輯器會標警告，但不影響執行。
 
 ## 2026-10-23 — 修 macOS 輸入法下 Shift+符號偶爾被吞掉（`0cfd71f`）
 
