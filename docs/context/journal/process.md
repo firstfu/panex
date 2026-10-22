@@ -4,6 +4,29 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 發佈 v0.4.1（真實環境驗收、VS Code 改走 CLI）
+
+**變更**
+- 使用者授權我自己驗收後直接發版。用測試實例搭配**真的 Claude Code** 驗收：
+  - Claude 跑到一半按 Esc：Claude 停止並顯示「Interrupted」，側欄轉圈停止，改成「已中斷」。
+  - Claude 在跑時關閉視窗：跳出確認框，按取消後視窗沒有關。
+  - Claude 正常做完：側欄顯示完成和最後回覆的內容。
+  - 輸入 `/exit`：`session.json` 裡的 `agentSession` 被清掉（SessionEnd 生效）。
+- 真的 Ctrl+點擊：
+  - 網址：Chrome 開出 Example Domain。
+  - `note.txt`：用記事本打開。
+  - `run.bat`：只在檔案總管裡標出來，沒有執行（陷阱 `ran.marker` 沒有產生）。
+  - 選 VS Code 的路徑一開始走 `vscode://file/...`，VS Code 每次都跳「外部應用程式想要在 Code 中開啟…」確認框。修正（`e5b6392`）：改成先找 PATH 上的 `code`／`cursor`，用 `-g 檔案:行:欄` 開啟；找不到 CLI 才退回用網址開。修正後 VS Code 直接開檔，沒有確認框。
+  - 測試開出的記事本、檔案總管、VS Code 視窗事後已關閉；Chrome 的 example.com 分頁留著沒動。
+- 版號改成 0.4.1（`c2f4a13`）。`package-lock.json` 開頭的版本號也一起改了，`operations.md` 列的版本號檔案清單裡沒有它。推上 main 並推 tag `v0.4.1`，CI 兩個平台都建置成功。發布後，`releases/latest` 的 `.exe`、`.dmg` 連結都回 302，指向 v0.4.1。
+
+**為什麼**
+- 使用者說「你測就好，不要再問我。測好後，發新版到 github」。
+
+**下一步**
+- 使用者要裝 v0.4.1，並在 panex 按一次「啟用」：一方面補上兩個新 hook，另一方面把 hook 從 `target/test-build/panex-cli.exe` 改回指向安裝版的路徑。
+- 值得歸檔、還沒歸檔的雷：①`vscode://` 網址會觸發 VS Code 的確認框；②測試實例覆寫 `USERPROFILE` 會起不來；③Git Bash 會把 `/exit` 這類開頭是 `/` 的參數轉成路徑（`MSYS_NO_PATHCONV=1`）；④`operations.md` 的版本號檔案清單要補上 `package-lock.json`。
+
 ## 2026-10-22 — agent 工作中關閉前先確認
 
 **變更**
