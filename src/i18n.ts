@@ -180,6 +180,8 @@ const EN: Record<string, string> = {
   "[程序已結束（代碼 {code}）。按 Enter 重新啟動{close}]": "[Process exited (code {code}). Press Enter to restart{close}]",
   "，{key} 關閉分頁": ", {key} to close the tab",
   "已完成": "Done",
+  "已中斷": "Interrupted",
+  "API 錯誤，這一輪停下來了": "API error; the turn stopped",
   "執行中…": "Running…",
   "已執行時間": "Time running",
   "這一輪花的時間": "Time this turn took",

@@ -107,7 +107,7 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 
 ### Claude Code 通知
 
-在側欄底部按 **啟用**。panex 會在 `~/.claude/settings.json` 加入執行 `panex-cli notify` 的 `Notification`、`Stop`、`UserPromptSubmit` hooks。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。
+在側欄底部按 **啟用**。panex 會在 `~/.claude/settings.json` 加入執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。
 
 ## 設定
 

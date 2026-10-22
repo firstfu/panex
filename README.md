@@ -107,7 +107,7 @@ Run the new installer. Your workspaces, scrollback and settings are kept.
 
 ### Claude Code notifications
 
-Click **啟用** at the bottom of the sidebar. panex adds `Notification`, `Stop` and `UserPromptSubmit` hooks that run `panex-cli notify` to `~/.claude/settings.json`. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected.
+Click **啟用** at the bottom of the sidebar. panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json`. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected.
 
 ## Configuration
 

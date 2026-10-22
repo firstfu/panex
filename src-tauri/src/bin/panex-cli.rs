@@ -27,7 +27,8 @@ fn notify(rest: &[String]) {
     let hook = read_stdin_json().unwrap_or(Value::Null);
     let event = hook["hook_event_name"].as_str().unwrap_or("Notification").to_string();
     let message = match event.as_str() {
-        "Stop" => hook["last_assistant_message"].as_str(),
+        // For StopFailure this holds the API error text, e.g. "API Error: Rate limit reached".
+        "Stop" | "StopFailure" => hook["last_assistant_message"].as_str(),
         _ => hook["message"].as_str(),
     }
     .map(|s| truncate(s, 140))

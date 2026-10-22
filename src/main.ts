@@ -636,7 +636,18 @@ function endAgent(tab: Tab) {
   saveSessionSoon();
 }
 
+/** No agent is working in this tab any more: drop a "running" state that no Stop hook will end. */
+function endRun(tab: Tab) {
+  if (tab.status !== "running") return;
+  tab.status = "idle";
+  tab.runStart = undefined;
+  scheduleRender();
+}
+
 function onInput(tab: Tab, data: string) {
+  // Claude Code fires no Stop hook when the user interrupts a turn (Esc / Ctrl+C), so the
+  // key itself ends it. If the Esc only closed a menu, the agent's next hook corrects this.
+  if (tab.status === "running" && (data === "\x1b" || data === "\x03")) notify(tab, "done", tr("已中斷"));
   if (tab.running) {
     invoke("pty_write", { id: tab.id, data }).catch(() => {});
   } else if (tab.exited && data === "\r") {
@@ -1006,7 +1017,10 @@ function setCwd(tab: Tab, cwd: string) {
   tab.promptAt = now;
   if (tab.agentLive && !duplicate) {
     if (tab.skipPrompt) tab.skipPrompt = false;
-    else endAgent(tab);
+    else {
+      endAgent(tab);
+      endRun(tab);
+    }
   }
   // Every prompt reports the cwd, so this also catches `git checkout` in place.
   refreshBranch(tab, cwd);
@@ -2421,6 +2435,12 @@ async function main() {
   listen<AgentNotify>("agent-notify", ({ payload: p }) => {
     const tab = tabs.get(p.pane);
     if (!tab) return;
+    // Claude Code exited (or /clear started a new session; the next hook brings its id).
+    if (p.event === "SessionEnd") {
+      if (tab.agentLive || tab.agentSession) endAgent(tab);
+      endRun(tab);
+      return;
+    }
     if (validSessionId(p.sessionId)) {
       tab.agentLive = true;
       if (tab.agentSession !== p.sessionId) {
@@ -2433,6 +2453,11 @@ async function main() {
     else if (p.event === "Stop") {
       notify(tab, "done", p.message || tr("已完成"));
       scheduleGit(tab); // the agent's turn may have edited files or committed
+    }
+    // An API error (rate limit, overload…) ends the turn instead of Stop; the user has to retry.
+    else if (p.event === "StopFailure") {
+      notify(tab, "attention", p.message || tr("API 錯誤，這一輪停下來了"));
+      scheduleGit(tab);
     }
     else if (p.notificationType === "auth_success") return;
     else if (p.notificationType === "idle_prompt" && tab.status === "done") return;

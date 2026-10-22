@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 use std::fs;
 use std::path::PathBuf;
 
-const EVENTS: [&str; 3] = ["Notification", "Stop", "UserPromptSubmit"];
+const EVENTS: [&str; 5] = ["Notification", "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd"];
 
 fn settings_path() -> Option<PathBuf> {
     let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?;
