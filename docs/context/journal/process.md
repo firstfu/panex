@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-23 — 修 macOS 輸入法下 Shift+符號偶爾被吞掉（`0cfd71f`）
+
+**變更**
+- `src/terminal.ts` 新增 `guardImeInput`（只在 macOS 掛上）：`insertText` 的 `input` 比它的 `keydown`（keyCode 229）先到時，由 panex 在 capture 階段用 `term.input` 送出並擋掉 xterm 的處理；229 keydown 先到（Chromium 順序，xterm 的 textarea 比對會補送）或組字中，一律交回 xterm。
+- 驗證：測試版＋System Events 送真實按鍵（OpenVanilla 嘸蝦米開著），只打冒號 40 次，修正前到 pty 33 個、修正後 40/40 無重複；「單獨冒號」「打完中文再冒號」「字根未送出就冒號」三情境各 15 次全對，組字照常；e2e 11 項過（第一次有一項 worktree 測試偶發失敗，重跑全過）。
+
+**為什麼**
+- 使用者回報在 Claude Code 輸入框按 Shift+: 有時「卡住」。實測是被吞掉：WKWebView 在 IME 下 `input` 比 `keydown` 先到，上一鍵的 `keyup` 晚到時 xterm 的 `_keyDownSeen` 還是 true，`input` 被忽略；229 keydown 的 textarea 比對又因字已在 textarea 裡而補不到。Terminal.app、cmux 是原生 App，沒有這層。
+
+**下一步**
+- 發 0.5.5。Windows 沒掛這段，沒測。
+- 只用 OpenVanilla 驗過；其他 macOS 輸入法（注音、拼音）若事件順序是 keydown 先到，會走原本 xterm 路徑，理論上不受影響，但沒實測。
+
 ## 2026-10-23 — 發佈 v0.5.4：攔下 `EnterWorktree` 交棒給新 agent、擋掉上一次啟動殘留的 hook
 
 **變更**
