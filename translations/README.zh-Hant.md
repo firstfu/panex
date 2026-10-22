@@ -44,12 +44,6 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 背後是兩個任何 agent 都能在 panex 裡執行的指令：`panex-cli open` 在新的工作區（可以加開新的 worktree）執行一個指令，不會切走你的畫面；`panex-cli wait` 會等到這些 agent 做完或需要你為止。細節見 `panex-cli help`。panex 會安裝一個小小的 Claude Code skill，教 Claude 怎麼用這兩個指令。只有在 panex 裡開出來的程序能下這些指令。
 
-**驗網頁畫面。** 在 **設定 → 終端機 → 小工人測網頁用** 選一種瀏覽器工具。子 agent 的工作動到網頁畫面時，帶頭的 agent 會把瀏覽器驗收寫進它的任務，驗過才 commit：
-
-- **Playwright（共用登入）**：每個子 agent 各開自己的 [Playwright CLI](https://playwright.dev/agent-cli/sessions) 瀏覽器，可以同時測，也不會碰到你自己的瀏覽器。要讓它們一開就是登入狀態，在 **小工人共用的登入** 填網站的登入頁，按 **登入並儲存**，在開出來的瀏覽器登入一次。panex 會把那一頁的 cookie、localStorage 和 sessionStorage 存在它的設定資料夾（`playwright/`，不在你的 repo 裡），再放回每個子 agent 的瀏覽器。登入過期就再按一次。
-- **Claude in Chrome**：子 agent 透過 Claude in Chrome 用你自己的 Chrome。
-- **不指定**（預設）：帶頭的 agent 會先問你要怎麼驗。
-
 ### 工作區與分頁
 
 側欄放工作區（<kbd>Ctrl</kbd>+<kbd>N</kbd>），一個專案或一件事一個。每個工作區有自己的一排分頁（<kbd>Ctrl</kbd>+<kbd>T</kbd>），每個分頁是一個 shell，會在你目前所在的資料夾開啟。工作區和分頁都能改名、拖曳排序，工作區還能標顏色。
@@ -109,7 +103,7 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 ## 隱私
 
-panex **自己不會連網**，沒有遙測，也不檢查更新。例外只有兩個：你自己開的 SSH 連線，用的是電腦內建的 `ssh`；以及你在[小隊模式](#小隊模式讓-agent-帶出其他-agent)選了 Playwright 驗網頁時，`npx` 會從 npm 下載 `@playwright/cli`（第一次可能還要下載瀏覽器）。Git 面板不會 fetch。
+panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例外是你自己開的 SSH 連線，用的是電腦內建的 `ssh`。Git 面板不會 fetch。
 
 它唯一會寫到自己資料夾以外的檔案是 `~/.claude/settings.json`：panex 啟動時，如果 Claude Code hooks 還沒設定，或指向舊的安裝位置，就會把它們加進去。寫入前會先備份（`settings.json.panex-bak`），並保留你原本的其他 hooks。相關程式碼在 [`src-tauri/src/hooks.rs`](../src-tauri/src/hooks.rs)。
 

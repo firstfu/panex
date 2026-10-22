@@ -23,10 +23,6 @@ How to use it well:
 - Give every agent its own worktree (`--worktree <branch>`), so they never edit the same files.
 - Write each agent's instructions into a file in its worktree, and start it with a short
   command such as `-- claude "Do what TASK.md says, then commit"`.
-- If an agent's work changes anything shown in a web page, its TASK.md must include checking
-  that page in a browser the way `panex-cli help` describes (open, click through, screenshot),
-  and committing only once those checks pass. If help names no browser tool, ask the user
-  how they want the pages checked before you start the agents.
 - Wait with `panex-cli wait <tab>...`. `needs-input` means that agent is asking the user
   something: tell the user which tab, don't try to answer for them.
 - Collect results from git (`git diff <base>...<branch>`, `git log`), not from the screen.

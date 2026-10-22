@@ -58,13 +58,11 @@ export function showWorkspace(wsId: string) {
   if (tab) showTab(tab.id);
 }
 
-/** `input` is typed into the new shell once it starts. */
-export function newWorkspace(shell = S.settings.defaultShell, input?: string) {
+export function newWorkspace(shell = S.settings.defaultShell) {
   const ws: Workspace = { id: newWsId(), tabs: [] };
   workspaces.set(ws.id, ws);
   wsOrder.push(ws.id);
   const tab = createTab({ id: newId(), shell, cwd: activeTab()?.cwd }, ws.id);
-  tab.initialInput = input;
   ws.tabs.push(tab.id);
   showTab(tab.id);
 }

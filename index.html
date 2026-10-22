@@ -206,23 +206,6 @@
               <label class="row-ctl switch"><input id="s-worktree-panex" type="checkbox" /><i></i></label>
             </div>
             <div class="row">
-              <div class="row-text"><b data-i18n>小工人測網頁用</b><span data-i18n>小隊模式的 agent 要開瀏覽器測網頁時用哪個工具；panex-cli help 會照這裡告訴帶頭的 agent</span></div>
-              <div class="row-ctl">
-                <div class="seg" id="s-crew-browser" role="radiogroup">
-                  <button data-v="none" role="radio" data-i18n>不指定</button>
-                  <button data-v="playwright" role="radio" data-i18n>Playwright（共用登入）</button>
-                  <button data-v="claude-in-chrome" role="radio">Claude in Chrome</button>
-                </div>
-              </div>
-            </div>
-            <div class="row" id="s-crew-login-row">
-              <div class="row-text"><b data-i18n>小工人共用的登入</b><span data-i18n>填測試站的登入頁，按「登入並儲存」後在開出來的瀏覽器登入一次；每個小工人各開自己的 Playwright 瀏覽器，一開就是登入狀態。過期再按一次</span></div>
-              <div class="row-ctl">
-                <input id="s-crew-login-url" class="field" type="url" spellcheck="false" placeholder="https://test.example.com/login" />
-                <button type="button" id="s-crew-login" class="ghost" data-i18n>登入並儲存</button>
-              </div>
-            </div>
-            <div class="row">
               <div class="row-text"><b data-i18n>用什麼開啟檔案路徑</b><span data-i18n>按住 Ctrl 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號</span></div>
               <div class="row-ctl">
                 <div class="seg" id="s-open-with" role="radiogroup">

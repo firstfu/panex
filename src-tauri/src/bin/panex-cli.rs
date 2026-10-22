@@ -2,7 +2,6 @@
 //!
 //!   panex-cli notify [message]      (agent hooks)
 //!   panex-cli open … / wait …       (an agent starting other agents in new tabs; see HELP)
-//!   panex-cli browser-login         (saves a login for crew agents' Playwright browsers)
 //!   panex-cli worktree-create       (Claude Code's WorktreeCreate hook; see worktree_create)
 //!   panex-cli worktree-remove       (Claude Code's WorktreeRemove hook; see worktree_remove)
 //!   panex-cli worktree-guard        (Claude Code's PreToolUse hook for EnterWorktree; see worktree_guard)
@@ -28,19 +27,9 @@ fn main() {
         Some("worktree-create") => std::process::exit(worktree_create()),
         Some("worktree-remove") => std::process::exit(worktree_remove()),
         Some("worktree-guard") => worktree_guard(),
-        Some("browser-login") => {
-            if let Err(e) = browser_login() {
-                eprintln!("panex-cli: {e}");
-                std::process::exit(1);
-            }
-        }
         #[cfg(feature = "e2e")]
         Some("e2e") => std::process::exit(e2e(&args[1..])),
-        Some("help" | "--help" | "-h") | None => {
-            let config = login_dir().join("cli.config.json");
-            let choice = agent_config()["crewBrowser"].as_str().unwrap_or_default().to_string();
-            print!("{HELP}{}", browser_help(&choice, config.is_file().then_some(config.as_path())));
-        }
+        Some("help" | "--help" | "-h") | None => print!("{HELP}"),
         Some(other) => {
             eprintln!("panex-cli: unknown command {other:?}; see `panex-cli help`");
             std::process::exit(1);
@@ -84,141 +73,6 @@ they answer it the tab counts as running again, so call wait again after telling
 Results are best collected from git: have each agent commit in its worktree, then read
 `git diff <base>...<branch>`.
 "#;
-
-/// panex's config folder; same rule as config::dir (not linked: that pulls in Tauri).
-fn config_dir() -> PathBuf {
-    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();
-    std::env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(home).join(".config"))
-        .join("panex")
-}
-
-/// The "agent" section of panex.json, read on every call so it follows the settings page
-/// without restarting any tab.
-fn agent_config() -> Value {
-    std::fs::read_to_string(config_dir().join("panex.json"))
-        .ok()
-        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
-        .map(|v| v["agent"].clone())
-        .unwrap_or(Value::Null)
-}
-
-/// Where `browser-login` keeps the saved login. Outside any worktree, so it never gets committed.
-fn login_dir() -> PathBuf {
-    config_dir().join("playwright")
-}
-
-/// Pinned: the config shape below (isolated + storageState + initScript) is only known to work here.
-const PLAYWRIGHT_CLI: &str = "@playwright/cli@0.1.22";
-
-/// The part of the help that depends on the user's choice in Settings → crew browser.
-/// `config` is the saved login's cli.config.json, when there is one.
-fn browser_help(choice: &str, config: Option<&Path>) -> String {
-    match choice {
-        "playwright" => {
-            let open = match config {
-                Some(c) => format!("open --headed --config=\"{}\" URL", c.display()),
-                None => "open --headed URL".into(),
-            };
-            let login = match config {
-                Some(_) => "The browsers start logged in as the user (saved with `panex-cli browser-login`).\n    The saved login is put back on every page load, so a logout test looks logged in again\n    after it navigates: test logged-out pages in a session opened without --config. If a page\n    lands on the login screen anyway, the saved login has expired: tell the user to log in\n    again from Settings → \"Log in and save\", and don't log in yourself.",
-                None => "No login is saved yet, so the browsers start logged out. If the pages need a login,\n    ask the user to save one from Settings → \"Log in and save\" before you start the agents.",
-            };
-            format!(
-                r#"
-Testing web pages (the user picked Playwright with a shared login in panex's settings):
-    Each agent drives its own Playwright browser, so several can test at once and the user's
-    Chrome is never touched.
-    {login}
-    Start each agent with Claude in Chrome turned off:
-        -- claude --no-chrome "Do what TASK.md says, then commit"
-    and tell it in TASK.md, with its branch name as the session:
-        npx -y {PLAYWRIGHT_CLI} -s=BRANCH {open}
-        npx -y {PLAYWRIGHT_CLI} -s=BRANCH snapshot / click / fill / screenshot ...
-        npx -y {PLAYWRIGHT_CLI} -s=BRANCH close        when done; a headed browser never closes by itself
-    Drop --headed to run the browser hidden.
-"#
-            )
-        }
-        "claude-in-chrome" => r#"
-Testing web pages (the user picked Claude in Chrome in panex's settings):
-    Start each agent with it turned on: -- claude --chrome "Do what TASK.md says, then commit"
-    and tell it in TASK.md to open its own tab and leave the user's tabs alone.
-"#
-        .into(),
-        _ => String::new(),
-    }
-}
-
-/// Script run before every page: puts the saved sessionStorage back on the saved origin, key by
-/// key and only where missing (cookies and localStorage come back through storageState, but
-/// sessionStorage is per tab and Playwright does not save it).
-fn init_script(origin: &str, data: &serde_json::Map<String, Value>) -> String {
-    format!(
-        "(() => {{\n  if (location.origin !== {}) return;\n  const data = {};\n  for (const k in data) if (sessionStorage.getItem(k) === null) sessionStorage.setItem(k, data[k]);\n}})();\n",
-        json!(origin),
-        Value::Object(data.clone())
-    )
-}
-
-/// playwright-cli config that opens an isolated browser with the saved login.
-fn cli_config(dir: &Path) -> Value {
-    json!({ "browser": {
-        "isolated": true,
-        "contextOptions": { "storageState": dir.join("auth.json") },
-        "initScript": [dir.join("session-init.js")],
-    }})
-}
-
-/// Runs playwright-cli in the login folder (its session files and snapshots land there too).
-fn playwright(dir: &Path, args: &[&str], capture: bool) -> Result<String, String> {
-    let mut cmd = std::process::Command::new(if cfg!(windows) { "npx.cmd" } else { "npx" });
-    cmd.args(["-y", PLAYWRIGHT_CLI, "-s=panex-login"]).args(args).current_dir(dir);
-    if capture {
-        let out = cmd.output().map_err(|e| format!("cannot run npx: {e}"))?;
-        if !out.status.success() {
-            return Err(String::from_utf8_lossy(&out.stderr).into_owned());
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
-    } else {
-        let st = cmd.status().map_err(|e| format!("cannot run npx: {e}"))?;
-        if st.success() { Ok(String::new()) } else { Err(format!("playwright-cli {} failed", args[0])) }
-    }
-}
-
-/// `panex-cli browser-login`: opens agent.crewLoginUrl in a Playwright browser, waits while the
-/// user logs in, then saves the login for crew agents. The URL comes from panex.json, not the
-/// command line, so the settings page never types it into a shell.
-fn browser_login() -> Result<(), String> {
-    let url = agent_config()["crewLoginUrl"].as_str().unwrap_or_default().trim().to_string();
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return Err("set the login page URL in Settings → Terminal first".into());
-    }
-    let dir = login_dir();
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    playwright(&dir, &["open", "--headed", &url], false)?;
-    print!("\nLog in in the browser window that just opened, then come back here and press Enter. ");
-    std::io::stdout().flush().ok();
-    std::io::stdin().read_line(&mut String::new()).map_err(|e| e.to_string())?;
-    let result = (|| {
-        playwright(&dir, &["state-save", "auth.json"], false)?;
-        let raw = playwright(&dir, &["eval", "() => JSON.stringify({ origin: location.origin, data: { ...sessionStorage } })", "--raw"], true)?;
-        // --raw prints the returned string as a JSON string literal.
-        let text = serde_json::from_str::<String>(raw.trim()).unwrap_or_else(|_| raw.trim().to_string());
-        let page: Value = serde_json::from_str(&text).map_err(|e| format!("unexpected eval output: {e}"))?;
-        let origin = page["origin"].as_str().ok_or("unexpected eval output: no origin")?;
-        let data = page["data"].as_object().cloned().unwrap_or_default();
-        std::fs::write(dir.join("session-init.js"), init_script(origin, &data)).map_err(|e| e.to_string())?;
-        let config = serde_json::to_string_pretty(&cli_config(&dir)).unwrap();
-        std::fs::write(dir.join("cli.config.json"), config).map_err(|e| e.to_string())?;
-        Ok::<_, String>(origin.to_string())
-    })();
-    let _ = playwright(&dir, &["close"], false);
-    let origin = result?;
-    println!("\nSaved the login for {origin}. Crew agents' browsers now start logged in; you can close this tab.");
-    Ok(())
-}
 
 /// `panex-cli worktree-create`: Claude Code's WorktreeCreate hook, installed while panex's
 /// agent.worktreeViaPanex setting is on. The hook replaces Claude Code's own `git worktree` step
@@ -631,28 +485,6 @@ mod tests {
         assert!(req["cwd"].as_str().is_some_and(|c| std::path::Path::new(c).is_absolute()));
         assert!(open_request(&["--bogus".to_string()]).is_err());
         assert!(open_request(&["--cwd".to_string()]).is_err());
-    }
-
-    #[test]
-    fn browser_help_follows_the_setting() {
-        let cfg = Path::new("cfg.json");
-        assert!(browser_help("playwright", Some(cfg)).contains("--config=\"cfg.json\""));
-        assert!(browser_help("playwright", None).contains("No login is saved yet"));
-        assert!(browser_help("claude-in-chrome", None).contains("--chrome"));
-        assert_eq!(browser_help("", None), "");
-        assert_eq!(browser_help("bogus", None), "");
-    }
-
-    #[test]
-    fn init_script_restores_only_missing_keys_on_its_origin() {
-        let data = json!({ "user": "{\"a\":1}" }).as_object().unwrap().clone();
-        let js = init_script("https://example.com", &data);
-        assert!(js.contains("location.origin !== \"https://example.com\""));
-        assert!(js.contains(r#"{"user":"{\"a\":1}"}"#));
-        assert!(js.contains("sessionStorage.getItem(k) === null"));
-        let cfg = cli_config(Path::new("dir"));
-        assert_eq!(cfg["browser"]["isolated"], true);
-        assert!(cfg["browser"]["initScript"][0].as_str().unwrap().ends_with("session-init.js"));
     }
 
     #[test]

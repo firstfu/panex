@@ -4,6 +4,22 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-23 — 拿掉「小工人測網頁用」設定與 Playwright 共用登入（尚未 commit）
+
+**變更**
+- 刪除設定頁「小工人測網頁用」與「小工人共用的登入」兩列，以及 `agent.crewBrowser`／`agent.crewLoginUrl`（settings.ts、settings-panel.ts、i18n、style.css、schema）。
+- `panex-cli` 拿掉 `browser-login` 指令、Playwright 相關函式（`browser_help`、`init_script`、`cli_config`、`playwright`、`config_dir`、`agent_config`、`login_dir`）與對應測試；`help` 回到只印固定說明。
+- `newWorkspace` 拿掉只給「登入並儲存」用的 `input` 參數。
+- README 英／繁中刪掉「驗網頁畫面」段，「隱私」改回只剩 SSH 一個例外。
+- `skills/panex/SKILL.md` 刪掉 `27efdf2` 加的「動到網頁要照 `panex-cli help` 做瀏覽器驗收、沒指定工具先問使用者」那條（help 不再指定工具，留著會讓帶頭的 agent 每次都問）。
+- 驗證：`tsc --noEmit` 過；`cargo test --bin panex-cli` 3 項過；`cargo check --features e2e --bins` 無警告。
+
+**為什麼**
+- 使用者決定不要這些預設值與處理：小工人測網頁就用 Claude in Chrome，使用者想用別的工具就自己用，panex 不介入。
+
+**下一步**
+- commit；已裝過舊版的人 `panex.json` 可能留著 `agent.crewBrowser`，schema 的 `agent` 是 `additionalProperties: false`，編輯器會標警告，但不影響執行。
+
 ## 2026-10-23 — 修 macOS 輸入法下 Shift+符號偶爾被吞掉（`0cfd71f`）
 
 **變更**
@@ -204,6 +220,8 @@
 
 ## 2026-10-22 — 未完成：小工人測網頁用的瀏覽器（分支 feat/crew-browser，在獨立 worktree，main 未動）
 
+> **2026-10-23 已整個拿掉**（使用者決定不要這些預設值與處理），本筆與下一筆的「下一步」都不用做了。
+
 **變更**
 - 工作不在 main，在獨立 worktree `../panex-worktrees/crew-browser`（分支 `feat/crew-browser`，已推到 GitHub、未合併；main 本身無改動）。5 個 commit：
   - `6f89350` 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome），`panex-cli help` 依設定分流說明。
@@ -225,6 +243,8 @@
 5. 確認沒問題後合併回 main。
 6. 設定頁新列與 `panex-cli browser-login` 在 Windows 以外沒測。
 ## 2026-10-22 — 設定「小工人測網頁用」＋共用登入（分支 feat/crew-browser，未合併）
+
+> **2026-10-23 已整個拿掉**，見當天紀錄。
 
 **變更**
 - 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome，預設 none）與 `agent.crewLoginUrl`；選 playwright 時多一列「小工人共用的登入」（網址欄＋「登入並儲存」）。

@@ -12,7 +12,6 @@ import { S, activeTab } from "./state";
 import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, writeConfig, writeSettingNow } from "./config";
 import { scheduleRender } from "./render";
 import { hideCtx } from "./context-menu";
-import { newWorkspace } from "./workspaces";
 
 export const settingsEl = $("settings");
 let capturingId: string | undefined;
@@ -129,9 +128,6 @@ export function fillSettings() {
   setSeg("s-effect", S.settings.effect);
   setSeg("s-language", S.settings.language);
   setSeg("s-open-with", S.settings.openFilesWith);
-  setSeg("s-crew-browser", S.settings.crewBrowser);
-  $("s-crew-login-row").hidden = S.settings.crewBrowser !== "playwright";
-  $<HTMLInputElement>("s-crew-login-url").value = S.settings.crewLoginUrl;
   $<HTMLInputElement>("s-font-size").value = String(S.settings.fontSize);
   fillFontPicker();
   const sample = $("font-sample");
@@ -337,28 +333,6 @@ $("s-open-with").addEventListener("click", (e) => {
   updateSettings({ openFilesWith: v });
   setSeg("s-open-with", v);
 });
-$("s-crew-browser").addEventListener("click", (e) => {
-  const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as Settings["crewBrowser"] | undefined;
-  if (!v) return;
-  updateSettings({ crewBrowser: v });
-  setSeg("s-crew-browser", v);
-  $("s-crew-login-row").hidden = v !== "playwright";
-});
-$<HTMLInputElement>("s-crew-login-url").onchange = (e) => updateSettings({ crewLoginUrl: (e.target as HTMLInputElement).value.trim() });
-// panex-cli reads the URL from panex.json, so nothing user-typed goes through the shell.
-// The URL has to be on disk before the tab starts, so this write skips the debounce.
-$("s-crew-login").onclick = async () => {
-  const field = $<HTMLInputElement>("s-crew-login-url");
-  const url = field.value.trim();
-  if (!/^https?:\/\/\S+$/.test(url)) return field.focus();
-  try {
-    await writeSettingNow("crewLoginUrl", url);
-  } catch {
-    return; // writeSettingNow already showed the error
-  }
-  closeSettings();
-  newWorkspace(S.settings.defaultShell, "panex-cli browser-login");
-};
 $("s-language").addEventListener("click", (e) => {
   const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as LangPref | undefined;
   if (!v) return;
