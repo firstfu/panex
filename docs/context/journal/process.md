@@ -4,7 +4,7 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-23 — 攔下 `EnterWorktree`，worktree 需求改成交棒給新 agent（未 commit）
+## 2026-10-23 — 攔下 `EnterWorktree`，worktree 需求改成交棒給新 agent（`8cdf323`）
 
 **變更**
 - 新增 `panex-cli worktree-guard`（`panex-cli.rs`）與 `hooks.rs` 的 `PreToolUse` hook（matcher `EnterWorktree`），跟 `agent.worktreeViaPanex` 同一個開關進出，不新增設定項；使用者自己的 PreToolUse 條目保留。`skills/panex/SKILL.md` 加「worktree 需求都是交棒」規則。
@@ -16,7 +16,7 @@
 **下一步**
 - `panex-cli open` 的實際開分頁沒在這輪驗（測試環境沒有 panex 管道，只確認 Claude 會去呼叫它）；發版前用 e2e 或正式版實測一次。
 - deny 後 Claude 要自己從任務取分支名；若常取得不好，可考慮在 guard 的說明裡給命名規則。
-- 還沒 commit／發版；Windows 沒測。
+- 還沒推送／發版；Windows 沒測。
 
 ## 2026-10-23 — Claude 開 worktree 不再搬走對話；panex 外刪掉的 worktree 自動離開側欄；發佈 v0.5.2、v0.5.3，本機改裝 0.5.3（`e209c18`、`06c3dd9`、`a0820f3`）
 
