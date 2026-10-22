@@ -4,6 +4,22 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — macOS 真實 App 的端對端測試（`1e028d5`）
+
+**變更**
+- 新 Cargo feature `e2e`（預設關）：開了它的建置接受 `panex-cli e2e <js>`，經既有控制通道送到後端，用 `webview.eval` 在視窗裡跑，結果走既有的 `ctl_reply` 回來（`src-tauri/src/e2e.rs`，`control::ask_frontend` 從 `open` 抽出來共用）。三道鎖：正式版不編進去、要帶啟動時設的 `PANEX_E2E_TOKEN`、identifier 是 `dev.panex.terminal` 就拒絕。
+- `tests/e2e/run.mjs`：用暫存 HOME 開測試實例（session、`~/.claude`、shell rc 都落在暫存資料夾），以合成 `session.json` 起兩個分頁，驗：工作區／分頁「複製路徑」、Shift+Enter 讓 shell 收到 ESC CR（`cat -v` 寫檔比對）、小隊模式 `panex-cli open --worktree` + `wait`（假 claude 腳本 commit 後送 Stop）、錯 token 被拒。連跑兩輪 5/5 通過，沒有殘留程序或暫存檔。
+- 順手修 `git::tests::worktree_reports_its_main_checkout` 在 macOS 必失敗（暫存路徑 `/var` 是 `/private/var` 的連結）。`cargo test`（含／不含 e2e）、`npm test`、`tsc` 全過。
+
+**為什麼**
+- Mac 的 WKWebView 沒有 WebDriver 也沒有遠端除錯埠，Windows 那套 CDP 測法用不了；使用者要能在 Mac 上全自動驗真的 App。
+- 使用者問小隊模式在 Mac 能不能用：這次在 Mac 實測通過（之前流水帳寫「macOS 沒測」）。
+
+**下一步**
+- 雷與建置方式還沒歸檔進 `reference/operations.md`（CSP 擋 `new Function` 所以 JS 直接嵌入、WebKit 的 `KeyboardEvent` 要補 `keyCode`、`/private/var`、沒有 `cargo tauri` 時用 `cargo build --features tauri/custom-protocol`）。
+- 小隊模式用真的 Claude Code 在 Mac 跑一輪（這次是假 agent）。
+- Shift+Enter 到 Claude Code 端是否換行仍未驗（shell 已確認收到 ESC CR）。
+
 ## 2026-10-22 — 預設視窗大小 1400×820 → 1518×860（`0b1d8b4`）
 
 **變更**
