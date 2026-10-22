@@ -9,8 +9,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple)
-![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri)
-![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust)
 [![Latest release](https://img.shields.io/github/v/release/firstfu/panex)](https://github.com/firstfu/panex/releases/latest)
 
 [下載](https://github.com/firstfu/panex/releases/latest) · [功能](#功能) · [安裝](#安裝) · [設定](#設定) · [常見問題](#常見問題)
@@ -28,7 +26,7 @@
 
 ## 為什麼做 panex
 
-同時開三、四個 Claude Code，就得一直切視窗，找哪個在等你按「yes」。macOS 上有 [cmux](https://github.com/manaflow-ai/cmux) 解決這件事，Windows 上卻沒有類似的工具，所以 panex 把同樣的想法帶到 Windows：一個知道 agent 什麼時候需要你的終端機。
+同時開三、四個 Claude Code，就得一直切視窗，找哪個在等你按「yes」。panex 是一個知道 agent 什麼時候需要你的終端機。
 
 它也盡量不佔資源。程式本體是 9 MB 的執行檔，閒置時不吃 CPU；關掉或當掉都不會弄丟你的版面。
 
@@ -40,19 +38,19 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 
 panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不用另外開啟。其他工具也能發通知：執行 `panex-cli notify "訊息"`，或輸出 BEL、OSC 9、OSC 777 序列。
 
-### 讓 agent 帶出其他 agent
+### 小隊模式：讓 agent 帶出其他 agent
 
-在 panex 分頁裡請 Claude Code 把一件工作分給幾個 agent 平行處理，它會把它們開在新的工作區裡，排在它自己的下方，可以各自用一個 git worktree，在你看得到、也能直接打字的分頁裡工作。它會等它們做完；有子 agent 在等你回答時，它會告訴你是哪一個，不會替你回答；做完後再從 git 收回成果。
+在 panex 分頁裡請 Claude Code 把一件工作分給幾個 agent 平行處理，它會組成一個小隊：把它們開在新的工作區裡，排在它自己的下方，可以各自用一個 git worktree，在你看得到、也能直接打字的分頁裡工作。它會等它們做完；有子 agent 在等你回答時，它會告訴你是哪一個，不會替你回答；做完後再從 git 收回成果。
 
 背後是兩個任何 agent 都能在 panex 裡執行的指令：`panex-cli open` 在新的工作區（可以加開新的 worktree）執行一個指令，不會切走你的畫面；`panex-cli wait` 會等到這些 agent 做完或需要你為止。細節見 `panex-cli help`。panex 會安裝一個小小的 Claude Code skill，教 Claude 怎麼用這兩個指令。只有在 panex 裡開出來的程序能下這些指令。
 
-### 跟 cmux 一樣的工作區與分頁
+### 工作區與分頁
 
 側欄放工作區（<kbd>Ctrl</kbd>+<kbd>N</kbd>），一個專案或一件事一個。每個工作區有自己的一排分頁（<kbd>Ctrl</kbd>+<kbd>T</kbd>），每個分頁是一個 shell，會在你目前所在的資料夾開啟。工作區和分頁都能改名、拖曳排序，工作區還能標顏色。
 
 ### 當掉重開也能接著做
 
-工作區、分頁、每個分頁的 shell 與工作目錄、捲動歷史都會隨時存檔。關掉 panex、重開機，或從工作管理員強制結束，下次打開都會回到原本的樣子。跟 cmux 一樣，原本在跑的程式不會保留，但 panex 會記住每個分頁正在跑的 Claude Code session：重開 panex 後打開那個分頁，會自動執行 `claude --resume <id>`，直接回到原本的對話。已經退出 Claude Code 的分頁則停在提示符。可以在 設定 → 終端機 關掉。
+工作區、分頁、每個分頁的 shell 與工作目錄、捲動歷史都會隨時存檔。關掉 panex、重開機，或從工作管理員強制結束，下次打開都會回到原本的樣子。原本在跑的程式不會保留，但 panex 會記住每個分頁正在跑的 Claude Code session：重開 panex 後打開那個分頁，會自動執行 `claude --resume <id>`，直接回到原本的對話。已經退出 Claude Code 的分頁則停在提示符。可以在 設定 → 終端機 關掉。
 
 ### 不離開終端機就能看 git 改了什麼
 
@@ -129,11 +127,11 @@ panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例�
 
 ### Claude Code 通知
 
-panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks，或它們指向舊的安裝位置，就會自動加入。寫入前會先備份，你原本的其他 hooks 都會保留。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。panex 也會維護 `~/.claude/skills/panex/SKILL.md`，告訴 Claude 怎麼帶出其他 agent（見上方「讓 agent 帶出其他 agent」）；這個 skill 在 panex 以外不會做任何事。
+panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks，或它們指向舊的安裝位置，就會自動加入。寫入前會先備份，你原本的其他 hooks 都會保留。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。panex 也會維護 `~/.claude/skills/panex/SKILL.md`，告訴 Claude 怎麼組成小隊（見上方「小隊模式」）；這個 skill 在 panex 以外不會做任何事。
 
 ## 設定
 
-設定存在 `%USERPROFILE%\.config\panex\panex.json`（macOS 和 Linux 是 `~/.config/panex/panex.json`），做法參考 cmux 的 `cmux.json`：
+設定存在 `%USERPROFILE%\.config\panex\panex.json`（macOS 和 Linux 是 `~/.config/panex/panex.json`）：
 
 - 只寫你想改的鍵，其他都用預設值。
 - 旁邊有 `panex.schema.json`，用 VS Code 等編輯器開啟會有自動完成和說明。
@@ -220,7 +218,7 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 
 ## 跟類似工具的差別
 
-[cmux](https://github.com/manaflow-ai/cmux) 是原創，功能也多得多：分割窗格、內嵌瀏覽器、完整的 CLI 和 socket API。用 Mac 的話就用它。panex 存在的理由是 cmux 只支援 macOS。panex 借用的是 cmux 的想法（工作區加分頁、agent 通知、還原工作階段、可改快捷鍵的 JSON 設定檔），沒有用到它的程式碼。Windows Terminal 是很好的終端機，但它不知道哪個 agent 在等你，也不知道是哪個分頁。
+Windows Terminal 是很好的終端機，但它不知道哪個 agent 在等你，也不知道是哪個分頁。
 
 ## 考慮中：用 👍 投票
 

@@ -9,8 +9,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple)
-![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri)
-![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust)
 [![Latest release](https://img.shields.io/github/v/release/firstfu/panex)](https://github.com/firstfu/panex/releases/latest)
 
 [Download](https://github.com/firstfu/panex/releases/latest) · [Features](#features) · [Install](#install) · [Configuration](#configuration) · [FAQ](#faq)
@@ -28,7 +26,7 @@ English · [繁體中文](translations/README.zh-Hant.md)
 
 ## Why panex
 
-Running three or four Claude Code sessions at once means constantly flipping between windows to find the one that's waiting for a "yes". On macOS, [cmux](https://github.com/manaflow-ai/cmux) solves this. On Windows there was nothing like it, so panex brings the same idea to Windows: a terminal that knows when an agent needs you.
+Running three or four Claude Code sessions at once means constantly flipping between windows to find the one that's waiting for a "yes". panex is a terminal that knows when an agent needs you.
 
 It's built to stay out of the way. The app itself is a 9 MB executable that uses no CPU when idle, and closing it — or a crash — doesn't lose your layout.
 
@@ -40,19 +38,19 @@ When Claude Code asks for permission or finishes a task, its tab gets a dot and 
 
 panex sets up the [Claude Code hooks](#claude-code-notifications) by itself when it starts; there's nothing to turn on. Other tools can notify too: run `panex-cli notify "message"`, or print a bell, OSC 9 or OSC 777 sequence.
 
-### Let an agent start other agents
+### Crew mode: let an agent start other agents
 
-Ask Claude Code in a panex tab to split a job across parallel agents, and it starts them in new workspaces right below its own, each in its own git worktree if you like, running in tabs you can watch and type into. It waits for them, tells you when one is waiting for your answer instead of answering for it, and collects their work from git when they're done.
+Ask Claude Code in a panex tab to split a job across parallel agents, and it starts a crew: new workspaces right below its own, each in its own git worktree if you like, running in tabs you can watch and type into. It waits for them, tells you when one is waiting for your answer instead of answering for it, and collects their work from git when they're done.
 
 Behind it are two commands any agent can run inside panex. `panex-cli open` starts a command in a new workspace (optionally in a new worktree) without switching your view, and `panex-cli wait` blocks until those agents finish or need you; `panex-cli help` has the details. panex installs a small Claude Code skill that teaches Claude to use them. Only processes started inside panex can send these commands.
 
-### Workspaces and tabs, like cmux
+### Workspaces and tabs
 
 The sidebar holds workspaces (<kbd>Ctrl</kbd>+<kbd>N</kbd>), one per project or task. Each workspace has its own row of tabs (<kbd>Ctrl</kbd>+<kbd>T</kbd>), and each tab is a shell that opens in the same folder as the one you were in. Rename workspaces and tabs, give workspaces a color, and drag either into order.
 
 ### Comes back after a crash
 
-Workspaces, tabs, each tab's shell and working directory, and the scrollback text are saved as you go. Close panex, reboot, or kill it from Task Manager: next time it opens exactly where you were. Like cmux, programs that were running are not kept alive, but panex remembers the Claude Code session each tab was running: when you reopen panex and open that tab, it runs `claude --resume <id>` for you, so you land back in the conversation. Tabs where you had already quit Claude Code stay at the prompt. You can turn this off in Settings → Terminal.
+Workspaces, tabs, each tab's shell and working directory, and the scrollback text are saved as you go. Close panex, reboot, or kill it from Task Manager: next time it opens exactly where you were. Programs that were running are not kept alive, but panex remembers the Claude Code session each tab was running: when you reopen panex and open that tab, it runs `claude --resume <id>` for you, so you land back in the conversation. Tabs where you had already quit Claude Code stay at the prompt. You can turn this off in Settings → Terminal.
 
 ### See what changed, without leaving the terminal
 
@@ -129,11 +127,11 @@ Run the new installer. Your workspaces, scrollback and settings are kept.
 
 ### Claude Code notifications
 
-panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json` when it starts, if they're missing or point at an old install. It backs the file up first and keeps your other hooks. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected. It also keeps `~/.claude/skills/panex/SKILL.md` up to date, which tells Claude how to [start other agents](#let-an-agent-start-other-agents); the skill does nothing outside panex.
+panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json` when it starts, if they're missing or point at an old install. It backs the file up first and keeps your other hooks. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected. It also keeps `~/.claude/skills/panex/SKILL.md` up to date, which tells Claude how to start a [crew](#crew-mode-let-an-agent-start-other-agents); the skill does nothing outside panex.
 
 ## Configuration
 
-Settings live in `%USERPROFILE%\.config\panex\panex.json` (`~/.config/panex/panex.json` on macOS and Linux), in the spirit of cmux's `cmux.json`:
+Settings live in `%USERPROFILE%\.config\panex\panex.json` (`~/.config/panex/panex.json` on macOS and Linux):
 
 - Write only the keys you want to change. Everything else uses the defaults.
 - `panex.schema.json` sits next to it, so editors such as VS Code offer completion and descriptions.
@@ -220,7 +218,7 @@ Use **Settings → Apps → Installed apps → panex → Uninstall**. To remove 
 
 ## How it differs from similar tools
 
-[cmux](https://github.com/manaflow-ai/cmux) is the original and does much more: splits, an embedded browser, a full CLI and socket API. If you're on a Mac, use it. panex exists because cmux is macOS-only. It copies cmux's ideas (workspaces with tabs, agent notifications, session restore, a JSON config with rebindable shortcuts), not its code. Windows Terminal is an excellent terminal, but it doesn't know when an agent is waiting for you or which tab it's in.
+Windows Terminal is an excellent terminal, but it doesn't know when an agent is waiting for you or which tab it's in.
 
 ## Under consideration: vote with 👍
 
