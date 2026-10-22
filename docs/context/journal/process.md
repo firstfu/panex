@@ -27,6 +27,20 @@
 - 使用者要裝 v0.4.1，並在 panex 按一次「啟用」：一方面補上兩個新 hook，另一方面把 hook 從 `target/test-build/panex-cli.exe` 改回指向安裝版的路徑。
 - 值得歸檔、還沒歸檔的雷：①`vscode://` 網址會觸發 VS Code 的確認框；②測試實例覆寫 `USERPROFILE` 會起不來；③Git Bash 會把 `/exit` 這類開頭是 `/` 的參數轉成路徑（`MSYS_NO_PATHCONV=1`）；④`operations.md` 的版本號檔案清單要補上 `package-lock.json`。
 
+## 2026-10-22 — 發佈 v0.4.2，本機更新
+
+**變更**
+- 發版前兩組測試全過（前端 6、Rust 12）。版本改成 0.4.2（`chore: bump to 0.4.2`），推 tag `v0.4.2`，CI 兩個平台都成功，換上發布說明後發布；`releases/latest/download` 的 `.exe`、`.dmg` 都回 302 指向 v0.4.2。
+- 內容：關閉分頁／工作區前先確認、`validSessionId` 拒絕 `-` 開頭、遷移測試。
+- 本機更新：panex 一關，在裡面跑的 Claude Code（包括執行更新的這個 session）就會中斷，所以用排程器（`schtasks`）在 panex 外跑腳本：強制結束已安裝的 panex（正常關閉會停在「還有 agent 在工作」的確認框）→ `setup.exe /S` → 重開 panex，每步寫進 log。
+
+**為什麼**
+- 使用者要求 commit 全部、發新版並在本機安裝，並授權「幫我做到好」。
+
+**下一步**
+- 重開後確認 log 與 `panex.exe` 版本是 0.4.2。
+- hooks 仍指向 `target\test-build\panex-cli.exe`，要使用者在新版側欄按「啟用」改回正式路徑。
+
 ## 2026-10-22 — 補上遷移與輸入檢查的測試
 
 **變更**
