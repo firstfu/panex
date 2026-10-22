@@ -9,13 +9,13 @@
 **變更**
 - 工作區與分頁的右鍵選單加「複製路徑」：工作區複製目前分頁的 cwd（側欄名稱下那行），分頁複製自己的 cwd；沒有 cwd（SSH 分頁）時停用。
 - `insertNewline` 的 macOS 預設由未綁定改為 `shift+enter`（Windows／Linux 仍是 `ctrl+enter`）；README 英文、繁中的快捷鍵表同步。
-- 只過 `tsc`（本機缺 `@xterm/addon-search`／`addon-web-links`，那幾個錯與這次無關），未在 App 裡實際點過、按過。
+- 驗收：`tsc`、`npm test` 全過。Mac 上沒有 CDP，改用 Vite 開前端＋`@tauri-apps/api/mocks` 的 `mockIPC` 當假後端，在 Chrome 裡實測：右鍵點工作區的「複製路徑」複製出目前分頁的 cwd、點分頁的則是該分頁自己的 cwd、SSH 工作區的選項是停用的；在終端機按 Shift+Enter 只送出一次 `\x1b\r`，一般 Enter 仍送 `\r`。沒在真的 Tauri App（WKWebView）裡跑，也沒接真的 Claude Code。
 
 **為什麼**
 - 使用者要能從側欄直接複製專案路徑；Mac 上原本沒有預設的換行鍵，Shift+Enter 在 xterm.js 送的是單純 `\r`，會直接送出訊息。
 
 **下一步**
-- 在 Mac 實測 Shift+Enter 於 Claude Code 是換行、複製路徑能貼出正確路徑。
+- 在真的 panex（Mac）裡用 Claude Code 按一次 Shift+Enter，確認是換行（送出的位元組已驗，Claude Code 端沒驗）。
 - 工作區另有未 commit 的預設視窗大小改動（1400×820 → 1518×806，四個檔），不是這次做的，待使用者決定。
 
 ## 2026-10-22 — 未完成：小工人測網頁用的瀏覽器（分支 feat/crew-browser，在獨立 worktree，main 未動）
