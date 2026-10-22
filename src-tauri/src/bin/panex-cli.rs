@@ -20,7 +20,7 @@ fn main() {
         Some("notify") => notify(&args[1..]),
         Some("open") => std::process::exit(run(open_request(&args[1..]))),
         Some("wait") => std::process::exit(run(wait_request(&args[1..]))),
-        Some("help" | "--help" | "-h") | None => print!("{HELP}"),
+        Some("help" | "--help" | "-h") | None => print!("{HELP}{}", browser_help(&crew_browser())),
         Some(other) => {
             eprintln!("panex-cli: unknown command {other:?}; see `panex-cli help`");
             std::process::exit(1);
@@ -64,6 +64,49 @@ they answer it the tab counts as running again, so call wait again after telling
 Results are best collected from git: have each agent commit in its worktree, then read
 `git diff <base>...<branch>`.
 "#;
+
+/// agent.crewBrowser from panex.json, read on every `help` so it follows the settings page
+/// without restarting any tab. Same location as config::dir (not linked: that pulls in Tauri).
+fn crew_browser() -> String {
+    let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();
+    let file = std::env::var_os("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|| std::path::PathBuf::from(home).join(".config"))
+        .join("panex")
+        .join("panex.json");
+    std::fs::read_to_string(file)
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .and_then(|v| v["agent"]["crewBrowser"].as_str().map(String::from))
+        .unwrap_or_default()
+}
+
+/// The part of the help that depends on the user's choice in Settings → crew browser.
+fn browser_help(choice: &str) -> &'static str {
+    match choice {
+        "playwright" => r#"
+Testing web pages (the user picked Playwright with their own Chrome in panex's settings):
+    Agents drive the user's real Chrome through Playwright CLI, so they reuse the user's logins.
+    Start each agent with Claude in Chrome turned off:
+        -- claude --no-chrome "Do what TASK.md says, then commit"
+    and tell it in TASK.md, with its branch name as the session:
+        playwright-cli -s=BRANCH attach --extension     connect to the user's Chrome
+        playwright-cli -s=BRANCH tab-new URL            work only in tabs you opened
+        playwright-cli -s=BRANCH snapshot / click / fill / screenshot ...
+        playwright-cli -s=BRANCH detach                 when done; never `close`, it is the user's browser
+    playwright-cli is the npm package @playwright/cli (use `npx -y @playwright/cli` if it is not
+    installed). It needs the Playwright Extension in the user's Chrome; unless
+    PLAYWRIGHT_MCP_EXTENSION_TOKEN is set, the user must approve each connection in Chrome, and
+    the agent just looks busy until they do, so tell them.
+"#,
+        "claude-in-chrome" => r#"
+Testing web pages (the user picked Claude in Chrome in panex's settings):
+    Start each agent with it turned on: -- claude --chrome "Do what TASK.md says, then commit"
+    and tell it in TASK.md to open its own tab and leave the user's tabs alone.
+"#,
+        _ => "",
+    }
+}
 
 /// Sends the request and prints the answer; returns the exit code.
 fn run(req: Result<Value, String>) -> i32 {
@@ -262,6 +305,14 @@ mod tests {
         assert!(req["cwd"].as_str().is_some_and(|c| std::path::Path::new(c).is_absolute()));
         assert!(open_request(&["--bogus".to_string()]).is_err());
         assert!(open_request(&["--cwd".to_string()]).is_err());
+    }
+
+    #[test]
+    fn browser_help_follows_the_setting() {
+        assert!(browser_help("playwright").contains("attach --extension"));
+        assert!(browser_help("claude-in-chrome").contains("--chrome"));
+        assert_eq!(browser_help(""), "");
+        assert_eq!(browser_help("bogus"), "");
     }
 
     #[test]

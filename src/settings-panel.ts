@@ -128,6 +128,7 @@ export function fillSettings() {
   setSeg("s-effect", S.settings.effect);
   setSeg("s-language", S.settings.language);
   setSeg("s-open-with", S.settings.openFilesWith);
+  setSeg("s-crew-browser", S.settings.crewBrowser);
   $<HTMLInputElement>("s-font-size").value = String(S.settings.fontSize);
   fillFontPicker();
   const sample = $("font-sample");
@@ -331,6 +332,12 @@ $("s-open-with").addEventListener("click", (e) => {
   if (!v) return;
   updateSettings({ openFilesWith: v });
   setSeg("s-open-with", v);
+});
+$("s-crew-browser").addEventListener("click", (e) => {
+  const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as Settings["crewBrowser"] | undefined;
+  if (!v) return;
+  updateSettings({ crewBrowser: v });
+  setSeg("s-crew-browser", v);
 });
 $("s-language").addEventListener("click", (e) => {
   const v = (e.target as HTMLElement).closest<HTMLElement>("[data-v]")?.dataset.v as LangPref | undefined;

@@ -20,6 +20,7 @@ export interface Settings {
   resumeSession: boolean;
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
+  crewBrowser: "none" | "playwright" | "claude-in-chrome"; // what crew agents test web pages with (panex-cli help reads it)
   windowWidth: number; // size the window opens at (logical px)
   windowHeight: number;
 }
@@ -39,6 +40,7 @@ export const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   resumeSession: ["agent", "resumeSession"],
   confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
+  crewBrowser: ["agent", "crewBrowser"],
   windowWidth: ["app", "windowWidth"],
   windowHeight: ["app", "windowHeight"],
 };
@@ -59,6 +61,7 @@ export const DEFAULTS: Settings = {
   resumeSession: true,
   confirmClose: true,
   openFilesWith: "system",
+  crewBrowser: "none",
   // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
   windowWidth: 1400,
   windowHeight: 820,
@@ -97,5 +100,6 @@ export function settingsFrom(cfg: any): Settings {
   if (!["none", "mica", "acrylic"].includes(s.effect)) s.effect = "none";
   if (!["auto", "en", "zh-Hant"].includes(s.language)) s.language = "auto";
   if (!["system", "vscode", "cursor"].includes(s.openFilesWith)) s.openFilesWith = "system";
+  if (!["none", "playwright", "claude-in-chrome"].includes(s.crewBrowser)) s.crewBrowser = "none";
   return s;
 }

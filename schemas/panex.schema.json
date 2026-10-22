@@ -119,6 +119,11 @@
           "type": "boolean",
           "default": true,
           "description": "有 agent 正在工作（執行中，或在這一輪中等你回應）時關閉 panex 或該分頁／工作區，先跳出確認。關閉會中斷正在做的這一輪；關閉 panex 的話重開後會自動接回對話（要再叫它繼續），關閉分頁則不會接回。"
+        },
+        "crewBrowser": {
+          "enum": ["none", "playwright", "claude-in-chrome"],
+          "default": "none",
+          "description": "小隊模式（panex-cli open）的 agent 要開瀏覽器測網頁時用哪個工具，panex-cli help 會照這個指示帶頭的 agent。none＝不指定；playwright＝Playwright CLI 透過 Playwright Extension 接使用者自己的 Chrome（沿用登入），小工人以 claude --no-chrome 啟動；claude-in-chrome＝用 Claude in Chrome。"
         }
       }
     },

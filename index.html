@@ -187,6 +187,16 @@
               <label class="row-ctl switch"><input id="s-confirm-close" type="checkbox" /><i></i></label>
             </div>
             <div class="row">
+              <div class="row-text"><b data-i18n>小工人測網頁用</b><span data-i18n>小隊模式的 agent 要開瀏覽器測網頁時用哪個工具；panex-cli help 會照這裡告訴帶頭的 agent</span></div>
+              <div class="row-ctl">
+                <div class="seg" id="s-crew-browser" role="radiogroup">
+                  <button data-v="none" role="radio" data-i18n>不指定</button>
+                  <button data-v="playwright" role="radio" data-i18n>Playwright（接我的 Chrome）</button>
+                  <button data-v="claude-in-chrome" role="radio">Claude in Chrome</button>
+                </div>
+              </div>
+            </div>
+            <div class="row">
               <div class="row-text"><b data-i18n>用什麼開啟檔案路徑</b><span data-i18n>按住 Ctrl 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號</span></div>
               <div class="row-ctl">
                 <div class="seg" id="s-open-with" role="radiogroup">
