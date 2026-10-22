@@ -3,6 +3,7 @@
 //!   panex-cli notify [message]      (agent hooks)
 //!   panex-cli open … / wait …       (an agent starting other agents in new tabs; see HELP)
 //!   panex-cli browser-login         (saves a login for crew agents' Playwright browsers)
+//!   panex-cli worktree-create       (Claude Code's WorktreeCreate hook; see worktree_create)
 //!
 //! notify reads the hook JSON from stdin (Claude Code passes it there), adds the pane id from
 //! PANEX_PANE_ID and sends it to the running panex over PANEX_PIPE. Outside panex those
@@ -22,6 +23,7 @@ fn main() {
         Some("notify") => notify(&args[1..]),
         Some("open") => std::process::exit(run(open_request(&args[1..]))),
         Some("wait") => std::process::exit(run(wait_request(&args[1..]))),
+        Some("worktree-create") => std::process::exit(worktree_create()),
         Some("browser-login") => {
             if let Err(e) = browser_login() {
                 eprintln!("panex-cli: {e}");
@@ -212,6 +214,96 @@ fn browser_login() -> Result<(), String> {
     let origin = result?;
     println!("\nSaved the login for {origin}. Crew agents' browsers now start logged in; you can close this tab.");
     Ok(())
+}
+
+/// `panex-cli worktree-create`: Claude Code's WorktreeCreate hook, installed while panex's
+/// agent.worktreeViaPanex setting is on. The hook replaces Claude Code's own `git worktree` step
+/// everywhere, so this must also work outside panex.
+/// - In a panex tab, panex makes the worktree its own way (`<repo>-worktrees/<name>`, the files
+///   in worktree.copyFiles copied in) and, when it is for the session itself rather than a
+///   subagent, moves the tab into a new workspace under the repo in the sidebar.
+/// - Outside panex, or when panex can't be reached, it does what Claude Code does by default:
+///   `.claude/worktrees/<name>` on a new branch `worktree-<name>`.
+///
+/// Returns the exit code. Claude Code reads the worktree's path from the last stdout line, so
+/// everything else goes to stderr; a non-zero exit makes the worktree step fail with that message.
+fn worktree_create() -> i32 {
+    let hook = read_stdin_json().unwrap_or(Value::Null);
+    let name = hook["name"].as_str().unwrap_or_default().trim().to_string();
+    let cwd = hook["cwd"].as_str().map(PathBuf::from).or_else(|| std::env::current_dir().ok()).unwrap_or_default();
+    if name.is_empty() {
+        eprintln!("panex-cli: the hook input has no worktree name");
+        return 1;
+    }
+    if let (Ok(pane), Ok(pipe), Ok(token)) = (std::env::var("PANEX_PANE_ID"), std::env::var("PANEX_PIPE"), std::env::var("PANEX_TOKEN")) {
+        let req = json!({
+            "op": "worktree", "token": token, "from": pane, "cwd": cwd, "name": name,
+            // A subagent's worktree is created quietly: the tab stays with the main session.
+            "show": hook.get("agent_id").is_none(),
+        });
+        match request(&pipe, &req) {
+            Ok(v) if v["path"].is_string() => {
+                println!("{}", v["path"].as_str().unwrap_or_default());
+                return 0;
+            }
+            Ok(v) => {
+                eprintln!("panex-cli: {}", v["error"].as_str().unwrap_or("panex could not create the worktree"));
+                return 1;
+            }
+            Err(e) => eprintln!("panex-cli: cannot reach panex ({e}); creating the worktree the way Claude Code does"),
+        }
+    }
+    match default_worktree(&cwd, &name) {
+        Ok(path) => {
+            println!("{}", path.display());
+            0
+        }
+        Err(e) => {
+            eprintln!("panex-cli: {e}");
+            1
+        }
+    }
+}
+
+/// Runs git in `dir`; its output never reaches our stdout (Claude Code reads the path there).
+fn git(dir: &Path, args: &[&str]) -> Result<String, String> {
+    let out = std::process::Command::new("git").arg("-C").arg(dir).args(args).output().map_err(|e| format!("cannot run git: {e}"))?;
+    if out.status.success() {
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+    }
+}
+
+/// Claude Code's default worktree, for sessions outside panex: `<main checkout>/.claude/worktrees/<name>`
+/// on branch `worktree-<name>`, from the remote's default branch when it is known locally, else
+/// HEAD. An existing one is reused (Claude Code asks again when it resumes a session in it).
+/// Not covered: Claude Code's fetch of a stale default branch, `.worktreeinclude` and `worktree.baseRef`.
+fn default_worktree(cwd: &Path, name: &str) -> Result<PathBuf, String> {
+    let slug: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') { c } else { '-' }).collect();
+    let slug = slug.trim_matches('.').to_string();
+    if slug.is_empty() {
+        return Err(format!("{name:?} is not a usable worktree name"));
+    }
+    let common = PathBuf::from(git(cwd, &["rev-parse", "--path-format=absolute", "--git-common-dir"]).map_err(|_| "not inside a git repository".to_string())?);
+    // The main checkout, also from inside a worktree: the folder holding the shared .git.
+    let root = match common.file_name() {
+        Some(n) if n == ".git" => common.parent().map(Path::to_path_buf).unwrap_or(common.clone()),
+        _ => PathBuf::from(git(cwd, &["rev-parse", "--show-toplevel"])?),
+    };
+    let dir = root.join(".claude").join("worktrees").join(&slug);
+    if dir.join(".git").exists() {
+        return Ok(dir);
+    }
+    let dir_str = dir.to_string_lossy().into_owned();
+    let branch = format!("worktree-{slug}");
+    if git(&root, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}")]).is_ok() {
+        git(&root, &["worktree", "add", &dir_str, &branch])?;
+    } else {
+        let base = if git(&root, &["rev-parse", "--verify", "--quiet", "origin/HEAD"]).is_ok() { "origin/HEAD" } else { "HEAD" };
+        git(&root, &["worktree", "add", "-b", &branch, &dir_str, base])?;
+    }
+    Ok(dir)
 }
 
 /// Sends the request and prints the answer; returns the exit code.

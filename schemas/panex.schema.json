@@ -125,6 +125,11 @@
           "default": "none",
           "description": "小隊模式（panex-cli open）的 agent 要開瀏覽器測網頁時用哪個工具，panex-cli help 會照這個指示帶頭的 agent。none＝不指定；playwright＝每個小工人各開自己的 Playwright 瀏覽器，帶 crewLoginUrl 存下的登入，小工人以 claude --no-chrome 啟動；claude-in-chrome＝用 Claude in Chrome。"
         },
+        "worktreeViaPanex": {
+          "type": "boolean",
+          "default": true,
+          "description": "Claude Code 要開 worktree（EnterWorktree、claude --worktree、subagent 的 isolation: worktree）時交給 panex：建在 <repo>-worktrees/<名稱>、複製 worktree.copyFiles，並把 Claude 所在的分頁搬到側欄 repo 群組底下的新工作區，對話不中斷（subagent 的 worktree 只建立，不動側欄）。做法是在 ~/.claude/settings.json 加 WorktreeCreate hook（panex-cli worktree-create），它會取代 Claude Code 自己建 worktree 的步驟，所以 panex 外的 Claude Code 也會經過它，那時照 Claude Code 的預設建在 .claude/worktrees/<名稱>，但不處理 .worktreeinclude 與 worktree.baseRef。關掉就移除這個 hook。你自己已設了 WorktreeCreate hook 時 panex 不會加。"
+        },
         "crewLoginUrl": {
           "type": "string",
           "default": "",

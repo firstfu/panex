@@ -4,6 +4,10 @@
 //! Outside panex the CLI finds no PANEX_PANE_ID and exits 0 at once, so the global hook is harmless.
 //! `ensure` also keeps ~/.claude/skills/panex/SKILL.md (how an agent uses `panex-cli open|wait`)
 //! in step with this version; the skill itself tells the agent to do nothing outside panex.
+//! With agent.worktreeViaPanex on (the default), a WorktreeCreate hook (`panex-cli worktree-create`)
+//! is added too, so worktrees Claude opens land next to the repo and in panex's sidebar. Unlike
+//! notify it changes what Claude Code does everywhere (the hook replaces its own `git worktree`
+//! step), so it is removed again when the setting is turned off.
 
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -11,6 +15,7 @@ use std::path::{Path, PathBuf};
 use tauri::AppHandle;
 
 const EVENTS: [&str; 5] = ["Notification", "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd"];
+const WORKTREE_EVENT: &str = "WorktreeCreate";
 
 /// Shipped inside the binary, so the skill always matches this version's panex-cli.
 const SKILL: &str = include_str!("../../skills/panex/SKILL.md");
@@ -77,26 +82,51 @@ fn may_write(debug_build: bool, identifier: &str) -> bool {
     !debug_build && identifier == RELEASE_ID
 }
 
+/// agent.worktreeViaPanex in panex.json; on unless it is explicitly false.
+fn worktree_via_panex() -> bool {
+    fs::read(crate::config::dir().join("panex.json"))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Value>(b.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&b)).ok())
+        .map_or(true, |v| v["agent"]["worktreeViaPanex"] != Value::Bool(false))
+}
+
 #[tauri::command]
 pub fn hooks_status() -> bool {
     let (Some(path), Some(cli)) = (settings_path(), cli_path()) else { return false };
-    status_at(&path, &cli)
+    status_at(&path, &cli, worktree_via_panex())
 }
 
-fn status_at(path: &Path, cli: &str) -> bool {
+/// Whether settings.json has the notify hooks for `cli` and, exactly when `worktree` is on, its WorktreeCreate hook.
+fn status_at(path: &Path, cli: &str, worktree: bool) -> bool {
     let Ok(v) = fs::read(path).map(|b| serde_json::from_slice::<Value>(&b).unwrap_or(Value::Null)) else { return false };
-    EVENTS.iter().all(|e| v["hooks"][e].as_array().is_some_and(|gs| gs.iter().any(|g| has_current(g, cli))))
+    let has = |e: &str| v["hooks"][e].as_array().is_some_and(|gs| gs.iter().any(|g| has_current(g, cli)));
+    let wt = v["hooks"][WORKTREE_EVENT].as_array();
+    let any_panex = wt.is_some_and(|gs| gs.iter().any(is_panex_group));
+    let foreign = wt.is_some_and(|gs| gs.iter().any(|g| !is_panex_group(g)));
+    // The user's own WorktreeCreate hook wins: ours is not added next to it (see install_at).
+    let worktree_ok = if worktree && !foreign { has(WORKTREE_EVENT) } else { !any_panex };
+    EVENTS.iter().all(|e| has(e)) && worktree_ok
 }
 
 #[tauri::command]
 pub fn hooks_install() -> Result<String, String> {
     let path = settings_path().ok_or("cannot find the user directory")?;
     let cli = cli_path().ok_or("cannot find the panex-cli path")?;
-    install_at(&path, &cli)?;
+    install_at(&path, &cli, worktree_via_panex())?;
     Ok(path.to_string_lossy().into_owned())
 }
 
-fn install_at(path: &Path, cli: &str) -> Result<(), String> {
+/// Called when the worktree setting changes: brings settings.json in line with it right away.
+/// Like `ensure`, only the installed app writes.
+#[tauri::command]
+pub fn hooks_sync(app: AppHandle) -> Result<(), String> {
+    if !may_write(cfg!(debug_assertions), &app.config().identifier) || hooks_status() {
+        return Ok(());
+    }
+    hooks_install().map(|_| ())
+}
+
+fn install_at(path: &Path, cli: &str, worktree: bool) -> Result<(), String> {
     let mut root: Value = match fs::read(path) {
         Ok(b) => serde_json::from_slice(&b).map_err(|e| format!("settings.json is not valid JSON, left unchanged: {e}"))?,
         Err(_) => Value::Object(Map::new()),
@@ -110,6 +140,21 @@ fn install_at(path: &Path, cli: &str) -> Result<(), String> {
         groups.retain(|g| !is_panex_group(g));
         // Exec form: no shell, so paths with spaces or backslashes need no quoting.
         groups.push(json!({ "hooks": [{ "type": "command", "command": cli, "args": ["notify"], "timeout": 10 }] }));
+    }
+    // Only one WorktreeCreate hook can supply the path, so ours goes in or out as a whole.
+    if let Some(groups) = hooks.get_mut(WORKTREE_EVENT) {
+        let groups = groups.as_array_mut().ok_or(format!("hooks.{WORKTREE_EVENT} is not an array, left unchanged"))?;
+        groups.retain(|g| !is_panex_group(g));
+        if groups.is_empty() {
+            hooks.remove(WORKTREE_EVENT);
+        }
+    }
+    // Claude Code takes the worktree path from the hook, so two hooks would fight over it; a
+    // WorktreeCreate hook the user set up themselves is left in charge.
+    if worktree && !hooks.contains_key(WORKTREE_EVENT) {
+        let groups = hooks.entry(WORKTREE_EVENT).or_insert_with(|| Value::Array(vec![]));
+        let groups = groups.as_array_mut().ok_or(format!("hooks.{WORKTREE_EVENT} is not an array, left unchanged"))?;
+        groups.push(json!({ "hooks": [{ "type": "command", "command": cli, "args": ["worktree-create"], "timeout": 120 }] }));
     }
     if path.exists() {
         fs::copy(path, path.with_extension("json.panex-bak")).map_err(|e| e.to_string())?;
@@ -156,10 +201,10 @@ mod tests {
             }
         });
         fs::write(&p, before.to_string()).unwrap();
-        assert!(!status_at(&p, CLI), "a hook pointing at another panex-cli is stale");
+        assert!(!status_at(&p, CLI, true), "a hook pointing at another panex-cli is stale");
 
-        install_at(&p, CLI).unwrap();
-        assert!(status_at(&p, CLI));
+        install_at(&p, CLI, true).unwrap();
+        assert!(status_at(&p, CLI, true));
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert_eq!(v["model"], json!("opus"));
         assert_eq!(v["hooks"]["PreToolUse"], before["hooks"]["PreToolUse"]);
@@ -171,7 +216,7 @@ mod tests {
         assert_eq!(bak, before);
 
         // The next launch finds everything current and writes nothing.
-        assert!(status_at(&p, CLI));
+        assert!(status_at(&p, CLI, true));
     }
 
     #[test]
@@ -188,10 +233,33 @@ mod tests {
     }
 
     #[test]
+    fn worktree_hook_follows_the_setting_and_yields_to_the_users_own() {
+        let d = scratch("worktree");
+        let p = d.join("settings.json");
+        install_at(&p, CLI, true).unwrap();
+        let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
+        assert_eq!(v["hooks"]["WorktreeCreate"][0]["hooks"][0]["args"], json!(["worktree-create"]));
+        assert!(!status_at(&p, CLI, false), "setting turned off: the hook must go");
+
+        install_at(&p, CLI, false).unwrap();
+        let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
+        assert!(v["hooks"].get("WorktreeCreate").is_none(), "removed, not left as an empty list");
+        assert!(status_at(&p, CLI, false));
+
+        // The user's own WorktreeCreate hook stays alone, whatever the setting.
+        let own = json!({ "hooks": { "WorktreeCreate": [{ "hooks": [{ "type": "command", "command": "svn-worktree.sh" }] }] } });
+        fs::write(&p, own.to_string()).unwrap();
+        install_at(&p, CLI, true).unwrap();
+        let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
+        assert_eq!(v["hooks"]["WorktreeCreate"], own["hooks"]["WorktreeCreate"]);
+        assert!(status_at(&p, CLI, true), "nothing left to do, so launch does not rewrite the file");
+    }
+
+    #[test]
     fn install_creates_a_missing_file() {
         let p = scratch("missing").join(".claude").join("settings.json");
-        install_at(&p, CLI).unwrap();
-        assert!(status_at(&p, CLI));
+        install_at(&p, CLI, true).unwrap();
+        assert!(status_at(&p, CLI, true));
     }
 
     #[test]
@@ -199,7 +267,7 @@ mod tests {
         let p = scratch("broken").join("settings.json");
         for text in ["{ not json", "[]", r#"{"hooks":[]}"#, r#"{"hooks":{"Stop":{}}}"#] {
             fs::write(&p, text).unwrap();
-            assert!(install_at(&p, CLI).is_err(), "{text}");
+            assert!(install_at(&p, CLI, true).is_err(), "{text}");
             assert_eq!(fs::read_to_string(&p).unwrap(), text);
         }
     }

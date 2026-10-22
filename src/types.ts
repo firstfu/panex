@@ -119,6 +119,7 @@ export interface Tab {
   runMs?: number; // how long the last finished turn took, shown next to "done"
   asking?: boolean; // the agent is waiting on a permission prompt or question inside its turn (whatever the badge shows)
   initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
+  followCwd?: string; // folder Claude moved into (its worktree); the shell cd's there at its next prompt (not persisted)
   agentSession?: string; // id of the Claude Code session running here (persisted; dropped once Claude exits)
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
   skipPrompt?: boolean; // an auto-resume was queued: the shell's first prompt is its startup one, not Claude exiting

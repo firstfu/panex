@@ -80,7 +80,8 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 - 可調透明度，Windows 11 上還能用 Mica 或 Acrylic 背景
 - 單一 JSON 設定檔，附 schema，存檔即套用
 - 在工作區按右鍵，可以用新的 git worktree 開一個新工作區，`.env` 等檔案會一起複製過去
-- 同一個 repo 的主資料夾與各個 worktree 在側欄排成一組，標題列可以收合，收合時顯示組內最緊急的狀態；worktree 會標上 `worktree`
+- 同一個 repo 在側欄排成一組：主資料夾的工作區在最上層、前面有收合箭頭，各個 worktree 縮排在它底下（標上 `worktree`）；收合時最上層那列顯示組內最緊急的狀態
+- Claude Code 開 worktree 時（`EnterWorktree`、`claude --worktree`），panex 會把它建在 repo 旁邊，並把對話搬到側欄 repo 底下的新工作區。這是透過 Claude Code 的 `WorktreeCreate` hook 做的，panex 外的 Claude Code 也會經過它（那時照 Claude Code 平常的位置建立）；不要的話到設定 → 終端機關掉
 - 終端機裡的 emoji 是彩色的，Claude Code 狀態列的 ⚠ 之類的警告比較醒目
 - 字型可以從電腦裡已安裝的等寬字型挑選，中文和 emoji 會自動用備援字型補上
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 搜尋捲動歷史

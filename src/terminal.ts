@@ -222,6 +222,18 @@ export function disposeTab(tab: Tab) {
   if (S.renaming?.id === tab.id) S.renaming = undefined;
 }
 
+/**
+ * 讓 shell 切到 `dir` 的指令。
+ * @param shell 分頁的 shell id（cmd、PowerShell 類、或 macOS/Linux 的 default）
+ * @param dir 目標資料夾（絕對路徑）
+ * @returns 一行指令，不含換行
+ */
+function cdCommand(shell: string, dir: string) {
+  if (shell === "cmd") return `cd /d "${dir}"`;
+  if (shell === "default") return `cd -- '${dir.replace(/'/g, `'\\''`)}'`;
+  return `Set-Location -LiteralPath '${dir.replace(/'/g, "''")}'`;
+}
+
 function setCwd(tab: Tab, cwd: string) {
   // A remote path means nothing locally (git branch, a new tab's folder), so SSH tabs keep none.
   if (!cwd || tab.ssh) return;
@@ -235,6 +247,16 @@ function setCwd(tab: Tab, cwd: string) {
     else {
       endAgent(tab);
       endRun(tab);
+    }
+  }
+  // Claude moved this tab into a worktree while it ran; now that the shell is back, it follows,
+  // so the workspace keeps showing (and working in) the worktree.
+  if (tab.followCwd && !duplicate) {
+    const to = tab.followCwd;
+    tab.followCwd = undefined;
+    if (cwd !== to) {
+      invoke("pty_write", { id: tab.id, data: `${cdCommand(tab.shell, to)}\r` }).catch(() => {});
+      return;
     }
   }
   // Every prompt reports the cwd, so this also catches `git checkout` in place.

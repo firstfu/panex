@@ -191,6 +191,8 @@ const EN: Record<string, string> = {
   "小工人共用的登入": "Login shared by crew agents",
   "填測試站的登入頁，按「登入並儲存」後在開出來的瀏覽器登入一次；每個小工人各開自己的 Playwright 瀏覽器，一開就是登入狀態。過期再按一次": "Enter the test site's login page, press Log in and save, and log in once in the browser that opens. Each crew agent then gets its own Playwright browser that starts logged in. Press it again when the login expires",
   "登入並儲存": "Log in and save",
+  "Claude 開 worktree 交給 panex": "Claude's worktrees go through panex",
+  "Claude Code 要開 worktree 時由 panex 建在 repo 旁邊，並在側欄的 repo 底下開一個工作區，對話搬過去繼續。關掉就照 Claude Code 自己的做法": "When Claude Code opens a worktree, panex creates it next to the repo and opens a workspace for it under the repo in the sidebar, where the conversation carries on. Off: Claude Code does it its own way",
   "按住 ⌘ 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號": "Used when you ⌘+click a file path in the terminal; an editor jumps to the line",
   "搜尋捲動歷史": "Search scrollback",
   "搜尋": "Search",

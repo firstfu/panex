@@ -1,18 +1,20 @@
-// Requests from `panex-cli open` (an agent in one tab starting another agent): the backend
-// checks the token and hands them here because the frontend owns the layout. The new tab
-// starts right away but stays in the background; the user sees it in the sidebar.
+// Requests from `panex-cli open` (an agent in one tab starting another agent) and
+// `panex-cli worktree-create` (Claude Code's WorktreeCreate hook): the backend checks the token
+// and hands them here because the frontend owns the layout. A tab `open` starts runs right away
+// but stays in the background; the user sees it in the sidebar.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { t as tr } from "./i18n";
 import { type Workspace } from "./types";
 import { newId, newWsId } from "./util";
-import { S, tabs, workspaces, wsOrder } from "./state";
+import { S, activeWs, tabs, workspaces, wsOrder } from "./state";
 import { saveSession } from "./session";
 import { createTab, spawn } from "./terminal";
 import { scheduleRender } from "./render";
 import { addWorktree, worktreeSetup } from "./worktree-dialog";
 import { insertInRepoGroup, tidyGroups } from "./groups";
+import { showWorkspace } from "./workspaces";
 
 interface OpenArgs {
   cwd: string;
@@ -71,13 +73,69 @@ async function open(a: OpenArgs) {
   return { tab: tab.id, cwd };
 }
 
+interface WorktreeArgs {
+  cwd: string; // the session's folder when Claude asked
+  from: string; // tab Claude runs in
+  name: string; // worktree name Claude picked, used as the branch name
+  show: boolean; // false for a subagent's worktree: create it, leave the sidebar alone
+}
+
+/**
+ * Claude Code wants a worktree (its WorktreeCreate hook): make it panex's way, next to the repo,
+ * and move the tab Claude runs in to a new workspace for it under the repo's group, so the
+ * conversation carries on there. The workspace it leaves gets a fresh shell in the old folder
+ * instead of going away, so the repo's main workspace stays at the top of its group.
+ * @returns `{ path }`, the worktree folder Claude Code moves the session into
+ * @throws when git can't create the worktree (Claude Code then reports the failure)
+ */
+async function worktree(a: WorktreeArgs) {
+  const wt = await addWorktree(a.cwd, a.name, null, true);
+  const tab = tabs.get(a.from);
+  const oldWs = workspaces.get(tab?.wsId ?? "");
+  if (!a.show || !tab || !oldWs) return { path: wt.path };
+
+  // Asked again for a worktree that already has a workspace (Claude resuming a session in it):
+  // nothing to do when the tab is already there, else the tab joins that workspace.
+  const at = (p?: string) => (p ?? "").replace(/\\/g, "/").replace(/\/+$/, "");
+  const existing = wsOrder.map((id) => workspaces.get(id)!).find((w) => w.tabs.some((t) => at(tabs.get(t)?.cwd) === at(wt.path)));
+  if (existing?.id === oldWs.id) return { path: wt.path };
+  let ws: Workspace;
+  if (existing) ws = existing;
+  else {
+    ws = { id: newWsId(), tabs: [], customTitle: a.name };
+    workspaces.set(ws.id, ws);
+    // Before the tab moves: with no group yet, the caller's workspace joins one as a checkout of the repo.
+    insertInRepoGroup(ws, wt.repo, oldWs.id, oldWs.id);
+  }
+
+  const oldCwd = tab.cwd;
+  oldWs.tabs = oldWs.tabs.filter((id) => id !== tab.id);
+  ws.tabs.push(tab.id);
+  ws.activeTab = tab.id;
+  tab.wsId = ws.id;
+  // Claude moved, its shell didn't yet: followCwd has the shell cd there once Claude exits.
+  Object.assign(tab, { cwd: wt.path, repo: wt.repo, worktree: true, branch: a.name, followCwd: wt.path });
+  if (wt.copied.length) tab.term.write(`\x1b[90m${tr("已複製：{files}", { files: wt.copied.join(", ") })}\x1b[0m\r\n`);
+  if (!oldWs.tabs.length) {
+    const fresh = createTab({ id: newId(), shell: tab.shell, cwd: oldCwd }, oldWs.id);
+    oldWs.tabs.push(fresh.id);
+  }
+  if (oldWs.activeTab === tab.id) oldWs.activeTab = oldWs.tabs[0];
+  // Follow the conversation when the user was looking at it.
+  if (activeWs()?.id === oldWs.id) showWorkspace(ws.id);
+  saveSession();
+  scheduleRender();
+  return { path: wt.path };
+}
+
 export function wireControl() {
   listen<{ req: number; op: string; args: any }>("ctl-request", async ({ payload: p }) => {
     let ok = true;
     let value: unknown;
     try {
-      if (p.op !== "open") throw "unknown request";
-      value = await open(p.args);
+      if (p.op === "open") value = await open(p.args);
+      else if (p.op === "worktree") value = await worktree(p.args);
+      else throw "unknown request";
     } catch (e) {
       ok = false;
       value = String(e);

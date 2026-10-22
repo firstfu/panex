@@ -144,6 +144,7 @@ export function fillSettings() {
   $<HTMLInputElement>("s-hints").checked = S.settings.modifierHints;
   $<HTMLInputElement>("s-resume").checked = S.settings.resumeSession;
   $<HTMLInputElement>("s-confirm-close").checked = S.settings.confirmClose;
+  $<HTMLInputElement>("s-worktree-panex").checked = S.settings.worktreeViaPanex;
   $<HTMLInputElement>("s-scrollback").value = String(S.settings.scrollback);
   $<HTMLInputElement>("s-win-w").value = String(S.settings.windowWidth);
   $<HTMLInputElement>("s-win-h").value = String(S.settings.windowHeight);
@@ -404,6 +405,16 @@ $<HTMLInputElement>("s-resume").onchange = (e) => {
 };
 $<HTMLInputElement>("s-confirm-close").onchange = (e) =>
   updateSettings({ confirmClose: (e.target as HTMLInputElement).checked });
+// The WorktreeCreate hook in ~/.claude/settings.json follows this switch, and the backend reads
+// it from panex.json, so the value is written before the hooks are brought in line.
+$<HTMLInputElement>("s-worktree-panex").onchange = async (e) => {
+  try {
+    await writeSettingNow("worktreeViaPanex", (e.target as HTMLInputElement).checked);
+    await invoke("hooks_sync");
+  } catch (err) {
+    showNotice(String(err));
+  }
+};
 $<HTMLInputElement>("s-smart").onchange = (e) => updateSettings({ smartCopyPaste: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-hints").onchange = (e) => updateSettings({ modifierHints: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-scrollback").onchange = (e) => {

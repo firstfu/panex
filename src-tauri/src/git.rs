@@ -145,8 +145,10 @@ fn dir_name(branch: &str) -> String {
 /// Creates a worktree for `branch` next to the repo (`<repo>-worktrees/<branch>`), then copies
 /// `copy_files` (paths relative to the current worktree root, typically `.env`) into it.
 /// Uses an existing branch as is; otherwise creates it from `base` (default HEAD).
+/// With `reuse`, a worktree already at that path is returned as is instead of being an error
+/// (Claude Code asks for the same name again when it resumes a session in that worktree).
 #[tauri::command]
-pub fn git_worktree_add(cwd: String, branch: String, base: Option<String>, copy_files: Vec<String>) -> Result<Worktree, String> {
+pub fn git_worktree_add(cwd: String, branch: String, base: Option<String>, copy_files: Vec<String>, reuse: Option<bool>) -> Result<Worktree, String> {
     let cwd = Path::new(&cwd);
     let branch = branch.trim();
     if branch.is_empty() {
@@ -165,6 +167,10 @@ pub fn git_worktree_add(cwd: String, branch: String, base: Option<String>, copy_
         .join(format!("{name}-worktrees"))
         .join(dir_name(branch));
     if path.exists() {
+        if reuse == Some(true) && path.join(".git").exists() {
+            let path = path.to_string_lossy().into_owned();
+            return Ok(Worktree { path, repo: normalize(&root).to_string_lossy().into_owned(), copied: vec![] });
+        }
         return Err(format!("{} already exists", path.display()));
     }
     fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
@@ -507,7 +513,7 @@ mod tests {
         let run = |args: &[&str]| git(&main, args).unwrap();
         run(&["init", "-q", "-b", "main"]);
         run(&["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"]);
-        let wt = git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![]).unwrap();
+        let wt = git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], None).unwrap();
         fs::create_dir_all(Path::new(&wt.path).join("sub")).unwrap();
 
         let m = git_branch(main.to_string_lossy().into()).unwrap();
@@ -516,6 +522,10 @@ mod tests {
         assert_eq!((w.branch.as_str(), w.worktree), ("feat/a", true));
         assert_eq!(w.repo, m.repo);
         assert_eq!(wt.repo, m.repo);
+        // Asked again for the same name: an error, unless reusing (Claude resuming in that worktree).
+        assert!(git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], None).is_err());
+        let again = git_worktree_add(main.to_string_lossy().into(), "feat/a".into(), None, vec![], Some(true)).unwrap();
+        assert_eq!(again.path, wt.path);
         let _ = fs::remove_dir_all(&base);
     }
 }

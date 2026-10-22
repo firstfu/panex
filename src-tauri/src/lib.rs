@@ -103,6 +103,7 @@ pub fn run() {
             control::agent_state,
             hooks::hooks_status,
             hooks::hooks_install,
+            hooks::hooks_sync,
         ])
         .build(tauri::generate_context!())
         .expect("failed to build panex")

@@ -80,7 +80,8 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 - Transparency, plus Mica or Acrylic window backgrounds on Windows 11
 - One plain JSON config file with a schema, applied the moment you save it
 - Right-click a workspace to start a new one in a fresh git worktree, with `.env` files copied over
-- A repo's checkouts (its main folder and its worktrees) are grouped in the sidebar under a collapsible header that shows the most urgent status inside; worktrees carry a `worktree` tag
+- A repo's checkouts are grouped in the sidebar: the main folder's workspace on top with a fold arrow, its worktrees indented below it (tagged `worktree`); folded, the top row shows the most urgent status inside
+- When Claude Code opens a worktree (`EnterWorktree`, `claude --worktree`), panex creates it next to the repo and moves the conversation into a new workspace under the repo in the sidebar. This works through a Claude Code `WorktreeCreate` hook, which also applies to Claude Code outside panex (it then makes the worktree where Claude Code normally would); turn it off in Settings → Terminal
 - Color emoji in the terminal, so warnings such as ⚠ in Claude Code's status line stand out
 - Pick from the monospace fonts installed on your machine; Chinese and emoji fall back automatically
 - <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> searches the scrollback

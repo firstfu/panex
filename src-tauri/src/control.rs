@@ -100,7 +100,7 @@ pub async fn handle(app: &AppHandle, req: &Value) -> Value {
         return json!({ "error": "refused: run panex-cli from a panex tab" });
     }
     let result = match req["op"].as_str() {
-        Some("open") => open(app, req).await,
+        Some("open" | "worktree") => open(app, req).await,
         Some("wait") => wait(app, req).await,
         _ => Err("unknown request".into()),
     };
@@ -113,7 +113,7 @@ async fn open(app: &AppHandle, req: &Value) -> Result<Value, String> {
         return Err(format!("not a folder: {cwd}"));
     }
     ask_frontend(app, |id| {
-        let _ = app.emit("ctl-request", json!({ "req": id, "op": "open", "args": req }));
+        let _ = app.emit("ctl-request", json!({ "req": id, "op": req["op"], "args": req }));
     })
     .await
 }

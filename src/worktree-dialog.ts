@@ -21,10 +21,10 @@ let wtCwd: string | undefined;
 let wtFrom: string | undefined; // workspace it was opened from, which joins the repo's group
 let wtAfter: string | undefined;
 
-/** `git worktree add` next to cwd's repo, copying the files named in worktree.copyFiles. */
-export function addWorktree(cwd: string, branch: string, base: string | null) {
+/** `git worktree add` next to cwd's repo, copying the files named in worktree.copyFiles; `reuse` returns one already there. */
+export function addWorktree(cwd: string, branch: string, base: string | null, reuse = false) {
   const copyFiles = Array.isArray(S.rawConfig.worktree?.copyFiles) ? S.rawConfig.worktree.copyFiles : [".env", ".env.local"];
-  return invoke<{ path: string; repo: string; copied: string[] }>("git_worktree_add", { cwd, branch, base, copyFiles });
+  return invoke<{ path: string; repo: string; copied: string[] }>("git_worktree_add", { cwd, branch, base, copyFiles, reuse });
 }
 
 /** The worktree.setupCommand to type into a new worktree's shell, if any. */
