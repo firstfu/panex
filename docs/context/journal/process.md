@@ -4,6 +4,28 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — agent 驅動 panex：`panex-cli open`／`wait`，skill 自動安裝
+
+**變更**
+- 通知管道改成「一行 JSON 進、一行 JSON 出」：有 `op` 的訊息是控制請求，交給新模組 `control.rs`，答覆寫回同一條連線。舊的 `notify` 不帶換行，照樣讀得到。
+- `PANEX_TOKEN`：每次啟動隨機產生，只注入 panex 開的 shell；控制請求沒帶對就拒絕。
+- `panex-cli open [--cwd] [--worktree --base] [--title] -- 指令`：前端（`control.ts`）開 worktree，新工作區插在呼叫者的工作區下方（同一呼叫者連續開的依序往下排），立刻 `spawn` 但不切畫面，回傳分頁 id。
+- `panex-cli wait 分頁... [--timeout]`：後端記下經過管道的 hook 狀態，等到這些分頁都不在 starting／running，或逾時（預設 110 秒）。分頁關閉時回 `exited`。
+- hooks 不會回報「使用者按 Enter 回答權限／提問後 agent 繼續」與「按 Esc／Ctrl+C 中斷」：前端 `agentKey` 用 `tab.asking` 旗標從按鍵判斷，再用 `agent_state` 通知後端。順便修好既有的小問題：核准權限後側欄一直停在藍色「需要權限」。
+- `skills/panex/SKILL.md`（只叫 agent 去讀 `panex-cli help`）用 `include_str!` 嵌入，正式安裝的 panex 啟動時寫到 `~/.claude/skills/panex/`。
+- 驗收：
+  - 假 agent（cmd 腳本模擬 hook）：3 個 worktree 並行、done／needs-input、逾時、錯誤、token 拒絕、關分頁回 exited、背景分頁點開後畫面正常、子分支 commit。
+  - 真的 Claude Code（主 agent 用 Sonnet、子 agent 用 Haiku）：skill 被載入、開兩個 worktree 子 agent、needs-input 時主 agent 回報而不代答、核准後兩邊都 commit、最後總結正確。
+  - 修正後再用假 agent 驗 Enter／Esc。Rust 22 個、前端 6 個測試全過。
+
+**為什麼**
+- 使用者要 cmux／Orca 那種「agent 派工給 agent」的能力。依第一性原理只做開、等兩個動作；結果靠 git 拿，不做讀畫面、不做對別的分頁打字、不做 MCP。Orca 和 cmux 也都是走 CLI 加 skill。
+
+**下一步**
+- macOS 沒測。
+- 真實使用時 Claude Code 對組合指令（`cd` 加重導向、`$(...)`）一律要人工核准，子 agent 會常停下來；可以考慮在 skill 建議用 `--permission-mode auto` 開子 agent。
+- 想再進一步可以參考 cmux 的 Feed：把 `PermissionRequest` hook 導進 panex，在側欄直接核准。
+
 ## 2026-10-22 — 終端機失去焦點時不畫游標（已改回）
 
 **變更**
