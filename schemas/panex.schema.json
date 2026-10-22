@@ -180,6 +180,7 @@
               "moveTabLeft",
               "moveTabRight",
               "toggleSidebar",
+              "toggleGitPanel",
               "clearScrollback",
               "copy",
               "paste",

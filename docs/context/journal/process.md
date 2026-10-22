@@ -4,6 +4,26 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 唯讀 Git 面板＋側欄 git 徽章
+
+**變更**
+- 右側新增可收合的 Git 面板（`toggleGitPanel`，預設 `ctrl+shift+g`／mac `meta+shift+g`，上方列右側也有按鈕）：分支與 upstream 同步狀態、已暫存／變更（含未追蹤）檔案、最近 30 筆提交（未推送的有藍點）。點檔案或提交在終端機區上方開 diff 檢視，Esc 或切分頁就關；agent 送出 attention 時也會自動關掉，免得提示被蓋住。
+- 側欄分支後面加 `↑n`（未推送）`↓n`（上游較新，上次 fetch 的結果）`●n`（未提交）。
+- `git.rs` 新增 `git_status`／`git_diff`／`git_log`／`git_show`（async＋spawn_blocking、`--no-optional-locks`、輸出有上限）；`git_branch` 改用共用的 `repo_root`。
+- 測試實例實測：各種檔案狀態（M／A／D／R／二進位／未追蹤檔與資料夾）、未推送標記、非 repo／空 repo／SSH 分頁的訊息、輸入指令後的 prompt 刷新、`panex-cli` 送 Stop 後的刷新、重開後面板狀態保留都正確。用 CDP Network 監看 IPC：面板開著閒置 20 秒是 0 次呼叫，每個 prompt 只有 1 次 `git_status`＋1 次 `git_branch`。
+
+**為什麼**
+- 使用者想在 panex 內像 VS Code 原始檔控制那樣看到哪些已改、未 commit、未 push，並能看 diff 與提交內容；同時明確要求資源占用最小。所以只做唯讀、不輪詢不 watch，靠既有事件（prompt、hook Stop、focus）觸發；操作類（stage／commit／push）與完整檔案樹經討論後不做。
+- 這台 Git for Windows（`core.autocrlf=true`）的 `git diff`／`git status` 會對每個檔案往 stderr 印 CRLF 警告；只讀 stdout 不讀 stderr 會在檔案多時塞滿管道而卡住，所以 `git_capped` 另開執行緒讀 stderr，並加 `-c core.safecrlf=false`。
+
+**影響檔案**
+- `src-tauri/src/git.rs`、`src-tauri/src/lib.rs`
+- `src/main.ts`、`src/keys.ts`、`src/i18n.ts`、`src/style.css`、`index.html`、`schemas/panex.schema.json`
+
+**下一步**
+- Claude Code 一輪做很久時，中途改的檔案要等 `Stop` 才反映；若使用者覺得不夠即時，可考慮加 `PostToolUse` hook（需要使用者重按「啟用」寫入 settings.json）。
+- 使用者實際用一陣子後，確認大型 repo 每個 prompt 跑一次 `git status` 的負擔是否可接受。
+
 ## 2026-10-22 — 換行快捷鍵改成設定頁可調
 
 **變更**

@@ -21,9 +21,28 @@
       <div id="topbar">
         <button id="sidebar-toggle" aria-label="顯示 / 隱藏側欄" data-i18n-aria><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M6 3v10" /></svg></button>
         <div id="tabbar" role="tablist"></div>
+        <button id="git-toggle" aria-label="顯示 / 隱藏 Git 面板" data-i18n-aria><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="4.5" cy="3.5" r="1.5" /><circle cx="4.5" cy="12.5" r="1.5" /><circle cx="11.5" cy="5.5" r="1.5" /><path d="M4.5 5v6M11.5 7c0 2.5-3 2.5-6.2 4.3" /></svg></button>
       </div>
-      <main id="terms"></main>
+      <main id="terms">
+        <div id="git-view" hidden>
+          <div class="gv-head">
+            <span id="gv-title"></span>
+            <span class="gv-hint" data-i18n>Esc 關閉</span>
+            <button id="gv-close" aria-label="關閉" data-i18n-aria>×</button>
+          </div>
+          <div id="gv-body" tabindex="-1"></div>
+        </div>
+      </main>
     </div>
+    <div id="git-resizer" role="separator" aria-orientation="vertical" title="拖曳調整 Git 面板寬度（雙擊還原）" data-i18n-title hidden></div>
+    <aside id="git" hidden>
+      <div class="g-head">
+        <span class="g-title">Git</span>
+        <button id="git-refresh" title="重新整理" aria-label="重新整理" data-i18n-title data-i18n-aria><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" /></svg></button>
+        <button id="git-close" aria-label="關閉" data-i18n-aria>×</button>
+      </div>
+      <div id="git-body"></div>
+    </aside>
 
     <div id="ctx" hidden></div>
 

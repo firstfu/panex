@@ -63,6 +63,39 @@ interface AgentNotify {
   sessionId?: string | null;
 }
 
+// Mirrors git.rs. x/y are the staged/worktree letters of `git status --short` ('.' = unchanged).
+interface GitFile {
+  path: string;
+  orig?: string | null;
+  x: string;
+  y: string;
+}
+
+interface GitStatus {
+  root: string;
+  branch?: string | null;
+  oid?: string | null;
+  upstream?: string | null;
+  ahead: number;
+  behind: number;
+  files: GitFile[];
+  total: number;
+}
+
+interface GitCommit {
+  hash: string;
+  subject: string;
+  author: string;
+  when: string;
+  unpushed: boolean;
+}
+
+interface GitText {
+  text: string;
+  truncated: boolean;
+  binary: boolean;
+}
+
 // Flat view of panex.json (~/.config/panex/panex.json); CONFIG_PATHS maps each field to its key.
 interface Settings {
   opacity: number; // 30–100 (%)
@@ -115,6 +148,12 @@ interface Tab {
   cwd?: string;
   branch?: string; // git branch of cwd (not persisted; re-read from .git/HEAD)
   branchAt?: number; // last refresh time, throttles the per-prompt lookup
+  git?: GitStatus; // last `git status` of cwd's repo (not persisted)
+  gitErr?: string; // why that status could not be read
+  gitTimer?: number; // debounce of the next status read, armed only by events
+  gitBusy?: boolean; // a status read is in flight
+  gitAgain?: boolean; // another refresh was asked for while one was in flight
+  gitStale?: boolean; // a refresh was skipped while the tab was out of sight
   customTitle?: string;
   progTitle?: string;
   term: Terminal;
@@ -310,6 +349,7 @@ function applyLanguage() {
   refreshHooks();
   renderConfigNotice();
   scheduleRender();
+  renderGitPanel();
   if (!settingsEl.hidden) fillSettings();
 }
 
@@ -523,6 +563,7 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
   };
 
   refreshBranch(tab);
+  scheduleGit(tab);
 
   if (restored) {
     term.write(squeezeBlankRuns(restored), () => {
@@ -672,6 +713,7 @@ function attachWebgl(tab: Tab) {
 }
 
 function disposeTab(tab: Tab) {
+  clearTimeout(tab.gitTimer);
   tab.webgl?.dispose();
   tab.term.dispose();
   tab.el.remove();
@@ -708,8 +750,11 @@ function showTab(id: string) {
   tab.fit.fit();
   // Restored tabs start their shell only when first viewed.
   if (!tab.running && !tab.exited) spawn(tab);
+  closeGitView(false);
   if (!renaming) tab.term.focus();
   if (focused) clearStatus(tab);
+  if (gitOpen || tab.gitStale) scheduleGit(tab);
+  renderGitPanel();
   saveSession();
   scheduleRender();
 }
@@ -965,6 +1010,8 @@ function setCwd(tab: Tab, cwd: string) {
   }
   // Every prompt reports the cwd, so this also catches `git checkout` in place.
   refreshBranch(tab, cwd);
+  // A prompt also ends whatever command might have changed files or commits.
+  if (!duplicate) scheduleGit(tab);
   if (cwd === tab.cwd) return;
   tab.cwd = cwd;
   saveSessionSoon();
@@ -985,6 +1032,297 @@ function refreshBranch(tab: Tab, cwd = tab.cwd) {
     })
     .catch(() => {});
 }
+
+// ── Git panel ───────────────────────────────────────────────────────────────
+// Read only. Nothing polls or watches the repo: a status read (one short `git status`) runs only
+// after a shell prompt, a Claude Code "Stop", the window regaining focus, or the panel opening,
+// and only for tabs on screen (the sidebar shows each workspace's active tab). The commit list
+// is read only while the panel is open, and again only when HEAD or the unpushed count moves.
+
+const GIT_DEBOUNCE_MS = 300;
+const GIT_LOG_COUNT = 30;
+const GIT_VIEW_MAX_LINES = 5000;
+const gitEl = $("git");
+const gitBodyEl = $("git-body");
+const gitResizer = $("git-resizer");
+const gitViewEl = $("git-view");
+const gvBodyEl = $("gv-body");
+let gitOpen = false;
+let gitLog: { root: string; key: string; commits: GitCommit[]; error?: string } | undefined;
+let gitSel = ""; // the row whose diff is on screen
+let gvReq = 0; // drops viewer answers that arrive after a newer request
+
+function scheduleGit(tab?: Tab) {
+  if (!tab?.cwd || tab.ssh) return;
+  clearTimeout(tab.gitTimer);
+  tab.gitTimer = window.setTimeout(() => {
+    tab.gitTimer = undefined;
+    refreshGit(tab);
+  }, GIT_DEBOUNCE_MS);
+}
+
+/** A tab nobody sees (not its workspace's active tab) is marked stale and read when shown. */
+async function refreshGit(tab: Tab) {
+  const ws = workspaces.get(tab.wsId);
+  if (!tabs.has(tab.id) || !ws || wsActiveTab(ws) !== tab) {
+    tab.gitStale = true;
+    return;
+  }
+  if (tab.gitBusy) {
+    tab.gitAgain = true;
+    return;
+  }
+  tab.gitBusy = true;
+  tab.gitStale = false;
+  const before = gitBadges(tab);
+  try {
+    tab.git = (await invoke<GitStatus | null>("git_status", { cwd: tab.cwd })) ?? undefined;
+    tab.gitErr = undefined;
+  } catch (e) {
+    tab.git = undefined;
+    tab.gitErr = String(e);
+  } finally {
+    tab.gitBusy = false;
+  }
+  if (gitBadges(tab) !== before) scheduleRender();
+  if (tab.id === visibleTabId) renderGitPanel();
+  if (tab.gitAgain) {
+    tab.gitAgain = false;
+    scheduleGit(tab);
+  }
+}
+
+/** Sidebar suffix after the branch: ↑ unpushed, ↓ behind upstream (as of the last fetch), ● uncommitted. */
+function gitBadges(tab: Tab): string {
+  const g = tab.git;
+  if (!g) return "";
+  return (
+    (g.ahead ? `<span class="g-badge ahead" title="${esc(tr("{n} 個未推送的提交", { n: g.ahead }))}">↑${g.ahead}</span>` : "") +
+    (g.behind ? `<span class="g-badge behind" title="${esc(tr("上游有 {n} 個新提交（上次 fetch 的結果）", { n: g.behind }))}">↓${g.behind}</span>` : "") +
+    (g.total ? `<span class="g-badge dirty" title="${esc(tr("{n} 個未提交的變更", { n: g.total }))}">●${g.total}</span>` : "")
+  );
+}
+
+function setGitOpen(open: boolean) {
+  gitOpen = open;
+  gitEl.hidden = gitResizer.hidden = !open;
+  $("git-toggle").classList.toggle("on", open);
+  try { localStorage.setItem("panex.gitOpen", open ? "1" : ""); } catch { /* storage unavailable */ }
+  if (!open) {
+    gitLog = undefined; // re-read on the next open; nothing to keep fresh meanwhile
+    gitBodyEl.replaceChildren();
+    closeGitView();
+    return;
+  }
+  renderGitPanel();
+  scheduleGit(activeTab());
+}
+
+const gitMsg = (text: string) => `<div class="g-msg">${esc(text)}</div>`;
+
+/** Splits "src/a/b.ts" into the file name and its folder. */
+function splitPath(p: string): [string, string] {
+  const clean = p.replace(/\/$/, "");
+  const i = clean.lastIndexOf("/");
+  return i < 0 ? [p, ""] : [clean.slice(i + 1) + (p.endsWith("/") ? "/" : ""), clean.slice(0, i)];
+}
+
+function fileRow(f: GitFile, kind: "staged" | "unstaged" | "untracked"): string {
+  const letter = kind === "untracked" ? "U" : kind === "staged" ? f.x : f.y;
+  const cls = kind === "untracked" ? "new" : letter;
+  const [name, dir] = splitPath(f.path);
+  const key = `${kind}:${f.path}`;
+  const title = f.orig ? `${f.orig} → ${f.path}` : f.path;
+  return (
+    `<div class="g-row g-file${gitSel === key ? " sel" : ""}" data-kind="${kind}" data-path="${esc(f.path)}" data-orig="${esc(f.orig ?? "")}" title="${esc(title)}">` +
+    `<span class="g-name">${esc(name)}</span><span class="g-dir">${esc(dir)}</span><span class="g-st ${cls}">${esc(letter)}</span></div>`
+  );
+}
+
+function renderGitPanel() {
+  if (!gitOpen) return;
+  const tab = activeTab();
+  const g = tab?.git;
+  if (!tab) return void gitBodyEl.replaceChildren();
+  if (tab.ssh) return void (gitBodyEl.innerHTML = gitMsg(tr("SSH 分頁看不到本機的 git 狀態")));
+  if (tab.gitErr) return void (gitBodyEl.innerHTML = gitMsg(tr("讀取失敗：{e}", { e: tab.gitErr })));
+  if (!g) return void (gitBodyEl.innerHTML = gitMsg(tr(tab.gitTimer || tab.gitBusy ? "載入中…" : "目前的工作目錄不在 git repo 裡")));
+
+  const sync = g.upstream
+    ? [
+        g.ahead ? tr("{n} 個未推送的提交", { n: g.ahead }) : "",
+        g.behind ? tr("上游有 {n} 個新提交（上次 fetch 的結果）", { n: g.behind }) : "",
+      ].filter(Boolean).join("，") || tr("與 {u} 同步", { u: g.upstream })
+    : tr("沒有設定 upstream");
+  const staged = g.files.filter((f) => f.x !== "." && f.x !== "?");
+  const unstaged = g.files.filter((f) => f.y !== "." && f.x !== "?");
+  const untracked = g.files.filter((f) => f.x === "?");
+  const changes = unstaged.length + untracked.length;
+  const sec = (label: string, n: number) => `<div class="g-sec">${esc(tr(label))}<span class="t-count">${n}</span></div>`;
+
+  let html =
+    `<div class="g-repo"><div class="g-branch" title="${esc(g.root)}">⎇ ${esc(g.branch ?? "")}</div>` +
+    `<div class="g-sync">${esc(sync)}</div></div>`;
+  if (staged.length) html += sec("已暫存的變更", staged.length) + staged.map((f) => fileRow(f, "staged")).join("");
+  if (changes) html += sec("變更", changes) + unstaged.map((f) => fileRow(f, "unstaged")).join("") + untracked.map((f) => fileRow(f, "untracked")).join("");
+  if (!g.total) html += gitMsg(tr("沒有未提交的變更"));
+  else if (g.total > g.files.length) html += gitMsg(tr("只列出前 {shown} 個（共 {total} 個）", { shown: g.files.length, total: g.total }));
+
+  html += `<div class="g-sec">${esc(tr("最近的提交"))}</div>`;
+  const key = `${g.oid ?? ""}:${g.ahead}`;
+  if (!g.oid) html += gitMsg(tr("還沒有提交"));
+  else if (gitLog?.root === g.root) {
+    if (gitLog.error) html += gitMsg(gitLog.error);
+    else if (!gitLog.commits.length) html += gitMsg(tr("還沒有提交"));
+    html += gitLog.commits
+      .map((c) => {
+        const title = `${c.hash.slice(0, 7)} · ${c.author}${c.unpushed ? ` · ${tr("未推送")}` : ""}`;
+        return (
+          `<div class="g-row g-commit${gitSel === `commit:${c.hash}` ? " sel" : ""}" data-hash="${c.hash}" title="${esc(title)}">` +
+          `<span class="g-push${c.unpushed ? " on" : ""}"></span><span class="g-name">${esc(c.subject)}</span><span class="g-when">${esc(c.when)}</span></div>`
+        );
+      })
+      .join("");
+  }
+  const top = gitBodyEl.scrollTop;
+  gitBodyEl.innerHTML = html;
+  gitBodyEl.scrollTop = top;
+  if (g.oid && (gitLog?.root !== g.root || gitLog.key !== key)) loadGitLog(g, key);
+}
+
+async function loadGitLog(g: GitStatus, key: string) {
+  // Mark first, so the render this triggers doesn't ask again.
+  const prev = gitLog?.root === g.root ? gitLog.commits : [];
+  gitLog = { root: g.root, key, commits: prev };
+  try {
+    const commits = await invoke<GitCommit[]>("git_log", { root: g.root, count: GIT_LOG_COUNT });
+    if (gitLog?.key === key && gitLog.root === g.root) gitLog.commits = commits;
+  } catch (e) {
+    if (gitLog?.key === key && gitLog.root === g.root) gitLog.error = tr("讀取失敗：{e}", { e: String(e) });
+  }
+  renderGitPanel();
+}
+
+/** Diff and commit lines, colored the way `git diff` colors them. */
+function gitLines(text: string, allAdded = false): string {
+  const lines = text.replace(/\n$/, "").split("\n");
+  let html = lines
+    .slice(0, GIT_VIEW_MAX_LINES)
+    .map((l) => {
+      const cls = allAdded
+        ? "ga"
+        : /^(diff |index |--- |\+\+\+ |new file|deleted file|similarity |rename |old mode|new mode|Binary files )/.test(l)
+          ? "gm"
+          : l.startsWith("@@")
+            ? "gh"
+            : l.startsWith("+")
+              ? "ga"
+              : l.startsWith("-")
+                ? "gd"
+                : "";
+      return `<div class="${cls}">${esc(l) || " "}</div>`;
+    })
+    .join("");
+  if (lines.length > GIT_VIEW_MAX_LINES) html += `<div class="gn">${esc(tr("只顯示前 {n} 行", { n: GIT_VIEW_MAX_LINES }))}</div>`;
+  return html;
+}
+
+function showGitView(title: string) {
+  $("gv-title").textContent = title;
+  gvBodyEl.innerHTML = `<div class="gn">${esc(tr("載入中…"))}</div>`;
+  gitViewEl.hidden = false;
+  document.body.classList.add("git-viewing");
+  // Keys must not reach the hidden terminal underneath.
+  gvBodyEl.focus();
+  return ++gvReq;
+}
+
+function closeGitView(refocus = true) {
+  if (gitViewEl.hidden) return;
+  gvReq++;
+  gitViewEl.hidden = true;
+  gvBodyEl.replaceChildren(); // a big diff shouldn't stay in the DOM
+  document.body.classList.remove("git-viewing");
+  if (gitSel) {
+    gitSel = "";
+    renderGitPanel();
+  }
+  if (refocus) activeTab()?.term.focus();
+}
+
+function fillGitView(req: number, r: GitText, allAdded = false, empty = tr("沒有差異")) {
+  if (req !== gvReq) return;
+  let html = r.binary ? `<div class="gn">${esc(tr("二進位檔案，不顯示內容"))}</div>` : r.text ? gitLines(r.text, allAdded) : `<div class="gn">${esc(empty)}</div>`;
+  if (r.truncated) html += `<div class="gn">${esc(tr("內容太長，只顯示前面的部分"))}</div>`;
+  gvBodyEl.innerHTML = html;
+  gvBodyEl.scrollTop = 0;
+}
+
+function failGitView(req: number, e: unknown) {
+  if (req === gvReq) gvBodyEl.innerHTML = `<div class="gn">${esc(tr("讀取失敗：{e}", { e: String(e) }))}</div>`;
+}
+
+gitBodyEl.addEventListener("click", (e) => {
+  const row = (e.target as HTMLElement).closest<HTMLElement>(".g-row");
+  const g = activeTab()?.git;
+  if (!row || !g) return;
+  if (row.dataset.hash) {
+    const hash = row.dataset.hash;
+    gitSel = `commit:${hash}`;
+    renderGitPanel();
+    const subject = row.querySelector(".g-name")?.textContent ?? "";
+    const req = showGitView(`${hash.slice(0, 7)}  ${subject}`);
+    invoke<GitText>("git_show", { root: g.root, hash }).then((r) => fillGitView(req, r), (err) => failGitView(req, err));
+    return;
+  }
+  const kind = row.dataset.kind as "staged" | "unstaged" | "untracked";
+  const path = row.dataset.path ?? "";
+  gitSel = `${kind}:${path}`;
+  renderGitPanel();
+  const label = kind === "staged" ? tr("已暫存") : kind === "untracked" ? tr("未追蹤") : tr("未暫存");
+  const req = showGitView(`${path}  ·  ${label}`);
+  invoke<GitText>("git_diff", { root: g.root, path, orig: row.dataset.orig || null, staged: kind === "staged", untracked: kind === "untracked" }).then(
+    (r) => fillGitView(req, r, kind === "untracked", path.endsWith("/") ? tr("未追蹤的資料夾") : tr("空檔案")),
+    (err) => failGitView(req, err),
+  );
+});
+$("git-toggle").onclick = () => setGitOpen(!gitOpen);
+$("git-close").onclick = () => setGitOpen(false);
+$("git-refresh").onclick = () => {
+  gitLog = undefined;
+  const tab = activeTab();
+  if (tab) refreshGit(tab);
+};
+$("gv-close").onclick = () => closeGitView();
+
+// Drag the panel's left edge to resize it, like the sidebar.
+const GIT_W = { min: 200, max: 560, def: 280 };
+function setGitWidth(w: number, save = false) {
+  const px = Math.round(Math.min(GIT_W.max, Math.max(GIT_W.min, w)));
+  document.documentElement.style.setProperty("--git-w", `${px}px`);
+  if (save) {
+    try { localStorage.setItem("panex.gitWidth", String(px)); } catch { /* storage unavailable */ }
+  }
+}
+try {
+  const saved = Number(localStorage.getItem("panex.gitWidth"));
+  if (saved) setGitWidth(saved);
+} catch { /* storage unavailable */ }
+gitResizer.addEventListener("pointerdown", (e) => {
+  e.preventDefault();
+  gitResizer.setPointerCapture(e.pointerId);
+  document.body.classList.add("resizing-git");
+});
+gitResizer.addEventListener("pointermove", (e) => {
+  if (gitResizer.hasPointerCapture(e.pointerId)) setGitWidth(window.innerWidth - e.clientX);
+});
+gitResizer.addEventListener("pointerup", (e) => {
+  if (!gitResizer.hasPointerCapture(e.pointerId)) return;
+  gitResizer.releasePointerCapture(e.pointerId);
+  document.body.classList.remove("resizing-git");
+  setGitWidth(gitEl.getBoundingClientRect().width, true);
+});
+gitResizer.addEventListener("dblclick", () => setGitWidth(GIT_W.def, true));
 
 function clearStatus(tab: Tab) {
   if (tab.status === "attention" || tab.status === "done") {
@@ -1007,6 +1345,8 @@ function notify(tab: Tab, status: Status, note: string) {
     tab.runMs = tab.runStart ? Date.now() - tab.runStart : undefined;
     tab.runStart = undefined;
   }
+  // A file diff or commit open over this tab hides the terminal, so the agent's request goes there.
+  if (status === "attention" && tab.id === visibleTabId) closeGitView();
   // The user is already looking at this tab: no badge, no toast.
   if (focused && tab.id === visibleTabId) {
     if (status === "done") {
@@ -1107,7 +1447,7 @@ function renderSidebar() {
       d.innerHTML =
         `<div class="t-title">${title}</div>` +
         (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +
-        (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${esc(cur.branch)}</div>` : "") +
+        (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${esc(cur.branch)}${gitBadges(cur)}</div>` : "") +
         stateLine(status, st) +
         `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
       return d;
@@ -1199,6 +1539,7 @@ function renderShellMenu() {
   sshBtn.textContent = `${tr("SSH 連線…")}${sshKey ? `　${sshKey}` : ""}`;
   $("new-tab").title = withKey("新工作區", "newWorkspace");
   $("sidebar-toggle").title = withKey("顯示 / 隱藏側欄", "toggleSidebar");
+  $("git-toggle").title = withKey("顯示 / 隱藏 Git 面板", "toggleGitPanel");
 }
 
 /** Updates the sidebar's hook status line; resolves to whether the hooks are installed. */
@@ -1761,6 +2102,7 @@ function runAction(id: string, digit = 0) {
     case "moveTabLeft": return visibleTabId && moveTab(visibleTabId, ti - 1);
     case "moveTabRight": return visibleTabId && moveTab(visibleTabId, ti + 1);
     case "toggleSidebar": return updateSettings({ sidebarHidden: !settings.sidebarHidden });
+    case "toggleGitPanel": return setGitOpen(!gitOpen);
     case "clearScrollback": return tab?.term.clear();
     case "copy": return copySelection(tab);
     case "paste": return paste(tab);
@@ -1797,6 +2139,7 @@ document.addEventListener(
   (e) => {
     if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.add("show-nums");
     if (renaming || !wtEl.hidden || !askEl.hidden) return;
+    if (!gitViewEl.hidden && e.key === "Escape") return stop(e, () => closeGitView());
     if (capturingId) return stop(e, () => captureKey(e));
     const combo = eventCombo(e);
     if (!settingsEl.hidden || !ctxEl.hidden) {
@@ -1838,7 +2181,7 @@ window.addEventListener("blur", () => document.body.classList.remove("show-nums"
 termsEl.addEventListener(
   "wheel",
   (e) => {
-    if (!(IS_MAC ? e.metaKey : e.ctrlKey)) return;
+    if (!(IS_MAC ? e.metaKey : e.ctrlKey) || gitViewEl.contains(e.target as Node)) return;
     e.preventDefault();
     e.stopPropagation();
     setFontSize(settings.fontSize + (e.deltaY < 0 ? 1 : -1));
@@ -2046,6 +2389,8 @@ async function main() {
     focused = payload;
     const tab = activeTab();
     if (focused && tab) clearStatus(tab);
+    // Files may have changed in another program meanwhile.
+    if (focused) scheduleGit(tab);
   });
   // Final save before the window goes away; crashes rely on the periodic snapshots.
   win.onCloseRequested(async () => {
@@ -2085,7 +2430,10 @@ async function main() {
       scheduleRender();
     }
     if (p.event === "UserPromptSubmit") notify(tab, "running", "");
-    else if (p.event === "Stop") notify(tab, "done", p.message || tr("已完成"));
+    else if (p.event === "Stop") {
+      notify(tab, "done", p.message || tr("已完成"));
+      scheduleGit(tab); // the agent's turn may have edited files or committed
+    }
     else if (p.notificationType === "auth_success") return;
     else if (p.notificationType === "idle_prompt" && tab.status === "done") return;
     else notify(tab, "attention", p.message || tr("需要你的回應"));
@@ -2130,6 +2478,9 @@ async function main() {
     ws.activeTab = sw.active && ws.tabs.includes(sw.active) ? sw.active : ws.tabs[0];
   }
 
+  try {
+    if (localStorage.getItem("panex.gitOpen")) setGitOpen(true);
+  } catch { /* storage unavailable */ }
   await document.fonts.ready;
   const first = session.active && workspaces.has(session.active) ? session.active : wsOrder[0];
   if (first) showWorkspace(first);

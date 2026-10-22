@@ -1,19 +1,25 @@
 use serde::Serialize;
 use std::{
+    collections::HashSet,
     fs,
+    io::Read,
     path::{Component, Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 
 /// Branch name for the repo containing `cwd`, or a short hash when HEAD is detached.
 /// Reads `.git/HEAD` directly (no git process); `.git` may be a file in worktrees/submodules.
 #[tauri::command]
 pub fn git_branch(cwd: String) -> Option<String> {
-    let mut dir = Path::new(&cwd);
+    read_head(&resolve_git_dir(&repo_root(Path::new(&cwd))?.join(".git"))?)
+}
+
+/// Nearest folder at or above `cwd` that has a `.git` (directory or worktree pointer file).
+fn repo_root(cwd: &Path) -> Option<PathBuf> {
+    let mut dir = cwd;
     loop {
-        let dot_git = dir.join(".git");
-        if dot_git.exists() {
-            return read_head(&resolve_git_dir(&dot_git)?);
+        if dir.join(".git").exists() {
+            return Some(dir.to_path_buf());
         }
         dir = dir.parent()?;
     }
@@ -50,7 +56,7 @@ pub struct Worktree {
     copied: Vec<String>,
 }
 
-fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
+fn git_cmd(cwd: &Path, args: &[&str]) -> Command {
     let mut cmd = Command::new("git");
     cmd.arg("-C").arg(cwd).args(args);
     #[cfg(windows)]
@@ -58,6 +64,11 @@ fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
         use std::os::windows::process::CommandExt;
         cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
     }
+    cmd
+}
+
+fn git(cwd: &Path, args: &[&str]) -> Result<String, String> {
+    let mut cmd = git_cmd(cwd, args);
     let out = cmd.output().map_err(|e| format!("cannot run git: {e}"))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
@@ -149,4 +160,284 @@ pub fn git_branches(cwd: String) -> Vec<String> {
     git(Path::new(&cwd), &["for-each-ref", "--sort=-committerdate", "--format=%(refname:short)", "refs/heads"])
         .map(|out| out.lines().map(str::to_string).filter(|l| !l.is_empty()).collect())
         .unwrap_or_default()
+}
+
+// ── Git panel (read only) ────────────────────────────────────────────────────
+// Every call is one short git process on a blocking thread, run only when the frontend asks
+// (prompt, agent Stop, panel open); nothing watches the repo. `--no-optional-locks` keeps
+// `status` from taking index.lock, so it never collides with an agent's own git commands.
+
+// core.safecrlf=false: no "LF will be replaced by CRLF" warning per file under core.autocrlf.
+const READ_ONLY: [&str; 7] = ["--no-optional-locks", "-c", "core.quotepath=off", "-c", "color.ui=never", "-c", "core.safecrlf=false"];
+const MAX_FILES: usize = 500;
+const MAX_STATUS_BYTES: usize = 4 << 20;
+const MAX_DIFF_BYTES: usize = 1 << 20;
+
+/// Runs a read-only git command and keeps at most `limit` bytes of its output (cut at a line
+/// end); a longer output kills git instead of buffering all of it. Returns (text, truncated).
+fn git_capped(root: &Path, args: &[&str], limit: usize) -> Result<(String, bool), String> {
+    let all: Vec<&str> = READ_ONLY.iter().chain(args).copied().collect();
+    let mut child = git_cmd(root, &all)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("cannot run git: {e}"))?;
+    // Drain stderr alongside: a git blocked on a full stderr pipe would never close stdout.
+    let mut stderr = child.stderr.take().ok_or("no git error output")?;
+    let err_reader = std::thread::spawn(move || {
+        let mut e = Vec::new();
+        let _ = stderr.read_to_end(&mut e);
+        e
+    });
+    let mut buf = Vec::new();
+    child
+        .stdout
+        .take()
+        .ok_or("no git output")?
+        .take(limit as u64 + 1)
+        .read_to_end(&mut buf)
+        .map_err(|e| e.to_string())?;
+    if buf.len() > limit {
+        let _ = child.kill();
+        let _ = child.wait();
+        buf.truncate(limit);
+        if let Some(nl) = buf.iter().rposition(|&b| b == b'\n') {
+            buf.truncate(nl + 1);
+        }
+        return Ok((String::from_utf8_lossy(&buf).into_owned(), true));
+    }
+    let status = child.wait().map_err(|e| e.to_string())?;
+    let err = err_reader.join().unwrap_or_default();
+    if !status.success() {
+        let err = String::from_utf8_lossy(&err).trim().to_string();
+        return Err(if err.is_empty() { format!("git {} failed", args.join(" ")) } else { err });
+    }
+    Ok((String::from_utf8_lossy(&buf).into_owned(), false))
+}
+
+/// The panel's commands get the root back from `git_status`; accept only an actual repo root.
+fn checked_root(root: &str) -> Result<PathBuf, String> {
+    let p = PathBuf::from(root);
+    if p.join(".git").exists() {
+        Ok(p)
+    } else {
+        Err("not a git repository".into())
+    }
+}
+
+/// A repo-relative path as git prints it; anything absolute or with `..` is refused.
+fn checked_rel(path: &str) -> Result<&str, String> {
+    let p = path.trim_end_matches('/');
+    if !p.is_empty() && Path::new(p).components().all(|c| matches!(c, Component::Normal(_))) {
+        Ok(p)
+    } else {
+        Err(format!("invalid path: {path}"))
+    }
+}
+
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+pub struct GitFile {
+    path: String,
+    /// Old path of a rename or copy.
+    orig: Option<String>,
+    /// Staged (index) and worktree state, as in `git status --short`: '.', M, A, D, R, C, U, '?'.
+    x: char,
+    y: char,
+}
+
+#[derive(Serialize)]
+pub struct GitStatus {
+    root: String,
+    branch: Option<String>,
+    /// HEAD commit; the panel reloads its commit list only when this changes.
+    oid: Option<String>,
+    upstream: Option<String>,
+    ahead: u32,
+    behind: u32,
+    /// At most MAX_FILES entries; `total` is the real count.
+    files: Vec<GitFile>,
+    total: usize,
+}
+
+/// Branch, ahead/behind (as of the last fetch; panex never fetches) and changed files of the
+/// repo containing `cwd`. None when `cwd` is not in a repo, decided without starting git.
+#[tauri::command]
+pub async fn git_status(cwd: String) -> Result<Option<GitStatus>, String> {
+    let Some(root) = repo_root(Path::new(&cwd)) else { return Ok(None) };
+    blocking(move || status_of(root)).await?.map(Some)
+}
+
+fn status_of(root: PathBuf) -> Result<GitStatus, String> {
+    let (out, _) = git_capped(&root, &["status", "--porcelain=v2", "--branch", "-z"], MAX_STATUS_BYTES)?;
+    let mut st = GitStatus {
+        root: root.to_string_lossy().into_owned(),
+        branch: None,
+        oid: None,
+        upstream: None,
+        ahead: 0,
+        behind: 0,
+        files: Vec::new(),
+        total: 0,
+    };
+    let push = |st: &mut GitStatus, xy: &str, path: &str, orig: Option<&str>| {
+        st.total += 1;
+        if st.files.len() < MAX_FILES {
+            let mut c = xy.chars();
+            st.files.push(GitFile {
+                path: path.to_string(),
+                orig: orig.map(str::to_string),
+                x: c.next().unwrap_or('.'),
+                y: c.next().unwrap_or('.'),
+            });
+        }
+    };
+    // -z: records end with NUL; a rename/copy record is followed by one more field, its old path.
+    let mut recs = out.split('\0');
+    while let Some(rec) = recs.next() {
+        if let Some(h) = rec.strip_prefix("# ") {
+            if let Some(v) = h.strip_prefix("branch.oid ") {
+                st.oid = (v != "(initial)").then(|| v.to_string());
+            } else if let Some(v) = h.strip_prefix("branch.head ") {
+                st.branch = (v != "(detached)").then(|| v.to_string());
+            } else if let Some(v) = h.strip_prefix("branch.upstream ") {
+                st.upstream = Some(v.to_string());
+            } else if let Some(v) = h.strip_prefix("branch.ab ") {
+                let mut it = v.split(' ').map(|n| n.trim_start_matches(['+', '-']).parse().unwrap_or(0));
+                st.ahead = it.next().unwrap_or(0);
+                st.behind = it.next().unwrap_or(0);
+            }
+            continue;
+        }
+        let f: Vec<&str> = match rec.as_bytes().first() {
+            Some(b'1') => rec.splitn(9, ' ').collect(),
+            Some(b'2') => rec.splitn(10, ' ').collect(),
+            Some(b'u') => rec.splitn(11, ' ').collect(),
+            Some(b'?') => {
+                push(&mut st, "??", &rec[2..], None);
+                continue;
+            }
+            _ => continue,
+        };
+        let (Some(xy), Some(path)) = (f.get(1), f.last()) else { continue };
+        let orig = if rec.starts_with('2') { recs.next() } else { None };
+        push(&mut st, xy, path, orig);
+    }
+    if st.branch.is_none() {
+        st.branch = st.oid.as_ref().map(|o| o.chars().take(7).collect());
+    }
+    Ok(st)
+}
+
+#[derive(Serialize)]
+pub struct GitText {
+    text: String,
+    truncated: bool,
+    binary: bool,
+}
+
+/// One file's diff: staged (index vs HEAD) or unstaged (worktree vs index). An untracked file
+/// has no diff, so its content comes back as is and the panel shows it all as added.
+#[tauri::command]
+pub async fn git_diff(root: String, path: String, orig: Option<String>, staged: bool, untracked: bool) -> Result<GitText, String> {
+    blocking(move || {
+        let root = checked_root(&root)?;
+        let path = checked_rel(&path)?.to_string();
+        if untracked {
+            return read_untracked(&root.join(&path));
+        }
+        let orig = orig.as_deref().map(checked_rel).transpose()?.map(str::to_string);
+        let mut args = vec!["diff", "--no-ext-diff", "--no-textconv", "-M"];
+        if staged {
+            args.push("--cached");
+        }
+        args.push("--");
+        if let Some(o) = &orig {
+            args.push(o);
+        }
+        args.push(&path);
+        let (text, truncated) = git_capped(&root, &args, MAX_DIFF_BYTES)?;
+        let binary = text.lines().any(|l| l.starts_with("Binary files "));
+        Ok(GitText { text, truncated, binary })
+    })
+    .await?
+}
+
+fn read_untracked(file: &Path) -> Result<GitText, String> {
+    if file.is_dir() {
+        return Ok(GitText { text: String::new(), truncated: false, binary: false });
+    }
+    let mut buf = Vec::new();
+    fs::File::open(file)
+        .and_then(|f| f.take(MAX_DIFF_BYTES as u64 + 1).read_to_end(&mut buf))
+        .map_err(|e| e.to_string())?;
+    // git's own test: a NUL in the first 8000 bytes means binary.
+    if buf.iter().take(8000).any(|&b| b == 0) {
+        return Ok(GitText { text: String::new(), truncated: false, binary: true });
+    }
+    let truncated = buf.len() > MAX_DIFF_BYTES;
+    buf.truncate(MAX_DIFF_BYTES);
+    Ok(GitText { text: String::from_utf8_lossy(&buf).into_owned(), truncated, binary: false })
+}
+
+#[derive(Serialize)]
+pub struct GitCommit {
+    hash: String,
+    subject: String,
+    author: String,
+    /// "3 hours ago", in git's words.
+    when: String,
+    /// Not on the upstream yet.
+    unpushed: bool,
+}
+
+/// The latest commits on HEAD, marking those the upstream doesn't have.
+#[tauri::command]
+pub async fn git_log(root: String, count: u32) -> Result<Vec<GitCommit>, String> {
+    blocking(move || {
+        let root = checked_root(&root)?;
+        let n = format!("-n{}", count.clamp(1, 200));
+        let (out, _) = git_capped(&root, &["log", &n, "--format=%H%x1f%s%x1f%an%x1f%ar%x1e"], MAX_STATUS_BYTES)?;
+        // No upstream (or nothing ahead) fails or prints nothing: then no commit is marked.
+        let ahead: HashSet<String> = git_capped(&root, &["rev-list", "-n200", "@{upstream}..HEAD"], 64 << 10)
+            .map(|(o, _)| o.lines().map(str::to_string).collect())
+            .unwrap_or_default();
+        Ok(out
+            .split('\x1e')
+            .filter_map(|rec| {
+                let mut f = rec.trim_start_matches('\n').split('\x1f');
+                let hash = f.next().filter(|h| !h.is_empty())?.to_string();
+                Some(GitCommit {
+                    unpushed: ahead.contains(&hash),
+                    hash,
+                    subject: f.next()?.to_string(),
+                    author: f.next()?.to_string(),
+                    when: f.next()?.to_string(),
+                })
+            })
+            .collect())
+    })
+    .await?
+}
+
+/// One commit: header, file stats and patch.
+#[tauri::command]
+pub async fn git_show(root: String, hash: String) -> Result<GitText, String> {
+    blocking(move || {
+        let root = checked_root(&root)?;
+        if !(4..=64).contains(&hash.len()) || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(format!("invalid commit: {hash}"));
+        }
+        let (text, truncated) = git_capped(
+            &root,
+            &["show", "--no-ext-diff", "--no-textconv", "--stat", "--patch", "--format=fuller", &hash],
+            MAX_DIFF_BYTES,
+        )?;
+        Ok(GitText { text, truncated, binary: false })
+    })
+    .await?
 }

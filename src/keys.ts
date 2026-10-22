@@ -44,6 +44,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "moveTabLeft", group: TAB, label: "分頁左移", default: null },
   { id: "moveTabRight", group: TAB, label: "分頁右移", default: null },
   { id: "toggleSidebar", group: "檢視", label: "顯示 / 隱藏側欄", default: "ctrl+alt+h", mac: "meta+b" },
+  { id: "toggleGitPanel", group: "檢視", label: "顯示 / 隱藏 Git 面板", default: "ctrl+shift+g", mac: "meta+shift+g" },
   { id: "clearScrollback", group: "編輯", label: "清除捲動歷史", default: "ctrl+shift+k", mac: "meta+k" },
   { id: "copy", group: "編輯", label: "複製選取文字", default: "ctrl+shift+c", mac: "meta+c" },
   { id: "paste", group: "編輯", label: "貼上", default: "ctrl+shift+v", mac: null },
