@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 發佈 v0.5.0，本機改裝 0.5.0
+
+**變更**
+- 版本號改成 0.5.0，推 main 與 tag `v0.5.0`，CI 兩個平台都成功；release notes 寫 worktree 交給 panex（含「hook 對 panex 外的 Claude Code 也生效」的提醒）、主工作區當群組最上層、小工人瀏覽器與共用登入、複製路徑、macOS Shift+Enter、預設視窗大小。`releases/latest` 的 `.exe`、`.dmg` 都回 302 指向 v0.5.0。
+- 本機：刪掉 `/Applications/panex.app`（0.4.5），從 release 的 dmg 複製 0.5.0 進去並清掉下載標記。沒關掉正在執行的 panex（這個 Claude session 就跑在裡面），工作區與設定資料都沒動。
+
+**為什麼**
+- 使用者要求發布並在本機安裝最新版。
+
+**下一步**
+- 使用者重開 panex 才會跑新版；重開後第一次啟動會在 `~/.claude/settings.json` 加 `WorktreeCreate` hook。
+- 這台 macOS 的 `xattr` 不支援 `-r`，README 與 release notes 寫的 `xattr -cr /Applications/panex.app` 會失敗；可改成 `xattr -d com.apple.quarantine /Applications/panex.app`。
+
 ## 2026-10-22 — Claude Code 開 worktree 交給 panex（設定開關，預設開；`b14c377`）
 
 **變更**
