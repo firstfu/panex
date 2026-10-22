@@ -4,6 +4,17 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — Windows／Linux 關閉分頁預設改成 Ctrl+W（`d1e6475`）
+
+**變更**
+- `keys.ts` 的 `closeTab` 預設從 `ctrl+shift+w` 改成 `ctrl+w`（Mac 維持 `meta+w`），README 中英快捷鍵表同步。只跑過 `tsc`，沒在 App 實按。
+
+**為什麼**
+- 使用者要跟 Mac 一樣用 Ctrl+W 關分頁。代價：終端機裡 Ctrl+W（往回刪一個字）不再送進 shell／Claude Code；agent 跑到一半時仍會先跳確認框。
+
+**下一步**
+- 下次發版時實按驗一次 Ctrl+W 關分頁，並在 release notes 提醒這個行為變更。
+
 ## 2026-10-22 — 發佈 v0.4.1（真實環境驗收、VS Code 改走 CLI）
 
 **變更**
