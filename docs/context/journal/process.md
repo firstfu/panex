@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-23 — 發佈 v0.5.4：攔下 `EnterWorktree` 交棒給新 agent、擋掉上一次啟動殘留的 hook
+
+**變更**
+- 版本 0.5.3 → 0.5.4（README、繁中 README、`package.json`、`tauri.conf.json`、`Cargo.toml`、`Cargo.lock`）。
+- 包含 `8cdf323`／`e71a84f`（`worktree-guard`，見下一筆）與 `877fe7d`（`panex-cli notify` 帶 `PANEX_TOKEN`，`notify.rs` 丟掉別次啟動的 shell 送來的 hook，避免它的 SessionEnd 清掉正要自動接回的 session id；沒帶 token 的舊版 cli 照收）。`877fe7d` 是同一時間另一個 session 在這個工作區做的，經隔離 worktree 全套測試後一併提交。
+
+**為什麼**
+- 兩項都是使用者回報的行為問題，一起發免得使用者要升兩次。
+
+**下一步**
+- 發版前驗證：前端 6、Rust 24+5、macOS e2e 11 個全過（在隔離 worktree 跑，另一個 session 同時改檔時直接在工作區跑會互相干擾）。Windows 沒測。
+- 真 `claude` 在真 panex 內走完「deny → 開分頁」、以及正式安裝版 `ensure` 實際寫入 settings.json，都還沒驗；升級後第一次開 panex 時觀察。
+
 ## 2026-10-23 — 攔下 `EnterWorktree`，worktree 需求改成交棒給新 agent（`8cdf323`）
 
 **變更**
