@@ -5,6 +5,7 @@
 //!   panex-cli browser-login         (saves a login for crew agents' Playwright browsers)
 //!   panex-cli worktree-create       (Claude Code's WorktreeCreate hook; see worktree_create)
 //!   panex-cli worktree-remove       (Claude Code's WorktreeRemove hook; see worktree_remove)
+//!   panex-cli worktree-guard        (Claude Code's PreToolUse hook for EnterWorktree; see worktree_guard)
 //!
 //! notify reads the hook JSON from stdin (Claude Code passes it there), adds the pane id from
 //! PANEX_PANE_ID and sends it to the running panex over PANEX_PIPE. Outside panex those
@@ -26,6 +27,7 @@ fn main() {
         Some("wait") => std::process::exit(run(wait_request(&args[1..]))),
         Some("worktree-create") => std::process::exit(worktree_create()),
         Some("worktree-remove") => std::process::exit(worktree_remove()),
+        Some("worktree-guard") => worktree_guard(),
         Some("browser-login") => {
             if let Err(e) = browser_login() {
                 eprintln!("panex-cli: {e}");
@@ -265,6 +267,36 @@ fn worktree_create() -> i32 {
             1
         }
     }
+}
+
+/// 從 `cwd` 往上找 `.git`：是檔案（指標檔）代表 cwd 已經在 linked worktree 裡。
+/// 只看檔案系統、不開 git 程序，hook 每次都會跑所以要快。
+fn in_linked_worktree(cwd: &Path) -> bool {
+    cwd.ancestors().find_map(|d| std::fs::metadata(d.join(".git")).ok()).is_some_and(|m| m.is_file())
+}
+
+/// 給 deny 用的說明，Claude 會把它當工具結果讀到，所以寫成英文指令。
+const GUARD_REASON: &str = "This session runs inside panex, so do not switch this conversation into a worktree. \
+Hand the task to a new agent instead: run `panex-cli help`, then start it with \
+`panex-cli open --worktree <branch> -- claude \"<task>\"` (pick a short branch name from the task; for a \
+long task write it to TASK.md in the worktree and tell the agent to follow it), then `panex-cli wait <tab>`. \
+Tell the user which tab you opened. Do not repeat the work in this session.";
+
+/// `panex-cli worktree-guard`：PreToolUse hook（matcher `EnterWorktree`），在 panex 分頁裡攔下 Claude Code
+/// 內建的原地切換。原因：切換後 Claude 的 cwd 在 worktree、對話卻還掛在原工作區，panex 另開的 worktree
+/// 工作區反而是空 shell；使用者要的是任務交給 worktree 裡的新 agent。攔動作而不是靠 skill 猜措辭，
+/// 使用者怎麼說都一樣。放行：不在 panex 內（hook 是全域的）、cwd 已在 linked worktree（交棒出去的 agent
+/// 自己再呼叫時不能再轉一次）、子 agent。一律 exit 0，deny 靠 stdout 的 JSON。
+fn worktree_guard() {
+    let hook = read_stdin_json().unwrap_or(Value::Null);
+    let cwd = hook["cwd"].as_str().map(PathBuf::from).or_else(|| std::env::current_dir().ok()).unwrap_or_default();
+    if std::env::var_os("PANEX_PANE_ID").is_none() || hook.get("agent_id").is_some() || in_linked_worktree(&cwd) {
+        return;
+    }
+    let out = json!({ "hookSpecificOutput": {
+        "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": GUARD_REASON,
+    } });
+    println!("{out}");
 }
 
 /// `panex-cli worktree-remove`：Claude Code 的 WorktreeRemove hook，跟 worktree-create 一起安裝。

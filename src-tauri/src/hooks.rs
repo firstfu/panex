@@ -8,6 +8,8 @@
 //! is added too, so worktrees Claude opens land next to the repo and in panex's sidebar. Unlike
 //! notify it changes what Claude Code does everywhere (the hook replaces its own `git worktree`
 //! step), so it is removed again when the setting is turned off.
+//! 同一個開關也控制 PreToolUse 的 `worktree-guard`（matcher `EnterWorktree`）：在 panex 分頁裡攔下 Claude Code
+//! 內建的原地切換，改叫它用 `panex-cli open --worktree` 把任務交給新 agent；不靠使用者的措辭，靠攔動作。
 //! WorktreeRemove（`panex-cli worktree-remove`）跟它成對裝、成對移除：有了 WorktreeCreate hook，Claude Code
 //! 刪 worktree 時要靠它刪資料夾，panex 也藉此關掉那個 worktree 的工作區。
 
@@ -19,6 +21,9 @@ use tauri::AppHandle;
 const EVENTS: [&str; 5] = ["Notification", "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd"];
 /// panex 的 worktree hooks 與對應的 panex-cli 子指令；一律成對安裝、成對移除。
 const WORKTREE_HOOKS: [(&str, &str); 2] = [("WorktreeCreate", "worktree-create"), ("WorktreeRemove", "worktree-remove")];
+
+/// 攔 `EnterWorktree` 的 PreToolUse hook：事件、matcher、panex-cli 子指令。跟 worktree hooks 同一個開關。
+const GUARD: (&str, &str, &str) = ("PreToolUse", "EnterWorktree", "worktree-guard");
 
 /// Shipped inside the binary, so the skill always matches this version's panex-cli.
 const SKILL: &str = include_str!("../../skills/panex/SKILL.md");
@@ -111,7 +116,11 @@ fn status_at(path: &Path, cli: &str, worktree: bool) -> bool {
     let any_panex = WORKTREE_HOOKS.iter().any(|(e, _)| v["hooks"][e].as_array().is_some_and(|gs| gs.iter().any(is_panex_group)));
     // 使用者自己的 worktree hook 優先：不在旁邊加我們的（見 install_at）。
     let worktree_ok = if worktree && !foreign_worktree_hook(&v["hooks"]) { WORKTREE_HOOKS.iter().all(|(e, _)| has(e)) } else { !any_panex };
-    EVENTS.iter().all(|e| has(e)) && worktree_ok
+    // guard 只看有沒有、跟開關是否一致；PreToolUse 裡使用者自己的條目不影響判斷。
+    let guard_has = v["hooks"][GUARD.0].as_array().is_some_and(|gs| gs.iter().any(|g| is_panex_group(g) && has_current(g, cli)));
+    let guard_any = v["hooks"][GUARD.0].as_array().is_some_and(|gs| gs.iter().any(is_panex_group));
+    let guard_ok = if worktree { guard_has } else { !guard_any };
+    EVENTS.iter().all(|e| has(e)) && worktree_ok && guard_ok
 }
 
 #[tauri::command]
@@ -162,6 +171,19 @@ fn install_at(path: &Path, cli: &str, worktree: bool) -> Result<(), String> {
         for (e, arg) in WORKTREE_HOOKS {
             hooks.insert(e.into(), json!([{ "hooks": [{ "type": "command", "command": cli, "args": [arg], "timeout": 120 }] }]));
         }
+    }
+    // guard 與 worktree hooks 同開關；先清掉舊的 panex 條目再依開關決定要不要加（使用者自己的 PreToolUse 不動）。
+    if let Some(groups) = hooks.get_mut(GUARD.0) {
+        let groups = groups.as_array_mut().ok_or(format!("hooks.{} is not an array, left unchanged", GUARD.0))?;
+        groups.retain(|g| !is_panex_group(g));
+        if groups.is_empty() {
+            hooks.remove(GUARD.0);
+        }
+    }
+    if worktree {
+        let groups = hooks.entry(GUARD.0).or_insert_with(|| Value::Array(vec![]));
+        let groups = groups.as_array_mut().ok_or(format!("hooks.{} is not an array, left unchanged", GUARD.0))?;
+        groups.push(json!({ "matcher": GUARD.1, "hooks": [{ "type": "command", "command": cli, "args": [GUARD.2], "timeout": 10 }] }));
     }
     if path.exists() {
         fs::copy(path, path.with_extension("json.panex-bak")).map_err(|e| e.to_string())?;
@@ -214,7 +236,12 @@ mod tests {
         assert!(status_at(&p, CLI, true));
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert_eq!(v["model"], json!("opus"));
-        assert_eq!(v["hooks"]["PreToolUse"], before["hooks"]["PreToolUse"]);
+        // 使用者自己的 PreToolUse 保留在前，我們的 guard 接在後面。
+        let pre = v["hooks"]["PreToolUse"].as_array().unwrap();
+        assert_eq!(pre.len(), 2);
+        assert_eq!(pre[0], before["hooks"]["PreToolUse"][0]);
+        assert_eq!(pre[1]["matcher"], json!("EnterWorktree"));
+        assert_eq!(pre[1]["hooks"][0]["args"], json!(["worktree-guard"]));
         let stop = v["hooks"]["Stop"].as_array().unwrap();
         assert_eq!(stop.len(), 2, "the stale panex entry is replaced, not duplicated");
         assert_eq!(stop[0]["hooks"][0]["command"], json!("my-own-hook.sh"));
@@ -253,6 +280,7 @@ mod tests {
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert!(v["hooks"].get("WorktreeCreate").is_none(), "removed, not left as an empty list");
         assert!(v["hooks"].get("WorktreeRemove").is_none());
+        assert!(v["hooks"].get("PreToolUse").is_none(), "guard goes with the setting");
         assert!(status_at(&p, CLI, false));
 
         // The user's own WorktreeCreate hook stays alone, whatever the setting.

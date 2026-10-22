@@ -1,6 +1,6 @@
 ---
 name: panex
-description: Crew mode (小隊模式) - start other coding agents in new panex terminal tabs (each optionally in its own git worktree) and wait for them to finish. Use only inside panex (the PANEX_PANE_ID environment variable is set), when the user asks to split work across parallel agents, try several approaches side by side, or hand a task to an agent they can watch.
+description: Crew mode (小隊模式) - start other coding agents in new panex terminal tabs (each optionally in its own git worktree) and wait for them to finish. Use only inside panex (the PANEX_PANE_ID environment variable is set), when the user asks to split work across parallel agents, try several approaches side by side, or hand a task to an agent they can watch. Also use it whenever the user wants work done in a worktree or on a separate branch ("use worktree", "do it on a new branch", "isolate this"): that is a hand-off, see below.
 ---
 
 # panex crew mode: parallel agents in tabs the user can see
@@ -9,6 +9,13 @@ description: Crew mode (小隊模式) - start other coding agents in new panex t
 
 1. Check that `PANEX_PANE_ID` is set. If it isn't, you are not in a panex tab: say so and stop.
 2. Run `panex-cli help` and follow it. The flags live in the binary, so don't use any that it doesn't list.
+
+Worktree requests are hand-offs: when the user wants work done in a worktree (however they word it),
+do not use the built-in EnterWorktree tool (panex blocks it). It would switch this conversation into
+the worktree while panex opens a second, empty shell there. Instead start a new agent with
+`panex-cli open --worktree <branch> -- claude "<task>"`, where the branch is a short name taken from
+the task, then `panex-cli wait <tab>`. Tell the user which tab you opened and don't do the work yourself.
+Skip the "tell the user and wait for an OK" step below when there is just this one agent.
 
 How to use it well:
 
