@@ -17,6 +17,7 @@
 | `reference/boundaries.md` | 編碼規範、邊界、跨全站的雷 | **必讀** |
 | `reference/operations.md` | 建置、獨立測試實例、macOS 端對端測試（`--features e2e`）、重拍 README 截圖、發布 GitHub release | 要測試（含 Mac 上自動化驗收）、拍截圖或發新版前 |
 | `reference/modules/terminal-font.md` | 終端機字型組成、彩色 emoji 的 `@font-face`、設定頁字型選單與 `fonts_list` | 動字型、emoji 渲染或字型選單前 |
+| `reference/modules/terminal-input.md` | macOS 輸入法下的輸入路徑（`guardImeInput`）、用真實按鍵測輸入的方法 | 動 `terminal.ts` 的輸入處理、或要在 Mac 上測打字前 |
 
 > 新增任何 reference 檔（data-model / api-spec / modules/xxx …）時，archive-to-context 會在此表補一行。
 > 本表每列只寫「涵蓋什麼、何時讀」各一兩句，**不寫雷或結論的摘要**（那些寫在各檔本身）——本檔每個 session 都自動載入，摘要會讓它只增不減。
