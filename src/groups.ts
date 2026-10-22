@@ -39,7 +39,7 @@ export function groupLead(group: string, members: string[]): string | undefined 
 }
 
 /**
- * 群組顯示的名字：主工作區被使用者取過名就用它（例如「老犬」），否則用 repo 資料夾名。
+ * 群組顯示的名字：主工作區被使用者取過名就用它（例如「後台」），否則用 repo 資料夾名。
  * 只認使用者自訂的名字，因為自動標題會跟著終端機標題一直變。
  * @param group 群組的 key（主 checkout 的路徑）
  * @param members 群組內的工作區 id
