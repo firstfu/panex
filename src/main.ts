@@ -854,12 +854,12 @@ sshEl.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeSshDialog();
 });
 
-/** New tab in the current workspace, right after the visible one, in the same folder. */
+/** New tab in the current workspace, right after the visible one, in the same folder (or on the same SSH host). */
 function newTab(shell = settings.defaultShell) {
   const ws = activeWs();
   if (!ws) return newWorkspace(shell);
   const cur = activeTab();
-  const tab = createTab({ id: newId(), shell, cwd: cur?.cwd }, ws.id);
+  const tab = createTab(cur?.ssh ? { id: newId(), shell: "ssh", ssh: cur.ssh } : { id: newId(), shell, cwd: cur?.cwd }, ws.id);
   const at = cur ? ws.tabs.indexOf(cur.id) + 1 : ws.tabs.length;
   ws.tabs.splice(at, 0, tab.id);
   showTab(tab.id);
