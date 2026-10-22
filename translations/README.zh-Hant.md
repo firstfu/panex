@@ -173,7 +173,7 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | 跳到需要處理的分頁（`jumpToUnread`） |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | 顯示／隱藏側欄（`toggleSidebar`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | 顯示／隱藏 Git 面板（`toggleGitPanel`） |
-| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | 換行而不送出，給 Claude Code 用（`insertNewline`） |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd>（macOS：<kbd>Shift</kbd>+<kbd>Enter</kbd>） | 換行而不送出，給 Claude Code 用（`insertNewline`） |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | 放大／縮小／重設字型（也可 Ctrl+滾輪） |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | 設定 |
 

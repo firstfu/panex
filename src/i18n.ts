@@ -121,6 +121,7 @@ const EN: Record<string, string> = {
   "上移": "Move up",
   "下移": "Move down",
   "移到最上面": "Move to top",
+  "複製路徑": "Copy path",
   "關閉其他工作區": "Close other workspaces",
   "關閉下方工作區": "Close workspaces below",
   "關閉上方工作區": "Close workspaces above",

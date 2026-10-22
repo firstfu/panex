@@ -50,7 +50,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "copy", group: "編輯", label: "複製選取文字", default: "ctrl+shift+c", mac: "meta+c" },
   { id: "paste", group: "編輯", label: "貼上", default: "ctrl+shift+v", mac: null },
   // Sends ESC+CR (what Alt+Enter sends): Claude Code inserts a newline instead of submitting.
-  { id: "insertNewline", group: "編輯", label: "換行而不送出（Claude Code 等）", default: "ctrl+enter", mac: null },
+  { id: "insertNewline", group: "編輯", label: "換行而不送出（Claude Code 等）", default: "ctrl+enter", mac: "shift+enter" },
   { id: "increaseFontSize", group: "檢視", label: "放大字型", default: "ctrl+equal", mac: "meta+equal" },
   { id: "decreaseFontSize", group: "檢視", label: "縮小字型", default: "ctrl+minus", mac: "meta+minus" },
   { id: "resetFontSize", group: "檢視", label: "重設字型大小", default: "ctrl+0", mac: "meta+0" },
