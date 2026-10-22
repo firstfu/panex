@@ -4,6 +4,23 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — Claude Code 開 worktree 交給 panex（設定開關，預設開；`b14c377`）
+
+**變更**
+- 新設定 `agent.worktreeViaPanex`（預設 true，設定頁「終端機」有開關）。`hooks.rs` 依它在 `~/.claude/settings.json` 加入或移除 `WorktreeCreate` hook（`panex-cli worktree-create`，timeout 120）；使用者自己已有 WorktreeCreate hook 就不加。新指令 `hooks_sync` 讓開關切換時立即生效（同樣只有正式安裝版會寫）。
+- `panex-cli worktree-create`：在 panex 分頁裡送控制請求 `worktree` 給 panex，由前端 `control.ts` 用 `git_worktree_add`（新增 `reuse`）建在 `<repo>-worktrees/<name>`、複製 copyFiles，把 Claude 所在分頁搬到 repo 群組底下的新工作區，原工作區只剩它時補一個新 shell；同一個 worktree 已有工作區就沿用。有 `agent_id`（subagent）只建不動側欄。panex 外或連不到 panex 時，照 Claude Code 預設建在 `.claude/worktrees/<name>`、分支 `worktree-<name>`、base 用 `origin/HEAD`（沒有就 HEAD）。
+- `Tab.followCwd`：分頁搬進 worktree 後，Claude 結束、shell 回到提示字元時自動 `cd` 進 worktree（cmd／PowerShell／POSIX 各自的指令）。
+- README 中英文補說明（含群組的新樣子）。
+- 驗證：Rust 22 個（新增開關與重用測試）、前端 6、原有 e2e 5 都過；測試實例模擬 hook 7 項全過（建立位置、.env、側欄搬移、沿用、subagent、非 git 錯誤、panex 外預設位置、設定開關）；另用真的 `claude -p` 呼叫 EnterWorktree：worktree 由 panex 建立、Claude 的 `pwd` 在裡面、執行中側欄顯示在主工作區底下、結束後 shell 自動切進 worktree。
+
+**為什麼**
+- 使用者請 Claude 開 worktree 時，Claude 用內建的 EnterWorktree，panex 看不到，側欄沒有工作區也不在群組裡。使用者要求預設交給 panex，並做成開關。
+
+**下一步**
+- 這個 hook 會影響 panex 外所有 Claude Code：那時不處理 `.worktreeinclude`、`worktree.baseRef`，也不做 Claude 的「預設分支過舊先 fetch」。發版說明要寫清楚。
+- worktree 的 setupCommand 不會跑（分頁裡 Claude 正在執行，無法打字進 shell）。
+- Windows 沒測（cmd／PowerShell 的 cd 指令只寫好沒實測）。還沒發版。
+
 ## 2026-10-22 — 主資料夾的工作區當群組最上層，worktree 縮排在下（`fe34cc5`）
 
 **變更**
