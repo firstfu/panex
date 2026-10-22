@@ -72,6 +72,8 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 - Right-click a workspace to start a new one in a fresh git worktree, with `.env` files copied over
 - Color emoji in the terminal, so warnings such as ⚠ in Claude Code's status line stand out
 - Pick from the monospace fonts installed on your machine; Chinese and emoji fall back automatically
+- <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> searches the scrollback
+- <kbd>Ctrl</kbd>+click a URL to open it in your browser, or a file path such as `src/main.ts:120` to open the file (in VS Code or Cursor at that line, if you pick one in Settings → Terminal)
 - <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inserts a newline in Claude Code instead of sending (rebindable, for example to <kbd>Shift</kbd>+<kbd>Enter</kbd>)
 - English and Traditional Chinese interface, following your system language (switch in Settings)
 - Chinese and other wide characters line up correctly; Unicode 11 widths
@@ -218,7 +220,6 @@ Use **Settings → Apps → Installed apps → panex → Uninstall**. To remove 
 I won't build these until real people ask for them. If one matters to you, [open an issue](https://github.com/firstfu/panex/issues/new) or 👍 an existing one and tell me **how you'd use it**.
 
 - Split panes inside a tab
-- Search in the scrollback (Ctrl+Shift+F)
 - Listening ports in the sidebar
 
 ## Build from source

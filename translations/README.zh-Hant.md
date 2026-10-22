@@ -72,6 +72,8 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 - 在工作區按右鍵，可以用新的 git worktree 開一個新工作區，`.env` 等檔案會一起複製過去
 - 終端機裡的 emoji 是彩色的，Claude Code 狀態列的 ⚠ 之類的警告比較醒目
 - 字型可以從電腦裡已安裝的等寬字型挑選，中文和 emoji 會自動用備援字型補上
+- <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 搜尋捲動歷史
+- 按住 <kbd>Ctrl</kbd> 點網址會用瀏覽器開；點 `src/main.ts:120` 這類檔案路徑會開啟該檔案（在設定 → 終端機選了 VS Code 或 Cursor，就會直接跳到那一行）
 - <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 在 Claude Code 裡是換行而不是送出（可以改綁，例如改成 <kbd>Shift</kbd>+<kbd>Enter</kbd>）
 - 介面有英文與繁體中文，預設跟隨系統語言（在設定裡切換）
 - 中文等全形字元對齊正確，採用 Unicode 11 字寬
@@ -218,7 +220,6 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 除非有人真的需要，否則我不會做這些。如果你需要其中某一項，請[開一個 issue](https://github.com/firstfu/panex/issues/new)，或在現有的 issue 按 👍，並說明**你會怎麼用**。
 
 - 分頁內分割窗格
-- 搜尋捲動歷史（Ctrl+Shift+F）
 - 側欄顯示監聽中的 port
 
 ## 從原始碼建置
