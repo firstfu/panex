@@ -21,8 +21,9 @@
 1. 進 `../panex-worktrees/crew-browser`（或 `git switch feat/crew-browser`），驗收設定頁「小工人測網頁用」新列與「登入並儲存」按鈕的實際排版（只過 tsc，沒人眼看過）。
 2. 對一個測試站實際按一次「登入並儲存」。
 3. 真的跑一輪派工，確認 playwright-cli 操作正常。
-4. 確認沒問題後合併回 main。
-5. 設定頁新列與 `panex-cli browser-login` 在 Windows 以外沒測。
+4. README（英文與 `translations/README.zh-Hant.md`）補上這個設定與「登入並儲存」的用法。
+5. 確認沒問題後合併回 main。
+6. 設定頁新列與 `panex-cli browser-login` 在 Windows 以外沒測。
 
 ## 2026-10-22 — 發佈 v0.4.5（側欄 worktree 標示與群組）
 
