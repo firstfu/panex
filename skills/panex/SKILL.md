@@ -1,9 +1,9 @@
 ---
 name: panex
-description: Start "panlings" - other coding agents in new panex terminal tabs (each optionally in its own git worktree) and wait for them to finish. Use only inside panex (the PANEX_PANE_ID environment variable is set), when the user asks to split work across parallel agents, try several approaches side by side, or hand a task to an agent they can watch.
+description: Start other coding agents in new panex terminal tabs (each optionally in its own git worktree) and wait for them to finish. Use only inside panex (the PANEX_PANE_ID environment variable is set), when the user asks to split work across parallel agents, try several approaches side by side, or hand a task to an agent they can watch.
 ---
 
-# panex panlings: parallel agents in tabs the user can see
+# panex: parallel agents in tabs the user can see
 
 (panex installs this file and replaces it when it updates; edits here don't last.)
 

@@ -28,7 +28,7 @@ fn main() {
     }
 }
 
-const HELP: &str = r#"panex-cli: start agents in new panex tabs ("panlings") and wait for them.
+const HELP: &str = r#"panex-cli: start agents in new panex tabs and wait for them.
 Works only inside a panex tab (PANEX_PANE_ID, PANEX_PIPE and PANEX_TOKEN are set there).
 Answers are one line of JSON on stdout. Exit code: 0 ok, 1 error, 2 wait timed out.
 

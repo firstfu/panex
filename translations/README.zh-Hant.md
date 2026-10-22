@@ -40,9 +40,9 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 
 panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不用另外開啟。其他工具也能發通知：執行 `panex-cli notify "訊息"`，或輸出 BEL、OSC 9、OSC 777 序列。
 
-### 小窗格模式（panlings）：讓 agent 帶出一群 agent
+### 讓 agent 帶出其他 agent
 
-在 panex 分頁裡請 Claude Code 把一件工作分給幾個 agent 平行處理，它會把它們開成 panlings：新的工作區排在它自己的下方，可以各自用一個 git worktree，在你看得到、也能直接打字的分頁裡工作。它會等它們做完；有子 agent 在等你回答時，它會告訴你是哪一個，不會替你回答；做完後再從 git 收回成果。
+在 panex 分頁裡請 Claude Code 把一件工作分給幾個 agent 平行處理，它會把它們開在新的工作區裡，排在它自己的下方，可以各自用一個 git worktree，在你看得到、也能直接打字的分頁裡工作。它會等它們做完；有子 agent 在等你回答時，它會告訴你是哪一個，不會替你回答；做完後再從 git 收回成果。
 
 背後是兩個任何 agent 都能在 panex 裡執行的指令：`panex-cli open` 在新的工作區（可以加開新的 worktree）執行一個指令，不會切走你的畫面；`panex-cli wait` 會等到這些 agent 做完或需要你為止。細節見 `panex-cli help`。panex 會安裝一個小小的 Claude Code skill，教 Claude 怎麼用這兩個指令。只有在 panex 裡開出來的程序能下這些指令。
 
@@ -129,7 +129,7 @@ panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例�
 
 ### Claude Code 通知
 
-panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks，或它們指向舊的安裝位置，就會自動加入。寫入前會先備份，你原本的其他 hooks 都會保留。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。panex 也會維護 `~/.claude/skills/panex/SKILL.md`，告訴 Claude 怎麼開 panlings（見上方「小窗格模式」）；這個 skill 在 panex 以外不會做任何事。
+panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks，或它們指向舊的安裝位置，就會自動加入。寫入前會先備份，你原本的其他 hooks 都會保留。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。panex 也會維護 `~/.claude/skills/panex/SKILL.md`，告訴 Claude 怎麼帶出其他 agent（見上方「讓 agent 帶出其他 agent」）；這個 skill 在 panex 以外不會做任何事。
 
 ## 設定
 
