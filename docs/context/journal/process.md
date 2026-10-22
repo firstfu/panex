@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 設定「小工人測網頁用」（分支 feat/crew-browser，未合併）
+
+**變更**
+- 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome，預設 none），schema、i18n 同步。
+- `panex-cli help` 每次執行都讀 `panex.json`（路徑規則同 `config::dir`，不連結 panex_lib 以免拖進 Tauri），依設定在說明尾端加一段：playwright＝小工人以 `claude --no-chrome` 啟動、`playwright-cli -s=<分支> attach --extension` 接使用者的 Chrome、只用自己 `tab-new` 開的分頁、做完 `detach` 不 `close`；claude-in-chrome＝以 `claude --chrome` 啟動。
+- 實測（使用者的 Chrome＋Playwright Extension，`@playwright/cli` 0.1.22）：同一時間只能有一個 session 接上，第二個 `attach` 報「Could not start the session」，前一個 `detach` 後就接得上；兩個同時連，只跳一個允許頁。允許頁可以不選分頁（按單純的 Allow），agent 自己 `tab-new` 開的分頁進綠色「Playwright」群組；接上後 `tab-list` 只看得到群組內的分頁。help 已寫明「一次一個 agent 做瀏覽器那段」。
+
+**為什麼**
+- 使用者要小工人在 worktree 上做 e2e 時沿用自己 Chrome 的登入，並能在設定頁選工具；社群評測 Playwright CLI 比 MCP 省 token、比 Claude in Chrome 快且穩。
+
+**下一步**
+- 使用者驗收設定頁與實際派工一輪，再決定合併。
+- 允許頁上的 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` 等於整個瀏覽器的鑰匙，不寫進 panex 設定；要免按允許由使用者自己設環境變數。
+- 在 main 直接 `cargo test` 會因 `macos-private-api` 與 tauri.conf 不符而失敗，要帶 `TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}'`。
+
 ## 2026-10-22 — 發佈 v0.4.5（側欄 worktree 標示與群組）
 
 **變更**

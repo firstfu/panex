@@ -94,10 +94,15 @@ Testing web pages (the user picked Playwright with their own Chrome in panex's s
         playwright-cli -s=BRANCH tab-new URL            work only in tabs you opened
         playwright-cli -s=BRANCH snapshot / click / fill / screenshot ...
         playwright-cli -s=BRANCH detach                 when done; never `close`, it is the user's browser
+    Only one agent can be attached to the user's Chrome at a time: another attach fails with
+    "Could not start the session" until the first one detaches. So let one agent at a time do
+    the browser part (have the others wait for it, or do it yourself after they commit), and
+    have every agent detach as soon as its browser checks are done.
     playwright-cli is the npm package @playwright/cli (use `npx -y @playwright/cli` if it is not
     installed). It needs the Playwright Extension in the user's Chrome; unless
     PLAYWRIGHT_MCP_EXTENSION_TOKEN is set, the user must approve each connection in Chrome, and
-    the agent just looks busy until they do, so tell them.
+    the agent just looks busy until they do, so tell them to click the plain "Allow" (no tab
+    needed: the agent opens its own tabs, which go into the green "Playwright" tab group).
 "#,
         "claude-in-chrome" => r#"
 Testing web pages (the user picked Claude in Chrome in panex's settings):
