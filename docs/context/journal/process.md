@@ -4,19 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-22 — 設定「小工人測網頁用」（分支 feat/crew-browser，未合併）
+## 2026-10-22 — 設定「小工人測網頁用」＋共用登入（分支 feat/crew-browser，未合併）
 
 **變更**
-- 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome，預設 none），schema、i18n 同步。
-- `panex-cli help` 每次執行都讀 `panex.json`（路徑規則同 `config::dir`，不連結 panex_lib 以免拖進 Tauri），依設定在說明尾端加一段：playwright＝小工人以 `claude --no-chrome` 啟動、`playwright-cli -s=<分支> attach --extension` 接使用者的 Chrome、只用自己 `tab-new` 開的分頁、做完 `detach` 不 `close`；claude-in-chrome＝以 `claude --chrome` 啟動。
-- 實測（使用者的 Chrome＋Playwright Extension，`@playwright/cli` 0.1.22）：同一時間只能有一個 session 接上，第二個 `attach` 報「Could not start the session」，前一個 `detach` 後就接得上；兩個同時連，只跳一個允許頁。允許頁可以不選分頁（按單純的 Allow），agent 自己 `tab-new` 開的分頁進綠色「Playwright」群組；接上後 `tab-list` 只看得到群組內的分頁。help 已寫明「一次一個 agent 做瀏覽器那段」。
+- 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome，預設 none）與 `agent.crewLoginUrl`；選 playwright 時多一列「小工人共用的登入」（網址欄＋「登入並儲存」）。
+- `panex-cli browser-login`：從 panex.json 讀登入網址（不經命令列，免得 `&`、`%` 被 cmd 吃掉），用 `npx -y @playwright/cli@0.1.22` 開有畫面的瀏覽器、等使用者登入後按 Enter，存 `auth.json`（cookie＋localStorage）並把當下頁面的 sessionStorage 寫成 `session-init.js`，產生 `cli.config.json`（isolated＋storageState＋initScript），都放在設定資料夾的 `playwright/`。設定頁按鈕開新工作區打這個指令。
+- `panex-cli help` 每次讀設定：playwright＝小工人以 `claude --no-chrome` 啟動、各自 `-s=<分支> open --headed --config=<cli.config.json>`、做完 `close`；說明 initScript 會在每次載入補回登入，所以測登出要開不帶 config 的 session。
+- 驗證：Rust 26 個測試（新增 help 與 init script 產生）、`tsc`、`npm test`；用本機假網站跑完整流程：`browser-login` 存檔、兩個 session 同時以 config 開首頁都保持登入、新分頁也登入、不帶 config 的被導回登入頁。
 
 **為什麼**
-- 使用者要小工人在 worktree 上做 e2e 時沿用自己 Chrome 的登入，並能在設定頁選工具；社群評測 Playwright CLI 比 MCP 省 token、比 Claude in Chrome 快且穩。
+- 先做過「Playwright Extension 接使用者自己的 Chrome」：實測同一時間只能一個 session 接上，允許頁還會把整個瀏覽器（含所有登入與 token）交出去，改成每人獨立瀏覽器＋共用登入，可同時測、不碰使用者的 Chrome。
+- 只存 storageState 不夠：被測系統把登入放在 sessionStorage（Playwright 不存），換新瀏覽器會被導回登入頁，所以另存 sessionStorage 並用 initScript 補回。
 
 **下一步**
-- 使用者驗收設定頁與實際派工一輪，再決定合併。
-- 允許頁上的 `PLAYWRIGHT_MCP_EXTENSION_TOKEN` 等於整個瀏覽器的鑰匙，不寫進 panex 設定；要免按允許由使用者自己設環境變數。
+- 設定頁新列的版面沒在測試實例上看過；使用者驗收時實際按一次「登入並儲存」並派工一輪，再決定合併。
+- initScript 只處理登入當下那個 origin；跨網域登入（SSO 回跳）只會補到最後停留的網域。
 - 在 main 直接 `cargo test` 會因 `macos-private-api` 與 tauri.conf 不符而失敗，要帶 `TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}'`。
 
 ## 2026-10-22 — 發佈 v0.4.5（側欄 worktree 標示與群組）

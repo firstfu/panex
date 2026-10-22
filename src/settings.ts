@@ -21,6 +21,7 @@ export interface Settings {
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
   crewBrowser: "none" | "playwright" | "claude-in-chrome"; // what crew agents test web pages with (panex-cli help reads it)
+  crewLoginUrl: string; // page `panex-cli browser-login` opens to save a login for crew agents' browsers
   windowWidth: number; // size the window opens at (logical px)
   windowHeight: number;
 }
@@ -41,6 +42,7 @@ export const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
   crewBrowser: ["agent", "crewBrowser"],
+  crewLoginUrl: ["agent", "crewLoginUrl"],
   windowWidth: ["app", "windowWidth"],
   windowHeight: ["app", "windowHeight"],
 };
@@ -62,6 +64,7 @@ export const DEFAULTS: Settings = {
   confirmClose: true,
   openFilesWith: "system",
   crewBrowser: "none",
+  crewLoginUrl: "",
   // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
   windowWidth: 1400,
   windowHeight: 820,

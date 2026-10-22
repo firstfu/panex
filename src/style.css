@@ -416,6 +416,8 @@ body.git-viewing #terms > .term { visibility: hidden; }
 .row-text span { font-size: 12.5px; line-height: 1.5; color: var(--s-muted); max-width: 46ch; }
 .row.stack .row-text span { max-width: 64ch; }
 .row-ctl { flex: none; display: flex; align-items: center; gap: 10px; }
+.row[hidden] { display: none; }
+#s-crew-login-url { width: 240px; }
 
 .field {
   font: inherit; font-size: 13px; color: var(--s-text); background: var(--s-field);

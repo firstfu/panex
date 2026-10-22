@@ -191,9 +191,16 @@
               <div class="row-ctl">
                 <div class="seg" id="s-crew-browser" role="radiogroup">
                   <button data-v="none" role="radio" data-i18n>不指定</button>
-                  <button data-v="playwright" role="radio" data-i18n>Playwright（接我的 Chrome）</button>
+                  <button data-v="playwright" role="radio" data-i18n>Playwright（共用登入）</button>
                   <button data-v="claude-in-chrome" role="radio">Claude in Chrome</button>
                 </div>
+              </div>
+            </div>
+            <div class="row" id="s-crew-login-row">
+              <div class="row-text"><b data-i18n>小工人共用的登入</b><span data-i18n>填測試站的登入頁，按「登入並儲存」後在開出來的瀏覽器登入一次；每個小工人各開自己的 Playwright 瀏覽器，一開就是登入狀態。過期再按一次</span></div>
+              <div class="row-ctl">
+                <input id="s-crew-login-url" class="field" type="url" spellcheck="false" placeholder="https://test.example.com/login" />
+                <button type="button" id="s-crew-login" class="ghost" data-i18n>登入並儲存</button>
               </div>
             </div>
             <div class="row">

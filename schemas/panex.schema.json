@@ -123,7 +123,12 @@
         "crewBrowser": {
           "enum": ["none", "playwright", "claude-in-chrome"],
           "default": "none",
-          "description": "小隊模式（panex-cli open）的 agent 要開瀏覽器測網頁時用哪個工具，panex-cli help 會照這個指示帶頭的 agent。none＝不指定；playwright＝Playwright CLI 透過 Playwright Extension 接使用者自己的 Chrome（沿用登入），小工人以 claude --no-chrome 啟動；claude-in-chrome＝用 Claude in Chrome。"
+          "description": "小隊模式（panex-cli open）的 agent 要開瀏覽器測網頁時用哪個工具，panex-cli help 會照這個指示帶頭的 agent。none＝不指定；playwright＝每個小工人各開自己的 Playwright 瀏覽器，帶 crewLoginUrl 存下的登入，小工人以 claude --no-chrome 啟動；claude-in-chrome＝用 Claude in Chrome。"
+        },
+        "crewLoginUrl": {
+          "type": "string",
+          "default": "",
+          "description": "crewBrowser 為 playwright 時，panex-cli browser-login（設定頁「登入並儲存」）開的登入頁。登入狀態存在 panex 設定資料夾的 playwright/，小工人的瀏覽器一開就是登入狀態。"
         }
       }
     },
