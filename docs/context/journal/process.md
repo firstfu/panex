@@ -7,11 +7,12 @@
 ## 2026-10-22 — 未完成：小工人測網頁用的瀏覽器（分支 feat/crew-browser，在獨立 worktree，main 未動）
 
 **變更**
-- 工作不在 main，在獨立 worktree `../panex-worktrees/crew-browser`（分支 `feat/crew-browser`，已推到 GitHub、未合併；main 本身無改動）。4 個 commit：
+- 工作不在 main，在獨立 worktree `../panex-worktrees/crew-browser`（分支 `feat/crew-browser`，已推到 GitHub、未合併；main 本身無改動）。5 個 commit：
   - `6f89350` 設定頁「終端機」加 `agent.crewBrowser`（none／playwright／claude-in-chrome），`panex-cli help` 依設定分流說明。
   - `afb3514` 先做的版本：小工人用 Playwright CLI 透過 Playwright Extension 接使用者自己的 Chrome。實測發現同一時間只能一個 session 連線，第二個會報 `Could not start the session`；且擴充功能的允許頁會把整個瀏覽器（所有登入與 cookie）交給連線方。
   - `98db5fc` 改掉 `afb3514` 那版：換成每個小工人各開自己的 Playwright 瀏覽器＋共用一份登入（`panex-cli browser-login`）。發現測試站把登入狀態放在 `sessionStorage`，Playwright 的 `state-save` 不存這個，只存 cookie／localStorage 的話換瀏覽器會被踢回登入頁；改成額外抓一次 sessionStorage 寫成 init script，開瀏覽器時補回去。
   - `27efdf2` `skills/panex/SKILL.md` 加一條：小工人的工作動到網頁畫面時，`TASK.md` 一定要寫瀏覽器驗收（照 `panex-cli help` 的方式），通過才 commit；help 沒指定瀏覽器工具就先問使用者。
+  - `README` 英文與繁中補上「驗網頁畫面」一段；「隱私」改寫：選 Playwright 時 `npx` 會從 npm 下載 `@playwright/cli`（第一次可能連瀏覽器），是 panex 唯二的連網例外之一。
 - 驗收：`tsc`、`npm test`（6）、`cargo test`（26，`TAURI_CONFIG='{"app":{"macOSPrivateApi":true}}'` 才跑得過，main 本身直接 `cargo test` 也會因這個不符而失敗，跟這次改動無關）全過；用本機假網站（`python -m http.server`）完整跑過 `browser-login` 存檔 → 兩個 session 同時以 `cli.config.json` 開都保持登入 → 新分頁登入狀態保留 → 不帶 config 的 session 被導回登入頁，四段都驗證過。**使用者自己還沒在畫面上看過設定頁新列的排版，也還沒拿真的小工人派工驗收過。**
 
 **為什麼**
@@ -22,7 +23,7 @@
 1. 進 `../panex-worktrees/crew-browser`（或 `git switch feat/crew-browser`），驗收設定頁「小工人測網頁用」新列與「登入並儲存」按鈕的實際排版（只過 tsc，沒人眼看過）。
 2. 對一個測試站實際按一次「登入並儲存」。
 3. 真的跑一輪派工（任務要動到網頁畫面），確認帶頭的 agent 有把瀏覽器驗收寫進 `TASK.md`、小工人 playwright-cli 操作正常。
-4. README（英文與 `translations/README.zh-Hant.md`）補上這個設定與「登入並儲存」的用法。
+4. README 已補（分支上），驗收時順便看文字跟畫面對不對得上。
 5. 確認沒問題後合併回 main。
 6. 設定頁新列與 `panex-cli browser-login` 在 Windows 以外沒測。
 
