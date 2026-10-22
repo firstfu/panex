@@ -11,6 +11,7 @@
 - 使用者的 panex 開著時 `target/release/panex.exe` 被鎖住，可設 `CARGO_TARGET_DIR` 到別處建置。
 - 測試實例還開著時再建置 `test-build`，會因 `panex.exe` 被鎖住而報 `存取被拒 (os error 5)`，但背景指令的 exit code 仍是 0，很容易誤以為建好了、拿舊版在測。建置前先關掉測試實例，建完用 `ls -la --time-style=full-iso` 確認 exe 時間戳。
 - release 設了 `lto = true`＋`codegen-units = 1`，每次建置要好幾分鐘。**驗證功能用 `[profile.test-build]`**（不 LTO、平行 codegen、增量）：`cargo tauri build --no-bundle --config '…' -- --profile test-build`，產物在 `target\test-build\panex.exe`；發布安裝檔仍用 release。
+- **`cargo tauri build` 會改寫 `src-tauri/Cargo.toml`**：Windows 上 `tauri.conf.json` 沒開 macOS private API，CLI 會把 `[dependencies]` 的 `tauri = { …, features = ["macos-private-api"] }` 自動改成 `features = []`。建置完用 `git diff src-tauri/Cargo.toml` 檢查並改回，不要連同功能一起 commit。反過來，直接 `cargo check` 會因為 feature 和設定檔對不上而失敗（`The tauri dependency features … does not match the allowlist`），Rust 端驗證一律走 `cargo tauri build`。
 
 ## 獨立測試實例（不碰使用者正在用的 panex）
 

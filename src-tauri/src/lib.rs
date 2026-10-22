@@ -1,4 +1,5 @@
 mod config;
+mod fonts;
 mod git;
 mod hooks;
 mod notify;
@@ -75,6 +76,7 @@ pub fn run() {
             config::config_load,
             config::config_set,
             config::config_open,
+            fonts::fonts_list,
             session::scrollback_load,
             session::scrollback_save,
             notify::alert,

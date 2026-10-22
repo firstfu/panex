@@ -4,6 +4,44 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-22 — 終端機彩色 emoji＋字型改下拉選單
+
+**變更**
+- 新增 `@font-face "panex emoji"`（`local()` Segoe UI Emoji／Apple Color Emoji／Noto Color Emoji）。`unicode-range` 只包含預設就是 emoji 的字元，另外加上 ⚠。改完後 ⚠ ✨ 會顯示成彩色，⏺ ✳ ⏸ ✔ 仍是單色、照樣跟著前景色變色。xterm 開啟 `rescaleOverlappingGlyphs`；啟動時先用 `document.fonts.load` 載入 emoji 字型，再呼叫 `clearTextureAtlas`。
+- 交給 xterm 的字型字串改由 `termFontFamily()` 組成：最前面固定是 emoji 字型，接著是使用者選的字型，再補上中文備援字型和 `monospace`。
+- 設定頁的字型欄位從手打 CSS 字串改成下拉選單，選項有「預設」、已安裝的等寬字型、「自訂…」，選「自訂…」時才顯示原本的文字框。舊的 `fontFamily` 值照樣能讀，不需要遷移。
+- Rust 新增 `fonts::fonts_list`，用 `fontdb` 列出系統裡的等寬字型。只在第一次打開設定頁時掃描一次，閒置時沒有負擔。
+- 測試實例實測：彩色 emoji、字型清單（14 個）、挑選字型、自訂、改回預設都能正確寫回 `panex.json`。測試中發現「自訂」選項的值原本用 `\u0000`，已修正。
+
+**為什麼**
+- 使用者 statusline 的 ⚠ 在 panex 裡是單色線條，在 Windows Terminal 裡是彩色 emoji，使用者要彩色版。原因是預設字型都沒有 ⚠，WebView2 自動挑了 Segoe UI Symbol 來畫。
+- 字型原本要手打 CSS 字串，容易打錯。
+
+**影響檔案**
+- `src/main.ts`（`termFontFamily`、`fillFontPicker`、`FONT_CUSTOM`、`emojiFontReq`）、`src/style.css`、`index.html`、`src/i18n.ts`、`schemas/panex.schema.json`
+- `src-tauri/src/fonts.rs`（新增）、`src-tauri/src/lib.rs`、`src-tauri/Cargo.toml`／`Cargo.lock`（`fontdb` 0.23）
+
+**下一步**
+- 尚未 commit。請使用者在自己的 panex 上確認 Claude Code 畫面：⚠ 是否為彩色、狀態圓點的顏色有沒有受影響。
+
+## 2026-10-22 — 側邊欄狀態顯示改版（執行中／需回應／完成）
+
+**變更**
+- 原本三種狀態都只靠整列淡底色區分（執行中底色太淡，選中時又被 active 底色蓋掉，幾乎看不出來）。改成每列有明確的狀態列：執行中＝轉圈圖示＋「執行中…」＋右側即時計時（每秒更新）；需要回應＝藍點＋通知內容，仍保留淡藍底讓它跟單純在跑的列分開；完成＝綠勾＋這一輪花了多久。執行中另外在卡片底部加一道左右掃動的光帶。
+- 計時：`Tab` 新增 `runStart`（本輪開始時間）/`runMs`（上一輪耗時），從送出提示到完成都算，中途等待權限核准不會被歸零。計時器只在畫面上有「執行中」列時才跑 `setInterval`，沒有就自己清掉，不常駐背景。
+- 系統開啟「減少動態效果」時，轉圈與掃描光帶都會停住。
+
+**為什麼**
+- 使用者反映側邊欄狀態「不太清楚與明白」，希望比照 cmux 的清楚度但不要原樣抄，要有 panex 自己的特色（計時是 cmux 沒有的）。
+
+**影響檔案**
+- `src/main.ts`（`stateLine`、`fmtDuration`、`startElapsedTimer`、`wsStatus`、`notify`、`Tab` 型別）
+- `src/style.css`（`.t-state`、`.s-ico`、`.t-time`、`.t-scan` 相關樣式）
+- `src/i18n.ts`（新增「執行中…」「已執行時間」「這一輪花的時間」）
+
+**下一步**
+- 尚未用測試實例實機截圖確認三種狀態的視覺效果與光帶動畫速度，使用者看過後可能要再微調。
+
 ## 2026-10-21 — 發佈 v0.3.1（自動接回 Claude Code）
 
 **變更**

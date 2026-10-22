@@ -126,6 +126,8 @@ interface Tab {
   dirty: boolean; // output since the last scrollback snapshot
   status: Status;
   note?: string;
+  runStart?: number; // when the current agent turn started; kept through "attention" so the turn's total time is right
+  runMs?: number; // how long the last finished turn took, shown next to "done"
   initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
   agentSession?: string; // id of the Claude Code session running here (persisted; dropped once Claude exits)
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
@@ -162,6 +164,24 @@ const DEFAULTS: Settings = {
   windowHeight: 820,
 };
 
+// Appended after the chosen fonts so CJK text still has a font whatever the user picks.
+const FALLBACK_FONTS = IS_MAC ? ["PingFang TC"] : ["Microsoft JhengHei"];
+const GENERIC_FONTS = ["monospace", "ui-monospace", "sans-serif", "serif", "system-ui"];
+const FONT_CUSTOM = ":custom"; // font picker value for the free-text field (no font name starts with ':')
+
+const fontNames = (css: string) =>
+  css.split(",").map((f) => f.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+const cssFont = (name: string) => (GENERIC_FONTS.includes(name.toLowerCase()) ? name : `'${name}'`);
+
+/** What xterm gets: the "panex emoji" face (style.css) first so emoji win over the chosen font's
+ *  own glyphs, then the user's fonts, the CJK fallback and monospace. */
+function termFontFamily(css: string): string {
+  const names = fontNames(css).filter((n) => n.toLowerCase() !== "monospace");
+  const have = new Set(names.map((n) => n.toLowerCase()));
+  const extra = FALLBACK_FONTS.filter((n) => !have.has(n.toLowerCase()));
+  return ["panex emoji", ...names, ...extra, "monospace"].map(cssFont).join(", ");
+}
+
 // Same palette names as cmux's workspace colors.
 const COLORS: Record<string, string> = {
   red: "#ef4444",
@@ -190,6 +210,7 @@ let settings: Settings = { ...DEFAULTS };
 let rawConfig: any = {};
 let configPath = "";
 let configError: string | undefined;
+let emojiFontReq: Promise<void> | undefined;
 let bindings = resolveBindings(undefined);
 let chord: { steps: string[]; timer: number } | undefined;
 let capturingId: string | undefined;
@@ -248,14 +269,23 @@ function wsTitle(ws: Workspace): string {
   return t ? tabTitle(t) : tr("工作區");
 }
 
-/** The loudest status among a workspace's tabs, with that tab's note. */
-function wsStatus(ws: Workspace): { status: Status; note?: string } {
+/** The loudest status among a workspace's tabs, with the tab it comes from. */
+function wsStatus(ws: Workspace): { status: Status; tab?: Tab } {
   let best: Tab | undefined;
   for (const id of ws.tabs) {
     const t = tabs.get(id);
     if (t && (!best || STATUS_RANK[t.status] > STATUS_RANK[best.status])) best = t;
   }
-  return { status: best?.status ?? "idle", note: best?.note };
+  return { status: best?.status ?? "idle", tab: best };
+}
+
+/** 83 s → "1:23", 4000 s → "1:06:40". */
+function fmtDuration(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor(s / 60) % 60;
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
 }
 
 // ── Settings ────────────────────────────────────────────────────────────────
@@ -293,7 +323,7 @@ function applySettings() {
   }
   for (const tab of tabs.values()) {
     tab.term.options.fontSize = settings.fontSize;
-    tab.term.options.fontFamily = settings.fontFamily;
+    tab.term.options.fontFamily = termFontFamily(settings.fontFamily);
     tab.term.options.cursorBlink = settings.cursorBlink;
   }
   const tab = activeTab();
@@ -330,6 +360,11 @@ function applyConfig(loaded: LoadedConfig) {
     scheduleRender();
   }
   renderConfigNotice();
+  // The emoji face loads on first use, and xterm caches whatever glyph it drew before that.
+  emojiFontReq ??= document.fonts
+    .load(`16px "panex emoji"`, "⚠")
+    .then(() => tabs.forEach((t) => t.opened && t.term.clearTextureAtlas()))
+    .catch(() => {});
   if (!settingsEl.hidden && !capturingId) openSettings();
 }
 
@@ -446,7 +481,9 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
     scrollback: settings.scrollback,
     cursorBlink: settings.cursorBlink,
     fontSize: settings.fontSize,
-    fontFamily: settings.fontFamily,
+    fontFamily: termFontFamily(settings.fontFamily),
+    // Squeezes one-cell characters drawn wider than a cell (⚠ as an emoji) back into their cell.
+    rescaleOverlappingGlyphs: true,
     theme: termTheme(),
     windowsPty: isWindows ? { backend: "conpty", buildNumber: winBuild } : undefined,
   });
@@ -496,6 +533,14 @@ function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
   }
 
   term.onData((d) => onInput(tab, d));
+  // xterm sends a bare \r for Ctrl+Enter; send ESC+CR (what Alt+Enter sends) so Claude Code inserts a newline.
+  if (isWindows) {
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.key !== "Enter" || !e.ctrlKey || e.altKey || e.shiftKey || e.metaKey) return true;
+      if (e.type === "keydown") onInput(tab, "\x1b\r");
+      return false;
+    });
+  }
   term.onResize(({ cols, rows }) => {
     if (tab.running) invoke("pty_resize", { id: tab.id, cols, rows }).catch(() => {});
   });
@@ -899,10 +944,16 @@ function clearStatus(tab: Tab) {
 
 function notify(tab: Tab, status: Status, note: string) {
   if (status === "running") {
+    if (tab.status !== "running") tab.runStart = Date.now();
     tab.status = "running";
     tab.note = undefined;
+    tab.runMs = undefined;
     scheduleRender();
     return;
+  }
+  if (status === "done") {
+    tab.runMs = tab.runStart ? Date.now() - tab.runStart : undefined;
+    tab.runStart = undefined;
   }
   // The user is already looking at this tab: no badge, no toast.
   if (focused && tab.id === visibleTabId) {
@@ -989,7 +1040,7 @@ function renderSidebar() {
     ...wsOrder.map((wid, i) => {
       const ws = workspaces.get(wid)!;
       const cur = wsActiveTab(ws);
-      const { status, note } = wsStatus(ws);
+      const { status, tab: st } = wsStatus(ws);
       const d = document.createElement("div");
       d.className = `tab ws st-${status}${wid === activeWsId ? " active" : ""}`;
       d.dataset.ws = wid;
@@ -1005,11 +1056,45 @@ function renderSidebar() {
         `<div class="t-title">${title}</div>` +
         (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.cwd ?? "")}</div>` : "") +
         (cur?.branch ? `<div class="t-branch" title="git branch">⎇ ${esc(cur.branch)}</div>` : "") +
-        (note ? `<div class="t-note">${esc(note)}</div>` : "") +
+        stateLine(status, st) +
         `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
       return d;
     }),
   );
+  if (wsListEl.querySelector(".t-elapsed")) startElapsedTimer();
+}
+
+/** The status row under a workspace: glyph, note and the turn's running/finished time; running also gets the scan line. */
+function stateLine(status: Status, tab?: Tab): string {
+  if (status === "idle" || !tab) return "";
+  let text = tab.note ?? "";
+  let time = "";
+  if (status === "running") {
+    text = tr("執行中…");
+    if (tab.runStart) time = `<span class="t-time t-elapsed" data-start="${tab.runStart}" title="${esc(tr("已執行時間"))}">${fmtDuration(Date.now() - tab.runStart)}</span>`;
+  } else if (status === "done" && tab.runMs !== undefined) {
+    time = `<span class="t-time" title="${esc(tr("這一輪花的時間"))}">${fmtDuration(tab.runMs)}</span>`;
+  }
+  return (
+    `<div class="t-state ${status}"><span class="s-ico ${status}"></span><span class="t-note">${esc(text)}</span>${time}</div>` +
+    (status === "running" ? '<span class="t-scan"></span>' : "")
+  );
+}
+
+let elapsedTimer: number | undefined;
+
+/** Ticks the running-time counters once a second; stops itself as soon as none is on screen. */
+function startElapsedTimer() {
+  if (elapsedTimer !== undefined) return;
+  elapsedTimer = window.setInterval(() => {
+    const els = wsListEl.querySelectorAll<HTMLElement>(".t-elapsed");
+    if (!els.length) {
+      clearInterval(elapsedTimer);
+      elapsedTimer = undefined;
+      return;
+    }
+    for (const el of els) el.textContent = fmtDuration(Date.now() - Number(el.dataset.start));
+  }, 1000);
 }
 
 function renderTabbar() {
@@ -1300,10 +1385,9 @@ function fillSettings() {
   setSeg("s-effect", settings.effect);
   setSeg("s-language", settings.language);
   $<HTMLInputElement>("s-font-size").value = String(settings.fontSize);
-  const ff = $<HTMLInputElement>("s-font-family");
-  if (document.activeElement !== ff) ff.value = settings.fontFamily;
+  fillFontPicker();
   const sample = $("font-sample");
-  sample.style.fontFamily = settings.fontFamily;
+  sample.style.fontFamily = termFontFamily(settings.fontFamily);
   sample.style.fontSize = `${settings.fontSize}px`;
   $("s-shell").innerHTML = shells.map((s) => `<button data-v="${s.id}" role="radio">${esc(tr(s.name))}</button>`).join("");
   setSeg("s-shell", settings.defaultShell);
@@ -1318,8 +1402,43 @@ function fillSettings() {
   renderKeys();
 }
 
+let fontList: string[] | undefined; // installed monospaced families, fetched the first time settings open
+let fontsReq: Promise<void> | undefined;
+let fontCustom = false; // the free-text font field is showing
+
+function fillFontPicker() {
+  const pick = $<HTMLSelectElement>("s-font-pick");
+  const ff = $<HTMLInputElement>("s-font-family");
+  const names = fontNames(settings.fontFamily);
+  const isDefault = settings.fontFamily === DEFAULTS.fontFamily;
+  const single = names.length === 1 && !GENERIC_FONTS.includes(names[0].toLowerCase()) ? names[0] : undefined;
+  // Before the list arrives, still offer the current font so the picker shows it.
+  const list = fontList ?? (single ? [single] : []);
+  if (!isDefault && !(single && list.includes(single))) fontCustom = true;
+  const value = fontCustom ? FONT_CUSTOM : isDefault ? "" : single!;
+  if (document.activeElement !== pick) {
+    const opt = (v: string, label: string) =>
+      `<option value="${esc(v)}"${v === value ? " selected" : ""}>${esc(label)}</option>`;
+    pick.innerHTML = [
+      opt("", `${tr("預設")}（${fontNames(DEFAULTS.fontFamily)[0]}）`),
+      ...list.map((n) => opt(n, n)),
+      fontList ? "" : `<option disabled>${esc(tr("讀取字型清單…"))}</option>`,
+      opt(FONT_CUSTOM, tr("自訂…")),
+    ].join("");
+  }
+  ff.hidden = !fontCustom;
+  ff.placeholder = tr("CSS font-family，可列多個字型，前面的找不到就用下一個");
+  if (document.activeElement !== ff) ff.value = settings.fontFamily;
+}
+
 function openSettings() {
   hideCtx();
+  fontsReq ??= invoke<string[]>("fonts_list")
+    .then((l) => void (fontList = l))
+    .catch(() => void (fontList = []))
+    .then(() => {
+      if (!settingsEl.hidden) fillSettings();
+    });
   fillSettings();
   showSettingsPage(settingsPage);
   const wasHidden = settingsEl.hidden;
@@ -1483,9 +1602,20 @@ $<HTMLInputElement>("s-font-size").onchange = (e) => {
   setFontSize(+(e.target as HTMLInputElement).value || DEFAULTS.fontSize);
   fillSettings();
 };
+$<HTMLSelectElement>("s-font-pick").onchange = (e) => {
+  const v = (e.target as HTMLSelectElement).value;
+  fontCustom = v === FONT_CUSTOM;
+  if (fontCustom) {
+    fillSettings();
+    $("s-font-family").focus();
+    return;
+  }
+  updateSettings({ fontFamily: v ? cssFont(v) : DEFAULTS.fontFamily });
+  fillSettings();
+};
 $<HTMLInputElement>("s-font-family").oninput = (e) => {
   // Live preview while typing; saved when the field loses focus.
-  $("font-sample").style.fontFamily = (e.target as HTMLInputElement).value || DEFAULTS.fontFamily;
+  $("font-sample").style.fontFamily = termFontFamily((e.target as HTMLInputElement).value || DEFAULTS.fontFamily);
 };
 $<HTMLInputElement>("s-font-family").onchange = (e) =>
   updateSettings({ fontFamily: (e.target as HTMLInputElement).value.trim() || DEFAULTS.fontFamily });

@@ -71,7 +71,7 @@
         "fontFamily": {
           "type": "string",
           "default": "'Cascadia Mono', Consolas, 'Microsoft JhengHei', monospace",
-          "description": "CSS font-family 字串，可列多個字型做備援。預設依平台而定：Windows 如上，macOS 為 ui-monospace, Menlo, 'PingFang TC', monospace。"
+          "description": "CSS font-family 字串，可列多個字型做備援（設定頁可從已安裝的等寬字型挑選）。panex 會自動在前面加上彩色 emoji 字型、後面補上中文字型與 monospace。預設依平台而定：Windows 如上，macOS 為 ui-monospace, Menlo, 'PingFang TC', monospace。"
         },
         "cursorBlink": {
           "type": "boolean",

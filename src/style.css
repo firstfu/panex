@@ -1,3 +1,15 @@
+/* Color emoji in the terminal, limited to characters that are emoji by default plus ⚠ (U+26A0).
+   Keep ⏺ ✳ ⏸ ✔ out: CLIs like Claude Code color them with the foreground color to show state. */
+@font-face {
+  font-family: "panex emoji";
+  src: local("Segoe UI Emoji"), local("Apple Color Emoji"), local("Noto Color Emoji");
+  unicode-range: U+231A-231B, U+23E9-23EC, U+23F0, U+23F3, U+25FD-25FE, U+2614-2615, U+2648-2653, U+267F, U+2693,
+    U+26A0-26A1, U+26AA-26AB, U+26BD-26BE, U+26C4-26C5, U+26CE, U+26D4, U+26EA, U+26F2-26F3, U+26F5, U+26FA, U+26FD,
+    U+2705, U+270A-270B, U+2728, U+274C, U+274E, U+2753-2755, U+2757, U+2795-2797, U+27B0, U+27BF, U+2B1B-2B1C,
+    U+2B50, U+2B55, U+1F004, U+1F0CF, U+1F18E, U+1F191-1F19A, U+1F1E6-1F1FF, U+1F201, U+1F21A, U+1F22F,
+    U+1F232-1F236, U+1F238-1F23A, U+1F250-1F251, U+1F300-1FAFF;
+}
+
 :root {
   /* --alpha is set from the opacity setting; the window itself is transparent. */
   --alpha: 1;
@@ -51,27 +63,24 @@ body.resizing-sidebar #sidebar-resizer { pointer-events: auto; }
 .tab {
   position: relative;
   padding: 7px 26px 7px 10px;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   border-radius: 6px;
   cursor: pointer;
 }
 .tab:hover { background: var(--side-hover); }
 .tab.active { background: var(--side-active); }
-/* Status shows as a soft tint, like cmux; no border or outline. */
-.tab.st-attention { background: rgba(59, 130, 246, 0.16); }
-.tab.st-done { background: rgba(34, 197, 94, 0.12); }
-.tab.st-running { background: rgba(234, 179, 8, 0.1); }
-.tab.st-attention:hover { background: rgba(59, 130, 246, 0.22); }
-.tab.st-done:hover { background: rgba(34, 197, 94, 0.18); }
-.tab.st-running:hover { background: rgba(234, 179, 8, 0.15); }
-.tab.active.st-attention, .tab.active.st-done, .tab.active.st-running { background: var(--side-active); }
+/* Status lives in the state line (glyph, note, timer) and, while running, a light sweeping along the bottom edge.
+   Only "needs you" also tints the row, so it stands out from rows that are merely busy. */
+.tab.st-attention { background: rgba(59, 130, 246, 0.14); }
+.tab.st-attention:hover { background: rgba(59, 130, 246, 0.2); }
+.tab.active.st-attention { background: rgba(59, 130, 246, 0.22); }
 /* Drop marker while reordering: a short soft-white bar in the gap, not a coloured border. */
 .tab.drop-before::before, .tab.drop-after::after {
   content: ""; position: absolute; left: 10px; right: 10px; height: 2px; border-radius: 1px;
   background: rgba(255, 255, 255, 0.55); pointer-events: none;
 }
-.tab.drop-before::before { top: -3px; }
-.tab.drop-after::after { bottom: -3px; }
+.tab.drop-before::before { top: -5px; }
+.tab.drop-after::after { bottom: -5px; }
 .tab.dragging { opacity: 0.4; }
 
 .t-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
@@ -82,8 +91,34 @@ body.show-nums .t-num { opacity: 1; }
 .t-branch { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .t-meta, .t-note { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .t-shell { font-size: 10px; padding: 0 4px; border: 1px solid #3f3f46; border-radius: 3px; margin-right: 4px; }
+.t-state { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 3px; }
+.t-state .t-note { margin-top: 0; min-width: 0; }
+.t-state.running .t-note { color: var(--running); }
 .st-attention .t-note { color: var(--attention); }
 .st-done .t-note { color: var(--done); }
+/* State glyphs: spinner = working, filled dot = needs you, check = finished. */
+.s-ico { width: 10px; height: 10px; flex: none; border-radius: 50%; }
+.s-ico.running { border: 1.5px solid rgba(234, 179, 8, 0.3); border-top-color: var(--running); }
+.s-ico.attention { background: var(--attention); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); width: 8px; height: 8px; margin: 0 1px; }
+.s-ico.done { border-radius: 0; width: 9px; height: 5px; margin: 0 0 3px 1px; border: solid var(--done); border-width: 0 0 1.5px 1.5px; transform: rotate(-45deg); }
+.t-time { margin-left: auto; padding-left: 6px; flex: none; font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0.85; }
+.t-state.running .t-time { color: var(--running); }
+.t-state.done .t-time { color: var(--done); }
+/* Scan line: a short band of light travelling along the row's bottom edge. */
+.t-scan {
+  position: absolute; left: 8px; right: 8px; bottom: 0; height: 2px; border-radius: 1px; overflow: hidden;
+  background: rgba(234, 179, 8, 0.12); pointer-events: none;
+}
+.t-scan::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 35%;
+  background: linear-gradient(90deg, transparent, var(--running), transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .s-ico.running { animation: s-spin 0.9s linear infinite; }
+  .t-scan::before { animation: s-scan 1.6s ease-in-out infinite alternate; }
+  @keyframes s-spin { to { transform: rotate(360deg); } }
+  @keyframes s-scan { from { transform: translateX(-60%); } to { transform: translateX(245%); } }
+}
 
 .rename-input {
   width: 100%; font: inherit; font-weight: 600; color: var(--fg);
@@ -271,6 +306,8 @@ button { font: inherit; }
 .field:focus { border-color: var(--s-accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2); }
 .field.num { width: 96px; text-align: right; font-variant-numeric: tabular-nums; }
 .field.num.win-size { width: 72px; }
+select.field { cursor: pointer; }
+select.field option { background: var(--s-field); color: var(--s-text); }
 /* Platform-only rows and text (body.mac is set at startup). */
 body.mac .win-only, body:not(.mac) .mac-only { display: none; }
 .unit { font-style: normal; font-size: 12.5px; color: var(--s-muted); }

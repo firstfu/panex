@@ -23,7 +23,7 @@ path = "src/bin/panex-cli.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-window-state = "2"
@@ -34,6 +34,8 @@ tokio = { version = "1", features = ["net", "io-util", "rt", "macros"] }
 base64 = "0.22"
 # kqueue: macOS backend without the extra fsevent-sys dependency (we watch one small dir).
 notify = { version = "8", default-features = false, features = ["macos_kqueue"] }
+# Font picker: pure-Rust font enumeration (no system font API bindings), used only when settings open.
+fontdb = { version = "0.23", default-features = false, features = ["std", "fs", "memmap"] }
 
 # Transparent windows on macOS need the private API (enabled in tauri.macos.conf.json).
 [target.'cfg(target_os = "macos")'.dependencies]

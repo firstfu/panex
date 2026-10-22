@@ -122,9 +122,10 @@
               <label class="row-ctl switch"><input id="s-hints" type="checkbox" /><i></i></label>
             </div>
             <div class="row stack">
-              <div class="row-text"><b data-i18n>字型</b><span data-i18n>可以列多個字型，前面的找不到就用下一個</span></div>
-              <input id="s-font-family" class="field" type="text" spellcheck="false" />
-              <div class="font-sample" id="font-sample"><span class="win-only">C:\Users\you&gt;</span><span class="mac-only">~/projects %</span> claude　中文對齊 0O lI1</div>
+              <div class="row-text"><b data-i18n>字型</b><span data-i18n>列出已安裝的等寬字型；中文與 emoji 會自動用備援字型補上</span></div>
+              <select id="s-font-pick" class="field"></select>
+              <input id="s-font-family" class="field" type="text" spellcheck="false" hidden />
+              <div class="font-sample" id="font-sample"><span class="win-only">C:\Users\you&gt;</span><span class="mac-only">~/projects %</span> claude　中文對齊 0O lI1 ⚠ ✨</div>
             </div>
           </section>
 
