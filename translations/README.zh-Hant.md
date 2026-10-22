@@ -24,7 +24,7 @@
 </div>
 
 > [!NOTE]
-> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。下載檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 與 macOS Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex [完全不連網](#隱私)。
+> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。下載檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 與 macOS Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex [自己不會連網](#隱私)。
 
 ## 為什麼做 panex
 
@@ -36,7 +36,7 @@
 
 ### 一眼看出哪個 agent 在等你
 
-Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點，側欄的工作區也會亮起並顯示訊息：藍色代表在等你，綠色代表已完成。panex 不在前景時，還會跳出桌面通知並閃爍工作列。按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> 直接跳到需要處理的分頁。
+Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點，側欄的工作區也會亮起並顯示訊息：藍色代表在等你，綠色代表已完成。panex 不在前景時，還會跳出桌面通知並閃爍工作列。按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> 直接跳到需要處理的分頁。agent 工作時，工作區會顯示轉圈和這一輪已經跑了多久；做完時則顯示這一輪花了多久。
 
 在側欄底部按一下 **啟用**，就會設定好 [Claude Code hooks](#claude-code-通知)。其他工具也能發通知：執行 `panex-cli notify "訊息"`，或輸出 BEL、OSC 9、OSC 777 序列。
 
@@ -47,6 +47,16 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 ### 當掉重開也能接著做
 
 工作區、分頁、每個分頁的 shell 與工作目錄、捲動歷史都會隨時存檔。關掉 panex、重開機，或從工作管理員強制結束，下次打開都會回到原本的樣子。跟 cmux 一樣，原本在跑的程式不會保留，但 panex 會記住每個分頁正在跑的 Claude Code session：重開 panex 後打開那個分頁，會自動執行 `claude --resume <id>`，直接回到原本的對話。已經退出 Claude Code 的分頁則停在提示符。可以在 設定 → 終端機 關掉。
+
+### 不離開終端機就能看 git 改了什麼
+
+按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> 會在右側打開 Git 面板，顯示目前分頁所在 repo 的已暫存變更、變更與未追蹤檔案，以及最近 30 筆提交，還沒推送的會標出來。點檔案或提交，就會在終端機上方顯示 diff，按 <kbd>Esc</kbd> 關閉。側欄每個工作區的分支後面會加上 `↑` 未推送的提交、`↓` 上游較新的提交、`●` 未提交的變更，一眼就看得出哪個 agent 還留著東西沒收尾。
+
+面板只負責看：不會 stage、commit、push，也不會 fetch。它也不輪詢、不監看檔案，只在 shell 出現提示符、Claude Code 做完一輪，或你切回視窗時跑一次 `git status`，沒在用的時候不花任何資源。
+
+### SSH 連線
+
+在「新工作區」旁的 ⌄ 選單選 **SSH 連線…**，從 `~/.ssh/config` 挑一台主機，或直接輸入 `帳號@主機:埠號`，就會開成一個獨立的工作區；在那個工作區開的新分頁也會連到同一台主機。panex 用的是電腦內建的 `ssh`，所以金鑰、config、`known_hosts`、agent 都照常生效；要密碼時會在終端機裡問，panex 不會儲存。
 
 ### 每個快捷鍵都能改
 
@@ -59,7 +69,10 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 - **預設 cmd**，Windows PowerShell 和 PowerShell 7（有裝的話）點一下就能開
 - 可調透明度，Windows 11 上還能用 Mica 或 Acrylic 背景
 - 單一 JSON 設定檔，附 schema，存檔即套用
-- 側欄會顯示每個工作區目前的 git 分支
+- 在工作區按右鍵，可以用新的 git worktree 開一個新工作區，`.env` 等檔案會一起複製過去
+- 終端機裡的 emoji 是彩色的，Claude Code 狀態列的 ⚠ 之類的警告比較醒目
+- 字型可以從電腦裡已安裝的等寬字型挑選，中文和 emoji 會自動用備援字型補上
+- <kbd>Ctrl</kbd>+<kbd>Enter</kbd> 在 Claude Code 裡是換行而不是送出（可以改綁，例如改成 <kbd>Shift</kbd>+<kbd>Enter</kbd>）
 - 介面有英文與繁體中文，預設跟隨系統語言（在設定裡切換）
 - 中文等全形字元對齊正確，採用 Unicode 11 字寬
 - 有選取文字時 Ctrl+C 是複製，沒選取時是中斷；Ctrl+V 貼上
@@ -72,7 +85,7 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 | | |
 |---|---|
 | `panex.exe` | **9 MB** |
-| 安裝檔 | **2.2 MB** |
+| 安裝檔 | **2.3 MB** |
 | 閒置 CPU（10 秒、7 個分頁） | **合計 0.03 秒** |
 | panex 程序記憶體 | **約 7 MB**（私有） |
 
@@ -80,7 +93,7 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 
 ## 隱私
 
-panex **完全不連網**，沒有遙測，也不檢查更新。
+panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例外是你自己開的 SSH 連線，用的是電腦內建的 `ssh`。Git 面板不會 fetch。
 
 它唯一會寫到自己資料夾以外的檔案是 `~/.claude/settings.json`，而且只在你按 **啟用** 開啟 Claude Code 通知時才會寫。寫入前會先備份（`settings.json.panex-bak`），並保留你原本的其他 hooks。相關程式碼在 [`src-tauri/src/hooks.rs`](../src-tauri/src/hooks.rs)。
 
@@ -99,7 +112,7 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.4.0_aarch64.dmg`，打開後把 **panex** 拖進「應用程式」。
 2. App 沒有經過 Apple 公證，第一次開啟會被擋：先開一次，再到 **系統設定 → 隱私權與安全性** 按 **強制打開**。如果顯示「已損毀」，在終端機執行 `xattr -cr /Applications/panex.app` 後再開。
 
-分頁會啟動你的登入 shell（`$SHELL`，通常是 zsh）。預設快捷鍵用 ⌘：⌘T 新分頁、⌘W 關分頁、⌘N 新工作區、⌘1–9／⌥1–9 跳轉、⌘↑↓ 切工作區、⌘←→ 切分頁、⌘, 設定。
+分頁會啟動你的登入 shell（`$SHELL`，通常是 zsh）。預設快捷鍵用 ⌘：⌘T 新分頁、⌘W 關分頁、⌘N 新工作區、⌘1–9／⌥1–9 跳轉、⌘↑↓ 切工作區、⌘←→ 切分頁、⌘⇧G Git 面板、⌘B 側欄、⌘, 設定。
 
 ### 更新
 
@@ -150,7 +163,9 @@ panex **完全不連網**，沒有遙測，也不檢查更新。
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> | 關閉分頁，關掉最後一個時工作區一起關（`closeTab`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> | 重新命名工作區／分頁（也可雙擊） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | 跳到需要處理的分頁（`jumpToUnread`） |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> | 顯示／隱藏側欄 |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | 顯示／隱藏側欄（`toggleSidebar`） |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | 顯示／隱藏 Git 面板（`toggleGitPanel`） |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | 換行而不送出，給 Claude Code 用（`insertNewline`） |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | 放大／縮小／重設字型（也可 Ctrl+滾輪） |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | 設定 |
 
@@ -196,7 +211,7 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 
 ## 跟類似工具的差別
 
-[cmux](https://github.com/manaflow-ai/cmux) 是原創，功能也多得多：分割窗格、內嵌瀏覽器、SSH 工作區、完整的 CLI 和 socket API。用 Mac 的話就用它。panex 存在的理由是 cmux 只支援 macOS。panex 借用的是 cmux 的想法（工作區加分頁、agent 通知、還原工作階段、可改快捷鍵的 JSON 設定檔），沒有用到它的程式碼。Windows Terminal 是很好的終端機，但它不知道哪個 agent 在等你，也不知道是哪個分頁。
+[cmux](https://github.com/manaflow-ai/cmux) 是原創，功能也多得多：分割窗格、內嵌瀏覽器、完整的 CLI 和 socket API。用 Mac 的話就用它。panex 存在的理由是 cmux 只支援 macOS。panex 借用的是 cmux 的想法（工作區加分頁、agent 通知、還原工作階段、可改快捷鍵的 JSON 設定檔），沒有用到它的程式碼。Windows Terminal 是很好的終端機，但它不知道哪個 agent 在等你，也不知道是哪個分頁。
 
 ## 考慮中：用 👍 投票
 
@@ -205,7 +220,6 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 - 分頁內分割窗格
 - 搜尋捲動歷史（Ctrl+Shift+F）
 - 側欄顯示監聽中的 port
-- 一鍵建立 git worktree 並在裡面啟動 agent
 
 ## 從原始碼建置
 

@@ -24,7 +24,7 @@ English · [繁體中文](translations/README.zh-Hant.md)
 </div>
 
 > [!NOTE]
-> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The downloads **aren't code-signed**, so Windows SmartScreen and macOS Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex makes [no network connections](#privacy).
+> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The downloads **aren't code-signed**, so Windows SmartScreen and macOS Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex makes [no network connections of its own](#privacy).
 
 ## Why panex
 
@@ -36,7 +36,7 @@ It's built to stay out of the way. The app itself is a 9 MB executable that uses
 
 ### Know which agent needs you
 
-When Claude Code asks for permission or finishes a task, its tab gets a dot and its workspace lights up in the sidebar with the message: blue when it's waiting for you, green when it's done. If panex is in the background, you also get a desktop notification and a taskbar flash. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> jumps straight to the tab that needs you.
+When Claude Code asks for permission or finishes a task, its tab gets a dot and its workspace lights up in the sidebar with the message: blue when it's waiting for you, green when it's done. If panex is in the background, you also get a desktop notification and a taskbar flash. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> jumps straight to the tab that needs you. While an agent is working, its workspace shows a spinner and how long the turn has been running; when it finishes, you see how long it took.
 
 One click on **啟用** (Enable) at the bottom of the sidebar sets up the [Claude Code hooks](#claude-code-notifications). Other tools can notify too: run `panex-cli notify "message"`, or print a bell, OSC 9 or OSC 777 sequence.
 
@@ -47,6 +47,16 @@ The sidebar holds workspaces (<kbd>Ctrl</kbd>+<kbd>N</kbd>), one per project or 
 ### Comes back after a crash
 
 Workspaces, tabs, each tab's shell and working directory, and the scrollback text are saved as you go. Close panex, reboot, or kill it from Task Manager: next time it opens exactly where you were. Like cmux, programs that were running are not kept alive, but panex remembers the Claude Code session each tab was running: when you reopen panex and open that tab, it runs `claude --resume <id>` for you, so you land back in the conversation. Tabs where you had already quit Claude Code stay at the prompt. You can turn this off in Settings → Terminal.
+
+### See what changed, without leaving the terminal
+
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> opens a Git panel on the right for the current tab's repo: staged changes, changes and untracked files, and the last 30 commits, with the ones you haven't pushed marked. Click a file or a commit to read its diff over the terminal; <kbd>Esc</kbd> closes it. In the sidebar, each workspace's branch carries `↑` unpushed commits, `↓` commits waiting upstream and `●` uncommitted changes, so you can tell at a glance which agent left work behind.
+
+The panel only reads: it doesn't stage, commit, push or fetch. It doesn't poll or watch your files either. It runs `git status` once after a shell prompt, after Claude Code finishes a turn, or when you come back to the window, so it costs nothing while you're not using it.
+
+### SSH connections
+
+Pick **SSH connection…** from the ⌄ menu next to New workspace, choose a host from your `~/.ssh/config` or type `user@host:port`, and it opens in its own workspace. New tabs in that workspace connect to the same host. panex runs your system's `ssh`, so your keys, config, `known_hosts` and agent work as usual, and passwords are asked in the terminal and never stored.
 
 ### Every shortcut is yours
 
@@ -59,7 +69,10 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 - **cmd by default**, Windows PowerShell and PowerShell 7 (if installed) one click away
 - Transparency, plus Mica or Acrylic window backgrounds on Windows 11
 - One plain JSON config file with a schema, applied the moment you save it
-- Each workspace shows its git branch in the sidebar
+- Right-click a workspace to start a new one in a fresh git worktree, with `.env` files copied over
+- Color emoji in the terminal, so warnings such as ⚠ in Claude Code's status line stand out
+- Pick from the monospace fonts installed on your machine; Chinese and emoji fall back automatically
+- <kbd>Ctrl</kbd>+<kbd>Enter</kbd> inserts a newline in Claude Code instead of sending (rebindable, for example to <kbd>Shift</kbd>+<kbd>Enter</kbd>)
 - English and Traditional Chinese interface, following your system language (switch in Settings)
 - Chinese and other wide characters line up correctly; Unicode 11 widths
 - Ctrl+C copies when text is selected and interrupts otherwise; Ctrl+V pastes
@@ -72,7 +85,7 @@ Measured on the release build:
 | | |
 |---|---|
 | `panex.exe` | **9 MB** |
-| Installer | **2.2 MB** |
+| Installer | **2.3 MB** |
 | CPU when idle (10 s, 7 tabs) | **0.03 s total** |
 | panex process memory | **≈ 7 MB** private |
 
@@ -80,7 +93,7 @@ Most of the memory you'll see in Task Manager belongs to WebView2, the Edge engi
 
 ## Privacy
 
-panex makes **no network connections**. There's no telemetry and no update check.
+panex makes **no network connections** of its own. There's no telemetry and no update check. The only exception is an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches.
 
 The only file it writes outside its own folders is `~/.claude/settings.json`, and only when you click **啟用** to turn on Claude Code notifications. It backs the file up first (`settings.json.panex-bak`) and keeps your other hooks. The code is in [`src-tauri/src/hooks.rs`](src-tauri/src/hooks.rs).
 
@@ -99,7 +112,7 @@ Requires **Windows 10 or 11** with WebView2 (already part of Windows 11 and up-t
 1. Download `panex_0.4.0_aarch64.dmg` from [Releases](https://github.com/firstfu/panex/releases/latest), open it and drag **panex** into **Applications**.
 2. The app isn't notarized, so macOS blocks the first launch. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. If macOS says the app is damaged, run `xattr -cr /Applications/panex.app` in Terminal and open it again.
 
-Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘, settings.
+Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘⇧G Git panel, ⌘B sidebar, ⌘, settings.
 
 ### Updating
 
@@ -150,7 +163,9 @@ A string is one combination, an array of strings is a chord, an array of arrays 
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>W</kbd> | Close tab; closing the last one closes its workspace (`closeTab`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> | Rename workspace / tab (or double-click) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | Jump to the tab that needs you (`jumpToUnread`) |
-| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> | Show / hide the sidebar |
+| <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | Show / hide the sidebar (`toggleSidebar`) |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Show / hide the Git panel (`toggleGitPanel`) |
+| <kbd>Ctrl</kbd>+<kbd>Enter</kbd> | Newline without sending, for Claude Code (`insertNewline`) |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | Font size up / down / reset (or Ctrl+wheel) |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
 
@@ -196,7 +211,7 @@ Use **Settings → Apps → Installed apps → panex → Uninstall**. To remove 
 
 ## How it differs from similar tools
 
-[cmux](https://github.com/manaflow-ai/cmux) is the original and does much more: splits, an embedded browser, SSH workspaces, a full CLI and socket API. If you're on a Mac, use it. panex exists because cmux is macOS-only. It copies cmux's ideas (workspaces with tabs, agent notifications, session restore, a JSON config with rebindable shortcuts), not its code. Windows Terminal is an excellent terminal, but it doesn't know when an agent is waiting for you or which tab it's in.
+[cmux](https://github.com/manaflow-ai/cmux) is the original and does much more: splits, an embedded browser, a full CLI and socket API. If you're on a Mac, use it. panex exists because cmux is macOS-only. It copies cmux's ideas (workspaces with tabs, agent notifications, session restore, a JSON config with rebindable shortcuts), not its code. Windows Terminal is an excellent terminal, but it doesn't know when an agent is waiting for you or which tab it's in.
 
 ## Under consideration: vote with 👍
 
@@ -205,7 +220,6 @@ I won't build these until real people ask for them. If one matters to you, [open
 - Split panes inside a tab
 - Search in the scrollback (Ctrl+Shift+F)
 - Listening ports in the sidebar
-- One click to create a git worktree and start an agent in it
 
 ## Build from source
 
