@@ -17,6 +17,7 @@
   - 假 agent（cmd 腳本模擬 hook）：3 個 worktree 並行、done／needs-input、逾時、錯誤、token 拒絕、關分頁回 exited、背景分頁點開後畫面正常、子分支 commit。
   - 真的 Claude Code（主 agent 用 Sonnet、子 agent 用 Haiku）：skill 被載入、開兩個 worktree 子 agent、needs-input 時主 agent 回報而不代答、核准後兩邊都 commit、最後總結正確。
   - 修正後再用假 agent 驗 Enter／Esc。Rust 22 個、前端 6 個測試全過。
+  - 本機正式版（release 建置、NSIS 靜默安裝取代使用者的 panex）：啟動後 `~/.claude/skills/panex/SKILL.md` 寫入且與 repo 相同；在使用者的 panex 分頁裡由 Claude 當主 agent `open --worktree` 一個 Haiku 子 agent（`--permission-mode acceptEdits`＋允許 `git add`／`git commit`），全程沒跳權限確認，`wait` 回 done，子分支 commit 正確。release 從零編譯時 rustc `STATUS_STACK_BUFFER_OVERRUN` 連續兩次，`CARGO_BUILD_JOBS=2` 重跑即過。
 
 **為什麼**
 - 使用者要 cmux／Orca 那種「agent 派工給 agent」的能力。依第一性原理只做開、等兩個動作；結果靠 git 拿，不做讀畫面、不做對別的分頁打字、不做 MCP。Orca 和 cmux 也都是走 CLI 加 skill。
