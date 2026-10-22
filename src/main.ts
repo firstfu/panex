@@ -112,6 +112,7 @@ interface Settings {
   modifierHints: boolean;
   language: LangPref;
   resumeSession: boolean;
+  confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
   askEnableHooks: boolean; // offer to enable the Claude Code hooks at startup while they're off
   windowWidth: number; // size the window opens at (logical px)
@@ -131,6 +132,7 @@ const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   modifierHints: ["shortcuts", "showModifierHoldHints"],
   language: ["app", "language"],
   resumeSession: ["agent", "resumeSession"],
+  confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
   askEnableHooks: ["agent", "askToEnableHooks"],
   windowWidth: ["app", "windowWidth"],
@@ -204,6 +206,7 @@ const DEFAULTS: Settings = {
   modifierHints: false,
   language: "auto",
   resumeSession: true,
+  confirmClose: true,
   openFilesWith: "system",
   askEnableHooks: true,
   // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
@@ -283,6 +286,7 @@ const ctxEl = $("ctx");
 const settingsEl = $("settings");
 const wtEl = $("wt");
 const askEl = $("hooks-ask");
+const closeAskEl = $("close-ask");
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
 const newWsId = () => `w${newId().slice(0, 11)}`;
@@ -1764,6 +1768,46 @@ askEl.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeHooksAsk();
 });
 
+// ── Close while agents work ─────────────────────────────────────────────────
+
+/** Tabs whose agent is mid-turn: running, or stopped on a question inside the turn. */
+function workingTabs(): Tab[] {
+  return [...tabs.values()].filter((t) => t.status === "running" || (t.status === "attention" && t.runStart !== undefined));
+}
+
+let closeAskConfirm: (() => void) | undefined;
+
+function openCloseAsk(working: Tab[], confirm: () => void) {
+  closeAskConfirm = confirm;
+  $("close-ask-title").textContent = tr("還有 {n} 個 agent 在工作", { n: working.length });
+  $("close-ask-list").replaceChildren(
+    ...working.map((t) => {
+      const ws = workspaces.get(t.wsId);
+      const li = document.createElement("li");
+      li.textContent = ws && ws.tabs.length > 1 ? `${wsTitle(ws)} › ${tabTitle(t)}` : tabTitle(t);
+      return li;
+    }),
+  );
+  closeAskEl.hidden = false;
+  // Cancel holds the focus, so an Enter meant for the terminal doesn't close the window.
+  $("close-ask-cancel").focus();
+}
+
+function closeCloseAsk() {
+  closeAskEl.hidden = true;
+  closeAskConfirm = undefined;
+  activeTab()?.term.focus();
+}
+$("close-ask-cancel").onclick = closeCloseAsk;
+$("close-ask-ok").onclick = () => {
+  const confirm = closeAskConfirm;
+  closeAskEl.hidden = true;
+  confirm?.();
+};
+closeAskEl.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeCloseAsk();
+});
+
 // ── Context menus ───────────────────────────────────────────────────────────
 
 type MenuItem = { label: string; keys?: string; run: () => void; disabled?: boolean } | "-" | { colors: Workspace };
@@ -1973,6 +2017,7 @@ function fillSettings() {
   $<HTMLInputElement>("s-smart").checked = settings.smartCopyPaste;
   $<HTMLInputElement>("s-hints").checked = settings.modifierHints;
   $<HTMLInputElement>("s-resume").checked = settings.resumeSession;
+  $<HTMLInputElement>("s-confirm-close").checked = settings.confirmClose;
   $<HTMLInputElement>("s-scrollback").value = String(settings.scrollback);
   $<HTMLInputElement>("s-win-w").value = String(settings.windowWidth);
   $<HTMLInputElement>("s-win-h").value = String(settings.windowHeight);
@@ -2209,6 +2254,8 @@ $<HTMLInputElement>("s-resume").onchange = (e) => {
   updateSettings({ resumeSession: (e.target as HTMLInputElement).checked });
   scheduleRender();
 };
+$<HTMLInputElement>("s-confirm-close").onchange = (e) =>
+  updateSettings({ confirmClose: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-smart").onchange = (e) => updateSettings({ smartCopyPaste: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-hints").onchange = (e) => updateSettings({ modifierHints: (e.target as HTMLInputElement).checked });
 $<HTMLInputElement>("s-scrollback").onchange = (e) => {
@@ -2321,7 +2368,7 @@ document.addEventListener(
   "keydown",
   (e) => {
     if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.add("show-nums");
-    if (renaming || !wtEl.hidden || !askEl.hidden) return;
+    if (renaming || !wtEl.hidden || !askEl.hidden || !closeAskEl.hidden) return;
     if (!gitViewEl.hidden && e.key === "Escape") return stop(e, () => closeGitView());
     // Esc in the search box closes it; with the terminal focused it still goes to the program (interrupting Claude).
     if (e.key === "Escape" && searchEl.contains(document.activeElement)) return stop(e, () => closeSearch());
@@ -2578,9 +2625,22 @@ async function main() {
     if (focused) scheduleGit(tab);
   });
   // Final save before the window goes away; crashes rely on the periodic snapshots.
-  win.onCloseRequested(async () => {
+  const flushForClose = () => {
     clearTimeout(snapshotTimer);
-    await Promise.all([flushSnapshots(), sessionTimer !== undefined ? saveSession() : undefined]);
+    return Promise.all([flushSnapshots(), sessionTimer !== undefined ? saveSession() : undefined]);
+  };
+  win.onCloseRequested(async (e) => {
+    // Closing kills the agents' processes; --resume brings the conversation back but not the turn in progress.
+    const working = workingTabs();
+    if (settings.confirmClose && working.length) {
+      e.preventDefault();
+      openCloseAsk(working, async () => {
+        await flushForClose();
+        await win.destroy();
+      });
+      return;
+    }
+    await flushForClose();
   });
 
   listen<{ id: string; code: number }>("pty-exit", ({ payload }) => {

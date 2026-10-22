@@ -95,6 +95,18 @@
       </div>
     </div>
 
+    <div id="close-ask" class="overlay" hidden>
+      <div class="wt-panel" role="alertdialog" aria-modal="true" aria-labelledby="close-ask-title" tabindex="-1">
+        <h2 id="close-ask-title"></h2>
+        <ul id="close-ask-list"></ul>
+        <p class="ask-text" data-i18n>現在關閉會中斷它們正在做的這一輪。下次打開 panex 時會自動接回對話，但要再叫它繼續。</p>
+        <div class="wt-actions">
+          <button type="button" id="close-ask-cancel" class="ghost" data-i18n>取消</button>
+          <button type="button" id="close-ask-ok" class="primary danger" data-i18n>仍要關閉</button>
+        </div>
+      </div>
+    </div>
+
     <div id="settings" class="overlay" hidden>
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <nav class="s-nav">
@@ -181,6 +193,10 @@
             <div class="row">
               <div class="row-text"><b data-i18n>重開後接回 Claude Code</b><span data-i18n>重開 panex 時，上次還在跑 Claude Code 的分頁會自動執行 claude --resume</span></div>
               <label class="row-ctl switch"><input id="s-resume" type="checkbox" /><i></i></label>
+            </div>
+            <div class="row">
+              <div class="row-text"><b data-i18n>agent 工作中關閉前先確認</b><span data-i18n>有 Claude Code 正在跑時關閉 panex，先問一聲，免得誤關中斷它</span></div>
+              <label class="row-ctl switch"><input id="s-confirm-close" type="checkbox" /><i></i></label>
             </div>
             <div class="row">
               <div class="row-text"><b data-i18n>用什麼開啟檔案路徑</b><span data-i18n>按住 Ctrl 點終端機裡的檔案路徑時用它開；選編輯器會跳到行號</span></div>

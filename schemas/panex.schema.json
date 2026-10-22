@@ -115,6 +115,11 @@
           "default": true,
           "description": "重開 panex 時，上次還在跑 Claude Code 的分頁（以 hook 記下的 session id 為準）會在該分頁開啟時自動執行 claude --resume。Claude Code 正常結束後不會再自動接回。關掉就不自動接回。"
         },
+        "confirmCloseWhileRunning": {
+          "type": "boolean",
+          "default": true,
+          "description": "有 agent 正在工作（執行中，或在這一輪中等你回應）時關閉 panex，先跳出確認。關閉會中斷正在做的這一輪；重開後雖然會自動接回對話，但要再叫它繼續。"
+        },
         "askToEnableHooks": {
           "type": "boolean",
           "default": true,
