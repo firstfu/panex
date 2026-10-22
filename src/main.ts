@@ -115,7 +115,6 @@ interface Settings {
   resumeSession: boolean;
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
-  askEnableHooks: boolean; // offer to enable the Claude Code hooks at startup while they're off
   windowWidth: number; // size the window opens at (logical px)
   windowHeight: number;
 }
@@ -135,7 +134,6 @@ const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   resumeSession: ["agent", "resumeSession"],
   confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
-  askEnableHooks: ["agent", "askToEnableHooks"],
   windowWidth: ["app", "windowWidth"],
   windowHeight: ["app", "windowHeight"],
 };
@@ -209,7 +207,6 @@ const DEFAULTS: Settings = {
   resumeSession: true,
   confirmClose: true,
   openFilesWith: "system",
-  askEnableHooks: true,
   // Keep in sync with config.rs DEFAULT_WINDOW and tauri.conf.json.
   windowWidth: 1400,
   windowHeight: 820,
@@ -286,7 +283,6 @@ const hooksEl = $("hooks-row");
 const ctxEl = $("ctx");
 const settingsEl = $("settings");
 const wtEl = $("wt");
-const askEl = $("hooks-ask");
 const closeAskEl = $("close-ask");
 
 const newId = () => crypto.randomUUID().replace(/-/g, "").slice(0, 12);
@@ -1742,31 +1738,6 @@ async function refreshHooks(): Promise<boolean> {
   return ok;
 }
 
-// Startup prompt for the hooks (without them there are no badges and no resume). Writing
-// ~/.claude/settings.json still only happens on the user's click.
-function closeHooksAsk() {
-  askEl.hidden = true;
-  activeTab()?.term.focus();
-}
-$("hooks-ask-ok").onclick = async () => {
-  try {
-    await invoke("hooks_install");
-  } catch (e) {
-    $("hooks-ask-err").textContent = tr("啟用失敗：{e}", { e: String(e) });
-    return;
-  }
-  closeHooksAsk();
-  refreshHooks();
-};
-$("hooks-ask-later").onclick = closeHooksAsk;
-$("hooks-ask-never").onclick = () => {
-  updateSettings({ askEnableHooks: false });
-  closeHooksAsk();
-};
-askEl.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeHooksAsk();
-});
-
 // ── Close while agents work ─────────────────────────────────────────────────
 
 /** Tabs whose agent is mid-turn: running, or stopped on a question inside the turn. */
@@ -2369,7 +2340,7 @@ document.addEventListener(
   "keydown",
   (e) => {
     if (e.key === HINT_KEY || e.key === "Alt") document.body.classList.add("show-nums");
-    if (renaming || !wtEl.hidden || !askEl.hidden || !closeAskEl.hidden) return;
+    if (renaming || !wtEl.hidden || !closeAskEl.hidden) return;
     if (!gitViewEl.hidden && e.key === "Escape") return stop(e, () => closeGitView());
     // Esc in the search box closes it; with the terminal focused it still goes to the program (interrupting Claude).
     if (e.key === "Escape" && searchEl.contains(document.activeElement)) return stop(e, () => closeSearch());
@@ -2713,13 +2684,8 @@ async function main() {
   shells = shellList;
   applyConfig(loaded);
   renderShellMenu();
-  refreshHooks().then((ok) => {
-    if (ok || !settings.askEnableHooks) return;
-    askEl.hidden = false;
-    // Focus the panel, not "Enable": an Enter typed for the terminal must not write the user's
-    // global Claude settings.
-    askEl.querySelector<HTMLElement>(".wt-panel")!.focus();
-  });
+  // The backend already installed the hooks at launch; the line only shows a button if that failed.
+  refreshHooks();
   getVersion().then((v) => ($("s-version").textContent = `panex v${v}`)).catch(() => {});
 
   const saved = (session.workspaces ?? []).filter((w) => w.tabs?.length);

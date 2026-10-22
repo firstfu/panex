@@ -25,7 +25,7 @@ panex：開源、跨平台（Windows 優先）的多 agent 終端機 App，模�
 | `src-tauri/src/pty.rs` | 每分頁一個 PTY。輸出走 Tauri `Channel` 的 raw bytes（不經 JSON、不在 Rust 解 UTF-8）；waiter 執行緒等子程序結束後才丟掉 master（ConPTY reader 不會自己 EOF）。channel 可替換，webview reload 後重接仍在跑的 shell。 |
 | `src-tauri/src/session.rs` | `app_data_dir`（`%APPDATA%\dev.panex.terminal\`）下的 `session.json`：`{workspaces:[{id,title,color,tabs:[{id,shell,cwd,title}],active}], active}`，與 `scrollback/<分頁 id>.txt`。前端擁有版面、整份 `session_save`；全部 tmp + rename 原子寫入；檔案壞了就當空白開始。讀到 v0.1 的扁平 `{tabs,active}` 會先備份 `session.v1.json.bak` 再轉成「每分頁一個工作區」（工作區 id ＝ `w`＋分頁 id 前 11 碼）。 |
 | `src-tauri/src/notify.rs` | named pipe `\\.\pipe\panex-<USERNAME>`（Unix 為 socket）收 `panex-cli` 的 JSON，轉成 `agent-notify` 事件；`alert` 指令發 toast＋閃工作列。 |
-| `src-tauri/src/hooks.rs` | 把 hooks 合併進 `~/.claude/settings.json`（exec form，先備份 `.panex-bak`，只替換含 `panex-cli` 的條目）。只由使用者在 UI 按「啟用」觸發。 |
+| `src-tauri/src/hooks.rs` | 把 hooks 合併進 `~/.claude/settings.json`（exec form，先備份 `.panex-bak`，只替換含 `panex-cli` 的條目）。正式安裝的 panex 在 `setup` 時呼叫 `ensure`：缺少或指向別的 panex-cli 就自動寫入，不詢問；debug／測試實例不寫。側欄「啟用」按鈕只在自動寫入失敗時出現。 |
 | `src-tauri/src/bin/panex-cli.rs` | 獨立 console 小程式。讀 hook stdin JSON，帶上 `PANEX_PANE_ID` 寫入 `PANEX_PIPE`。環境變數不在就立刻 exit 0；永遠 exit 0。`PANEX_DEBUG=1` 印出送出的內容。 |
 | `src/main.ts` | 工作區（側欄，改名、顏色、拖曳、右鍵選單）與水平分頁（分頁列，改名、拖曳、右鍵選單）、設定面板（左側分頁＋快捷鍵錄製）、OSC 解析（9;9 / 7 = cwd；9 / 777 / BEL = 通知）、scrollback 快照。關掉工作區最後一個分頁會連工作區一起關，最後一個工作區關掉會自動開新的。 |
 | `src-tauri/src/config.rs` + `schemas/panex.schema.json` | 使用者設定檔 `~/.config/panex/panex.json`（仿 cmux 的 `cmux.json`）：只寫改過的鍵、旁邊放 schema 供編輯器補完、`notify` 監看目錄、最後一次寫入後 300 ms 發 `config-changed`。`config_set` 只改單一鍵、檔案壞掉時拒寫。目前 `schemaVersion` 2；讀到 1 時先備份 `panex.json.v1.bak` 再依 `V1_RENAMES` 改名快捷鍵 id（v1 的「分頁」＝現在的工作區）。 |

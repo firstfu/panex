@@ -38,7 +38,7 @@ It's built to stay out of the way. The app itself is a 9 MB executable that uses
 
 When Claude Code asks for permission or finishes a task, its tab gets a dot and its workspace lights up in the sidebar with the message: blue when it's waiting for you, green when it's done. If panex is in the background, you also get a desktop notification and a taskbar flash. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> jumps straight to the tab that needs you. While an agent is working, its workspace shows a spinner and how long the turn has been running; when it finishes, you see how long it took.
 
-One click on **啟用** (Enable) at the bottom of the sidebar sets up the [Claude Code hooks](#claude-code-notifications). Other tools can notify too: run `panex-cli notify "message"`, or print a bell, OSC 9 or OSC 777 sequence.
+panex sets up the [Claude Code hooks](#claude-code-notifications) by itself when it starts; there's nothing to turn on. Other tools can notify too: run `panex-cli notify "message"`, or print a bell, OSC 9 or OSC 777 sequence.
 
 ### Workspaces and tabs, like cmux
 
@@ -98,7 +98,7 @@ Most of the memory you'll see in Task Manager belongs to WebView2, the Edge engi
 
 panex makes **no network connections** of its own. There's no telemetry and no update check. The only exception is an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches.
 
-The only file it writes outside its own folders is `~/.claude/settings.json`, and only when you click **啟用** to turn on Claude Code notifications. It backs the file up first (`settings.json.panex-bak`) and keeps your other hooks. The code is in [`src-tauri/src/hooks.rs`](src-tauri/src/hooks.rs).
+The only file it writes outside its own folders is `~/.claude/settings.json`: when panex starts and its Claude Code hooks are missing or point at an old install, it adds them. It backs the file up first (`settings.json.panex-bak`) and keeps your other hooks. The code is in [`src-tauri/src/hooks.rs`](src-tauri/src/hooks.rs).
 
 ## Install
 
@@ -123,7 +123,7 @@ Run the new installer. Your workspaces, scrollback and settings are kept.
 
 ### Claude Code notifications
 
-Click **啟用** at the bottom of the sidebar. panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json`. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected.
+panex adds `Notification`, `Stop`, `StopFailure`, `UserPromptSubmit` and `SessionEnd` hooks that run `panex-cli notify` to `~/.claude/settings.json` when it starts, if they're missing or point at an old install. It backs the file up first and keeps your other hooks. Outside panex the helper exits immediately, so Claude Code sessions in other terminals aren't affected.
 
 ## Configuration
 
@@ -191,7 +191,7 @@ The app isn't notarized by Apple. Go to **System Settings → Privacy & Security
 <details>
 <summary><b>Claude Code notifications don't show up</b></summary>
 
-Check the bottom of the sidebar says **Claude Code 通知：已啟用** (enabled). If it says 未啟用, click **啟用**. Notifications only light up tabs for Claude Code sessions started inside panex. Desktop notifications appear only while panex isn't the active window; the tab and workspace light up either way.
+Check the bottom of the sidebar says **Claude Code 通知：已啟用** (enabled). If it says 未啟用, panex couldn't write `~/.claude/settings.json` (for example, the file isn't valid JSON): fix the file and click **啟用** (Enable). Notifications only light up tabs for Claude Code sessions started inside panex. Desktop notifications appear only while panex isn't the active window; the tab and workspace light up either way.
 </details>
 
 <details>
@@ -209,7 +209,7 @@ Settings: `%USERPROFILE%\.config\panex\panex.json`. Layout and scrollback: `%APP
 <details>
 <summary><b>How do I uninstall it?</b></summary>
 
-Use **Settings → Apps → Installed apps → panex → Uninstall**. To remove your data too, delete the two folders above. If you turned on notifications, remove the `panex-cli` entries from `~/.claude/settings.json` (or restore `settings.json.panex-bak`).
+Use **Settings → Apps → Installed apps → panex → Uninstall**. To remove your data too, delete the two folders above. Then remove the `panex-cli` entries from `~/.claude/settings.json` (or restore `settings.json.panex-bak`).
 </details>
 
 ## How it differs from similar tools

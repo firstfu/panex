@@ -34,13 +34,6 @@ const EN: Record<string, string> = {
   "也可以用 Ctrl+滾輪調整": "Also adjustable with Ctrl+scroll",
   "也可以用 ⌘+滾輪調整": "Also adjustable with ⌘+scroll",
   "視窗大小": "Window size",
-  "啟用 Claude Code 通知？": "Enable Claude Code notifications?",
-  "Claude Code 需要你處理或做完時，分頁會亮起；關掉重開後也能一鍵恢復 session。":
-    "Tabs light up when Claude Code needs you or finishes, and you can resume its session with one click after reopening panex.",
-  "會在 ~/.claude/settings.json 加入 panex 的 hooks，寫入前先備份，你原本的 hooks 都會保留。":
-    "This adds panex's hooks to ~/.claude/settings.json. The file is backed up first and your existing hooks are kept.",
-  "不用了": "No thanks",
-  "以後再說": "Later",
   "每次開啟時的寬 × 高，改了立刻套用": "Width × height the window opens at; applied right away",
   "用目前大小": "Use current size",
   "寬": "Width",

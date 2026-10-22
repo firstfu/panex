@@ -548,7 +548,7 @@ body.no-hints .t-num { display: none; }
 #notice button { border: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.1); color: inherit; padding: 3px 8px; cursor: pointer; }
 
 /* New-worktree dialog */
-#wt, #hooks-ask, #ssh, #close-ask { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
+#wt, #ssh, #close-ask { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
   font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif; }
 .wt-panel {
   display: flex; flex-direction: column; gap: 12px; width: min(420px, calc(100vw - 32px)); padding: 20px 22px;
@@ -558,7 +558,6 @@ body.no-hints .t-num { display: none; }
 .wt-panel h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
 .wt-panel label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--s-muted); }
 .wt-err { margin: 0; min-height: 1.4em; font-size: 12.5px; color: #f87171; white-space: pre-wrap; word-break: break-word; }
-#hooks-ask .wt-panel:focus { outline: none; }
 #close-ask-list { margin: 0; padding-left: 20px; font-size: 13px; color: var(--s-text); max-height: 160px; overflow: auto; }
 #close-ask-list li { margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wt-actions .primary.danger { background: #dc2626; }

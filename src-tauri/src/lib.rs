@@ -61,6 +61,7 @@ pub fn run() {
                 session,
                 quitting: AtomicBool::new(false),
             });
+            hooks::ensure(app.handle());
             notify::start_server(app.handle().clone());
             Ok(())
         })

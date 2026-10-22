@@ -27,6 +27,21 @@
 - 使用者要裝 v0.4.1，並在 panex 按一次「啟用」：一方面補上兩個新 hook，另一方面把 hook 從 `target/test-build/panex-cli.exe` 改回指向安裝版的路徑。
 - 值得歸檔、還沒歸檔的雷：①`vscode://` 網址會觸發 VS Code 的確認框；②測試實例覆寫 `USERPROFILE` 會起不來；③Git Bash 會把 `/exit` 這類開頭是 `/` 的參數轉成路徑（`MSYS_NO_PATHCONV=1`）；④`operations.md` 的版本號檔案清單要補上 `package-lock.json`。
 
+## 2026-10-22 — Claude Code hooks 改成啟動時自動寫入，不再詢問
+
+**變更**
+- `hooks::ensure` 在 `setup` 時呼叫：正式安裝的 panex（release build 且 identifier 為 `dev.panex.terminal`）發現 hooks 缺少，或指向別的 panex-cli，就自動寫入；照舊先備份 `.panex-bak`、只替換含 `panex-cli` 的條目。debug build 與測試實例一律不寫。
+- 移除啟動時的「啟用 Claude Code 通知？」對話框和 `agent.askToEnableHooks` 設定（schema、i18n、CSS 一起清掉）。側欄「啟用」按鈕保留，只在自動寫入失敗（例如 settings.json 壞掉）時出現。
+- `hooks.rs` 拆出 `status_at`／`install_at`／`may_write` 並加 4 個測試：只有正式版會寫、保留其他 hooks 並把舊的 panex 條目換掉而不是重複加、檔案不存在時建立、檔案壞掉時不動。Rust 測試共 16 個。
+- 測試實例實測：啟動後沒有對話框，使用者真正的 `settings.json` 前後 SHA-256 相同。
+- `boundaries.md`、`overview.md`、README 兩版（功能、隱私、Claude Code 通知、FAQ、解除安裝）同步改寫。
+
+**為什麼**
+- 使用者裁定 hooks 是必要功能，不要再徵求同意。同時這也修好「hooks 被指到別的位置就一直壞著」的問題：新版每次啟動都會把它們改回自己這份安裝。
+
+**下一步**
+- 要發 0.4.3 並更新本機，使用者的 hooks 才會自動從 `target\test-build` 改回正式路徑，同時補上 0.4.1 新增的兩個 hook。
+
 ## 2026-10-22 — 發佈 v0.4.2，本機更新
 
 **變更**

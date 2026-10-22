@@ -81,20 +81,6 @@
       </form>
     </div>
 
-    <div id="hooks-ask" class="overlay" hidden>
-      <div class="wt-panel" role="dialog" aria-modal="true" aria-labelledby="hooks-ask-title" tabindex="-1">
-        <h2 id="hooks-ask-title" data-i18n>啟用 Claude Code 通知？</h2>
-        <p class="ask-text" data-i18n>Claude Code 需要你處理或做完時，分頁會亮起；關掉重開後也能一鍵恢復 session。</p>
-        <p class="ask-text muted" data-i18n>會在 ~/.claude/settings.json 加入 panex 的 hooks，寫入前先備份，你原本的 hooks 都會保留。</p>
-        <p id="hooks-ask-err" class="wt-err" aria-live="polite"></p>
-        <div class="wt-actions">
-          <button type="button" id="hooks-ask-never" class="ghost" data-i18n>不用了</button>
-          <button type="button" id="hooks-ask-later" class="ghost" data-i18n>以後再說</button>
-          <button type="button" id="hooks-ask-ok" class="primary" data-i18n>啟用</button>
-        </div>
-      </div>
-    </div>
-
     <div id="close-ask" class="overlay" hidden>
       <div class="wt-panel" role="alertdialog" aria-modal="true" aria-labelledby="close-ask-title" tabindex="-1">
         <h2 id="close-ask-title"></h2>

@@ -38,7 +38,7 @@
 
 Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點，側欄的工作區也會亮起並顯示訊息：藍色代表在等你，綠色代表已完成。panex 不在前景時，還會跳出桌面通知並閃爍工作列。按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> 直接跳到需要處理的分頁。agent 工作時，工作區會顯示轉圈和這一輪已經跑了多久；做完時則顯示這一輪花了多久。
 
-在側欄底部按一下 **啟用**，就會設定好 [Claude Code hooks](#claude-code-通知)。其他工具也能發通知：執行 `panex-cli notify "訊息"`，或輸出 BEL、OSC 9、OSC 777 序列。
+panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不用另外開啟。其他工具也能發通知：執行 `panex-cli notify "訊息"`，或輸出 BEL、OSC 9、OSC 777 序列。
 
 ### 跟 cmux 一樣的工作區與分頁
 
@@ -98,7 +98,7 @@ Claude Code 要求權限或完成工作時，它所在的分頁會出現圓點�
 
 panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例外是你自己開的 SSH 連線，用的是電腦內建的 `ssh`。Git 面板不會 fetch。
 
-它唯一會寫到自己資料夾以外的檔案是 `~/.claude/settings.json`，而且只在你按 **啟用** 開啟 Claude Code 通知時才會寫。寫入前會先備份（`settings.json.panex-bak`），並保留你原本的其他 hooks。相關程式碼在 [`src-tauri/src/hooks.rs`](../src-tauri/src/hooks.rs)。
+它唯一會寫到自己資料夾以外的檔案是 `~/.claude/settings.json`：panex 啟動時，如果 Claude Code hooks 還沒設定，或指向舊的安裝位置，就會把它們加進去。寫入前會先備份（`settings.json.panex-bak`），並保留你原本的其他 hooks。相關程式碼在 [`src-tauri/src/hooks.rs`](../src-tauri/src/hooks.rs)。
 
 ## 安裝
 
@@ -123,7 +123,7 @@ panex **自己不會連網**，沒有遙測，也不檢查更新。唯一的例�
 
 ### Claude Code 通知
 
-在側欄底部按 **啟用**。panex 會在 `~/.claude/settings.json` 加入執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。
+panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli notify` 的 `Notification`、`Stop`、`StopFailure`、`UserPromptSubmit`、`SessionEnd` hooks，或它們指向舊的安裝位置，就會自動加入。寫入前會先備份，你原本的其他 hooks 都會保留。在 panex 以外執行時，這個小程式會立刻結束，所以不會影響你在其他終端機裡跑的 Claude Code。
 
 ## 設定
 
@@ -191,7 +191,7 @@ App 沒有經過 Apple 公證。到 **系統設定 → 隱私權與安全性** �
 <details>
 <summary><b>收不到 Claude Code 通知</b></summary>
 
-確認側欄底部顯示 **Claude Code 通知：已啟用**。如果是「未啟用」，按一下 **啟用**。只有在 panex 裡啟動的 Claude Code 才會讓分頁亮起。桌面通知只在 panex 不是目前視窗時才會跳出，分頁和工作區則不管怎樣都會亮。
+確認側欄底部顯示 **Claude Code 通知：已啟用**。如果是「未啟用」，代表 panex 沒辦法寫入 `~/.claude/settings.json`（例如檔案不是正確的 JSON），把檔案修好後按一下 **啟用**。只有在 panex 裡啟動的 Claude Code 才會讓分頁亮起。桌面通知只在 panex 不是目前視窗時才會跳出，分頁和工作區則不管怎樣都會亮。
 </details>
 
 <details>
@@ -209,7 +209,7 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 <details>
 <summary><b>怎麼解除安裝？</b></summary>
 
-到 **設定 → 應用程式 → 已安裝的應用程式 → panex → 解除安裝**。要連資料一起刪，再刪掉上面兩個資料夾。如果開過通知，把 `~/.claude/settings.json` 裡的 `panex-cli` 項目刪掉（或還原 `settings.json.panex-bak`）。
+到 **設定 → 應用程式 → 已安裝的應用程式 → panex → 解除安裝**。要連資料一起刪，再刪掉上面兩個資料夾。接著把 `~/.claude/settings.json` 裡的 `panex-cli` 項目刪掉（或還原 `settings.json.panex-bak`）。
 </details>
 
 ## 跟類似工具的差別

@@ -8,7 +8,7 @@
 
 ## 不可踩越的邊界
 - 不複製 cmux（GPL-3.0）的程式碼，也不用 cmux 名稱或品牌。
-- `~/.claude/settings.json` 是使用者全域設定：只能由使用者在 UI 按「啟用」觸發寫入，且必須備份、保留既有 hooks。開發測試時不要替使用者寫。
+- `~/.claude/settings.json` 是使用者全域設定：正式安裝的 panex 啟動時，hooks 缺少或指向別處就自動寫入（2026-10-22 使用者裁定 hooks 是必要功能，不再詢問同意）；寫入前必須備份、只替換含 `panex-cli` 的條目、保留其他 hooks。**debug build 與 identifier 不是 `dev.panex.terminal` 的實例（測試實例）絕對不寫**（`hooks::ensure`），否則使用者全部的 Claude Code 會被指到 `target/` 裡的 panex-cli，清掉 `target` 就全面報 hook error（2026-10-22 發生過）。開發測試時也不要手動按「啟用」替使用者寫。
 - `panex-cli` 在 panex 外必須安靜地 exit 0，不能讓 Claude Code 顯示 hook error 或卡住。
 
 - **測試不要碰使用者正在用的 panex**：用獨立測試實例（`--config '{"identifier":"dev.panex.terminal.test"}'` 建置、`XDG_CONFIG_HOME` 指 scratch、`PANEX_PIPE_NAME` 換管道、WebView2 除錯埠用 9556），資料用使用者檔案的複本。要換掉使用者的實例前先問，他可能有 agent 在跑。
