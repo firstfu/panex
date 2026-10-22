@@ -2,6 +2,7 @@
 // resuming the Claude Code session that was running when panex closed.
 
 import { invoke } from "@tauri-apps/api/core";
+import { t as tr } from "./i18n";
 import { type Status, type Tab } from "./types";
 import { S, tabTitle, tabs, workspaces, wsTitle } from "./state";
 import { saveSessionSoon } from "./session";
@@ -41,7 +42,8 @@ export function clearStatus(tab: Tab) {
 
 export function notify(tab: Tab, status: Status, note: string) {
   if (status === "running") {
-    if (tab.status !== "running") tab.runStart = Date.now();
+    // Resuming after a question inside the turn keeps the turn's start time.
+    if (tab.status !== "running" && !(tab.asking && tab.runStart !== undefined)) tab.runStart = Date.now();
     tab.status = "running";
     tab.note = undefined;
     tab.runMs = undefined;
@@ -69,6 +71,24 @@ export function notify(tab: Tab, status: Status, note: string) {
   const ws = workspaces.get(tab.wsId);
   const where = ws && ws.tabs.length > 1 ? `${wsTitle(ws)} › ${tabTitle(tab)}` : tabTitle(tab);
   if (!S.focused) invoke("alert", { title: `panex · ${where}`, body: note }).catch(() => {});
+}
+
+/**
+ * Keys that change an agent's state without any hook: Claude Code reports neither an interrupted
+ * turn (Esc / Ctrl+C) nor the user answering a permission prompt or question (Enter), so the key
+ * itself does. The backend is told too, for `panex-cli wait`. A wrong guess (an Esc that only
+ * closed a menu) is corrected by the agent's next hook.
+ */
+export function agentKey(tab: Tab, data: string) {
+  if ((tab.status === "running" || tab.asking) && (data === "\x1b" || data === "\x03")) {
+    tab.asking = false;
+    notify(tab, "done", tr("已中斷"));
+    invoke("agent_state", { id: tab.id, state: "done", message: "interrupted by the user" }).catch(() => {});
+  } else if (tab.asking && data === "\r") {
+    notify(tab, "running", "");
+    tab.asking = false;
+    invoke("agent_state", { id: tab.id, state: "running", message: "" }).catch(() => {});
+  }
 }
 
 /** Tabs whose agent is mid-turn: running, or stopped on a question inside the turn. */

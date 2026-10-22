@@ -1,8 +1,9 @@
 //! The panex backend: registers the Tauri plugins and commands, opens the session store and
-//! config, installs the Claude Code hooks and starts the notification pipe at launch, and
+//! config, installs the Claude Code hooks and starts the notification / control pipe at launch, and
 //! flushes state on exit. Each concern lives in its own module below.
 
 mod config;
+mod control;
 mod fonts;
 mod git;
 mod hooks;
@@ -65,6 +66,7 @@ pub fn run() {
                 session,
                 quitting: AtomicBool::new(false),
             });
+            app.manage(control::Control::default());
             hooks::ensure(app.handle());
             notify::start_server(app.handle().clone());
             Ok(())
@@ -95,6 +97,8 @@ pub fn run() {
             session::scrollback_load,
             session::scrollback_save,
             notify::alert,
+            control::ctl_reply,
+            control::agent_state,
             hooks::hooks_status,
             hooks::hooks_install,
         ])

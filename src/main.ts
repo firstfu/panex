@@ -24,6 +24,7 @@ import { closeTab, newTab, newWorkspace, showTab, showWorkspace } from "./worksp
 import { scheduleGit, setGitOpen } from "./git-panel";
 import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
+import { wireControl } from "./control";
 
 async function main() {
   document.body.classList.toggle("mac", IS_MAC);
@@ -77,6 +78,7 @@ async function main() {
     if (p.event === "SessionEnd") {
       if (tab.agentLive || tab.agentSession) endAgent(tab);
       endRun(tab);
+      tab.asking = false;
       return;
     }
     if (validSessionId(p.sessionId)) {
@@ -87,6 +89,7 @@ async function main() {
       }
       scheduleRender();
     }
+    if (p.event !== "Notification") tab.asking = false;
     if (p.event === "UserPromptSubmit") notify(tab, "running", "");
     else if (p.event === "Stop") {
       notify(tab, "done", p.message || tr("已完成"));
@@ -99,7 +102,11 @@ async function main() {
     }
     else if (p.notificationType === "auth_success") return;
     else if (p.notificationType === "idle_prompt" && tab.status === "done") return;
-    else notify(tab, "attention", p.message || tr("需要你的回應"));
+    else {
+      // A permission prompt or question inside the turn; idle_prompt just means Claude is waiting for a new prompt.
+      if (p.notificationType !== "idle_prompt") tab.asking = true;
+      notify(tab, "attention", p.message || tr("需要你的回應"));
+    }
   });
 
   listen<LoadedConfig>("config-changed", ({ payload }) => {
@@ -143,6 +150,8 @@ async function main() {
   const first = session.active && workspaces.has(session.active) ? session.active : wsOrder[0];
   if (first) showWorkspace(first);
   else newWorkspace();
+  // After the restore, so `panex-cli open` can place its workspace next to the caller's.
+  wireControl();
 }
 
 if (import.meta.env.DEV) (window as any).__panex = { tabs, workspaces, wsOrder, showTab, newTab, newWorkspace, closeTab };

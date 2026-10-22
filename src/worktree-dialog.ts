@@ -18,6 +18,18 @@ const wtErrEl = $("wt-err");
 const wtOkEl = $<HTMLButtonElement>("wt-ok");
 let wtCwd: string | undefined;
 
+/** `git worktree add` next to cwd's repo, copying the files named in worktree.copyFiles. */
+export function addWorktree(cwd: string, branch: string, base: string | null) {
+  const copyFiles = Array.isArray(S.rawConfig.worktree?.copyFiles) ? S.rawConfig.worktree.copyFiles : [".env", ".env.local"];
+  return invoke<{ path: string; copied: string[] }>("git_worktree_add", { cwd, branch, base, copyFiles });
+}
+
+/** The worktree.setupCommand to type into a new worktree's shell, if any. */
+export function worktreeSetup(): string | undefined {
+  const setup = S.rawConfig.worktree?.setupCommand;
+  return typeof setup === "string" && setup.trim() ? setup.trim() : undefined;
+}
+
 export function openWorktreeDialog() {
   const tab = activeTab();
   wtCwd = tab?.cwd;
@@ -47,21 +59,14 @@ async function createWorktree() {
   if (!wtCwd || !branch) return;
   wtOkEl.disabled = true;
   wtErrEl.textContent = "";
-  const copyFiles = Array.isArray(S.rawConfig.worktree?.copyFiles) ? S.rawConfig.worktree.copyFiles : [".env", ".env.local"];
   try {
-    const wt = await invoke<{ path: string; copied: string[] }>("git_worktree_add", {
-      cwd: wtCwd,
-      branch,
-      base: wtBaseEl.value.trim() || null,
-      copyFiles,
-    });
+    const wt = await addWorktree(wtCwd, branch, wtBaseEl.value.trim() || null);
     wtEl.hidden = true;
     const ws: Workspace = { id: newWsId(), tabs: [], customTitle: branch };
     workspaces.set(ws.id, ws);
     wsOrder.push(ws.id);
     const tab = createTab({ id: newId(), shell: S.settings.defaultShell, cwd: wt.path }, ws.id);
-    const setup = S.rawConfig.worktree?.setupCommand;
-    if (typeof setup === "string" && setup.trim()) tab.initialInput = setup.trim();
+    tab.initialInput = worktreeSetup();
     if (wt.copied.length) tab.term.write(`\x1b[90m${tr("已複製：{files}", { files: wt.copied.join(", ") })}\x1b[0m\r\n`);
     ws.tabs.push(tab.id);
     showTab(tab.id);

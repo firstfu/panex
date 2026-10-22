@@ -2,6 +2,8 @@
 //! The installed app does this by itself at launch (`ensure`); the sidebar button is the
 //! fallback when that fails. Existing hooks are kept; only entries pointing at a panex-cli are replaced.
 //! Outside panex the CLI finds no PANEX_PANE_ID and exits 0 at once, so the global hook is harmless.
+//! `ensure` also keeps ~/.claude/skills/panex/SKILL.md (how an agent uses `panex-cli open|wait`)
+//! in step with this version; the skill itself tells the agent to do nothing outside panex.
 
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -10,9 +12,16 @@ use tauri::AppHandle;
 
 const EVENTS: [&str; 5] = ["Notification", "Stop", "StopFailure", "UserPromptSubmit", "SessionEnd"];
 
-fn settings_path() -> Option<PathBuf> {
+/// Shipped inside the binary, so the skill always matches this version's panex-cli.
+const SKILL: &str = include_str!("../../skills/panex/SKILL.md");
+
+fn claude_dir() -> Option<PathBuf> {
     let home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })?;
-    Some(PathBuf::from(home).join(".claude").join("settings.json"))
+    Some(PathBuf::from(home).join(".claude"))
+}
+
+fn settings_path() -> Option<PathBuf> {
+    Some(claude_dir()?.join("settings.json"))
 }
 
 fn cli_path() -> Option<String> {
@@ -38,12 +47,30 @@ const RELEASE_ID: &str = "dev.panex.terminal";
 /// missing or stale. Debug and test builds never write, so testing can't point the user's
 /// real Claude Code at a panex-cli inside `target/`.
 pub fn ensure(app: &AppHandle) {
-    if !may_write(cfg!(debug_assertions), &app.config().identifier) || hooks_status() {
+    if !may_write(cfg!(debug_assertions), &app.config().identifier) {
         return;
     }
-    if let Err(e) = hooks_install() {
-        eprintln!("panex: could not install Claude Code hooks: {e}");
+    if !hooks_status() {
+        if let Err(e) = hooks_install() {
+            eprintln!("panex: could not install Claude Code hooks: {e}");
+        }
     }
+    if let Some(dir) = claude_dir() {
+        if let Err(e) = skill_at(&dir.join("skills").join("panex")) {
+            eprintln!("panex: could not install the Claude Code skill: {e}");
+        }
+    }
+}
+
+/// Writes SKILL.md into `dir` unless it already holds this version's text; true if it wrote.
+fn skill_at(dir: &Path) -> Result<bool, String> {
+    let path = dir.join("SKILL.md");
+    if fs::read_to_string(&path).is_ok_and(|t| t == SKILL) {
+        return Ok(false);
+    }
+    fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    fs::write(&path, SKILL).map_err(|e| e.to_string())?;
+    Ok(true)
 }
 
 fn may_write(debug_build: bool, identifier: &str) -> bool {
@@ -145,6 +172,22 @@ mod tests {
 
         // The next launch finds everything current and writes nothing.
         assert!(status_at(&p, CLI));
+    }
+
+    #[test]
+    fn skill_is_written_once_and_refreshed_when_it_differs() {
+        let d = scratch("skill").join("skills").join("panex");
+        assert!(skill_at(&d).unwrap(), "missing: written");
+        assert_eq!(fs::read_to_string(d.join("SKILL.md")).unwrap(), SKILL);
+        assert!(!skill_at(&d).unwrap(), "current: left alone");
+        fs::write(d.join("SKILL.md"), "old version").unwrap();
+        assert!(skill_at(&d).unwrap(), "stale: replaced");
+        assert_eq!(fs::read_to_string(d.join("SKILL.md")).unwrap(), SKILL);
+        assert!(SKILL.starts_with("---
+name: panex
+") || SKILL.starts_with("---
+name: panex
+"));
     }
 
     #[test]

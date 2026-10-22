@@ -16,7 +16,7 @@ import { termFontFamily } from "./settings";
 import { $ } from "./util";
 import { S, shellName, tabs } from "./state";
 import { saveSessionIfPending, saveSessionSoon } from "./session";
-import { autoResume, endAgent, endRun, notify } from "./agent";
+import { agentKey, autoResume, endAgent, endRun, notify } from "./agent";
 import { scheduleGit } from "./git-panel";
 import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
@@ -136,9 +136,7 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
 }
 
 export function onInput(tab: Tab, data: string) {
-  // Claude Code fires no Stop hook when the user interrupts a turn (Esc / Ctrl+C), so the
-  // key itself ends it. If the Esc only closed a menu, the agent's next hook corrects this.
-  if (tab.status === "running" && (data === "\x1b" || data === "\x03")) notify(tab, "done", tr("已中斷"));
+  agentKey(tab, data);
   if (tab.running) {
     invoke("pty_write", { id: tab.id, data }).catch(() => {});
   } else if (tab.exited && data === "\r") {

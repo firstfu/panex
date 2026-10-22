@@ -9,7 +9,8 @@
 ## 不可踩越的邊界
 - 不複製 cmux（GPL-3.0）的程式碼，也不用 cmux 名稱或品牌。
 - `~/.claude/settings.json` 是使用者全域設定：正式安裝的 panex 啟動時，hooks 缺少或指向別處就自動寫入（2026-10-22 使用者裁定 hooks 是必要功能，不再詢問同意）；寫入前必須備份、只替換含 `panex-cli` 的條目、保留其他 hooks。**debug build 與 identifier 不是 `dev.panex.terminal` 的實例（測試實例）絕對不寫**（`hooks::ensure`），否則使用者全部的 Claude Code 會被指到 `target/` 裡的 panex-cli，清掉 `target` 就全面報 hook error（2026-10-22 發生過）。開發測試時也不要手動按「啟用」替使用者寫。
-- `panex-cli` 在 panex 外必須安靜地 exit 0，不能讓 Claude Code 顯示 hook error 或卡住。
+- 同一個 `hooks::ensure` 也把 `skills/panex/SKILL.md`（編譯時 `include_str!` 嵌入）寫到 `~/.claude/skills/panex/SKILL.md`，內容不同就整份覆蓋（2026-10-22 使用者裁定自動安裝）。這個資料夾歸 panex 管，不要在裡面放別的東西。寫入條件同上：只有正式安裝的 panex 會寫。測試 skill 時放在測試 repo 的 `.claude/skills/`，不要寫進使用者的全域資料夾。
+- `panex-cli notify` 在 panex 外必須安靜地 exit 0，不能讓 Claude Code 顯示 hook error 或卡住。
 
 - **測試不要碰使用者正在用的 panex**：用獨立測試實例（`--config '{"identifier":"dev.panex.terminal.test"}'` 建置、`XDG_CONFIG_HOME` 指 scratch、`PANEX_PIPE_NAME` 換管道、WebView2 除錯埠用 9556），資料用使用者檔案的複本。要換掉使用者的實例前先問，他可能有 agent 在跑。
 - **改 session／config 格式一定要寫遷移並備份**：`#[serde(default)]` 會把舊格式靜默讀成空的，下一次存檔就把使用者資料洗掉。

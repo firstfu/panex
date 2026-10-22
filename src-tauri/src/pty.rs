@@ -91,6 +91,8 @@ pub fn pty_spawn(
     scrub_parent_agent_env(&mut cmd);
     cmd.env("PANEX_PANE_ID", &id);
     cmd.env("PANEX_PIPE", crate::notify::pipe_name());
+    // Lets `panex-cli open|wait` in this tab drive panex; processes outside panex never see it.
+    cmd.env("PANEX_TOKEN", crate::control::token());
     cmd.env("TERM_PROGRAM", "panex");
     cmd.env("COLORTERM", "truecolor");
     cmd.env("TERM", "xterm-256color");
@@ -129,6 +131,7 @@ pub fn pty_spawn(
         if state.quitting() {
             return;
         }
+        crate::control::pane_exited(&app, &id);
         let pane = state.ptys.lock().unwrap().remove(&id);
         drop(pane);
         let _ = app.emit("pty-exit", ExitPayload { id, code });

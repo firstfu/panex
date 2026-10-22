@@ -114,6 +114,7 @@ export interface Tab {
   note?: string;
   runStart?: number; // when the current agent turn started; kept through "attention" so the turn's total time is right
   runMs?: number; // how long the last finished turn took, shown next to "done"
+  asking?: boolean; // the agent is waiting on a permission prompt or question inside its turn (whatever the badge shows)
   initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
   agentSession?: string; // id of the Claude Code session running here (persisted; dropped once Claude exits)
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
