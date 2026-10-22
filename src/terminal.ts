@@ -40,6 +40,9 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
     allowTransparency: true,
     scrollback: S.settings.scrollback,
     cursorBlink: S.settings.cursorBlink,
+    // No cursor while the terminal isn't focused, like Windows Terminal. The default outline box
+    // sat on whatever character a program parked the cursor at (Claude Code: its input caret).
+    cursorInactiveStyle: "none",
     fontSize: S.settings.fontSize,
     fontFamily: termFontFamily(S.settings.fontFamily),
     // Squeezes one-cell characters drawn wider than a cell (⚠ as an emoji) back into their cell.
