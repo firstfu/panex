@@ -62,6 +62,7 @@ cd .. && node tests/e2e/run.mjs [--keep]   # --keep 留下暫存資料夾供檢�
   - **CSP 擋 `new Function`／`eval`**：視窗內動態編譯 JS 會丟錯（WebKit 的 stack 還不帶訊息，只看到 `AsyncFunction@[native code]`）。原生的 `webview.eval` 不受 CSP 限制，所以 JS 本體直接嵌進注入的腳本。
   - **送進去的 JS 有語法錯誤 → 整段不執行，60 秒後才逾時**，不會回錯誤訊息。看到 `panex did not answer` 先查語法。
   - **WebKit 的 `new KeyboardEvent` 忽略 `keyCode`**，xterm 卻是讀它：用 `Object.defineProperty` 補上 `keyCode`／`which`。送文字用 textarea 的 `paste` 事件（`DataTransfer`），xterm 會照真的貼上轉給 shell。
+  - **Unix socket 路徑上限約 104 字元**：`PANEX_PIPE_NAME` 放在太深的資料夾（例如 Claude Code 的 scratchpad）時 socket 建不起來，`panex-cli e2e` 只會一直逾時、沒有錯誤訊息。管道路徑用 `os.tmpdir()` 底下的短路徑。
   - **macOS 暫存資料夾在 `/var`，它是 `/private/var` 的連結**；shell 回報的 cwd 和 git 給的路徑都是 `/private/var/...`。比對路徑前先 `realpath`／`fs::canonicalize`（`git::tests` 與 `run.mjs` 都踩過）。
 
 ## 重拍 README 截圖
@@ -72,9 +73,9 @@ cd .. && node tests/e2e/run.mjs [--keep]   # --keep 留下暫存資料夾供檢�
 
 安裝檔由 CI 建（`.github/workflows/release.yml`），本機不必建置：
 
-0. 先跑上方「單元測試」的兩組測試，全過才發版（CI 不跑測試）。
+0. 先跑上方「單元測試」的兩組測試，全過才發版（CI 不跑測試）。另外 repo 要有四個 secrets，缺任何一個 CI 在檢查步驟就失敗：`TAURI_SIGNING_PRIVATE_KEY`／`_PASSWORD`（更新包簽章）、`MACOS_CERT_P12`（p12 的 base64）／`MACOS_CERT_PASSWORD`（macOS 簽章憑證「panex Release Signing」）。來源檔在 `~/.config/panex-signing/`，機制與風險見 `modules/updates.md`。
 1. 改版本號，六個檔：`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（`name = "panex"` 那段）、`package.json`，以及 README 與繁中版裡的安裝檔檔名（`.exe`、`.dmg` 各處）。提交前確認 `Cargo.toml` 的 `macos-private-api` 還在（見上方「建置」）。
 2. commit、`git push origin main`，再 `git tag v<版本>` 並 `git push origin v<版本>`。
-3. tag 觸發 CI：先建草稿 release，再由 Windows、macOS 兩個 job 各自建安裝檔並上傳。草稿這時的說明只是 `Notes pending.`。兩個平台平行跑，LTO＋沒有快取，約 8–15 分鐘；`gh run watch <run id> --exit-status` 可以等它結束。
+3. tag 觸發 CI：先建草稿 release，再由 Windows、macOS 兩個 job 各自建安裝檔與更新包（`.sig`、`panex.app.tar.gz`）並上傳，最後 `manifest` job 產生 `latest.json`。macOS 在 build 時用 `--config` 把 `signingIdentity` 覆寫成憑證（本機建置仍是 ad-hoc `-`）。草稿這時的說明只是 `Notes pending.`。兩個平台平行跑，LTO＋沒有快取，約 8–15 分鐘；`gh run watch <run id> --exit-status` 可以等它結束。
 4. 兩個安裝檔都上傳後才發布：`gh release edit v<版本> --repo firstfu/panex --title "panex <版本>" --notes-file <notes.md> --draft=false --latest`。說明的格式照前一版（New／Changed／Install，英文）。
-5. 驗證：`curl -sI https://github.com/firstfu/panex/releases/latest/download/<安裝檔名>`，兩個檔名都要回 302、`Location` 指向新版。只看轉址就好，不要跟著轉址把檔案下載下來，免得算進 GitHub 的下載次數。
+5. 驗證：`curl -sI https://github.com/firstfu/panex/releases/latest/download/<檔名>`，兩個安裝檔與 `latest.json` 都要回 302、`Location` 指向新版。只看轉址就好，不要跟著轉址把檔案下載下來，免得算進 GitHub 的下載次數。

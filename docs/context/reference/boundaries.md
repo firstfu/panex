@@ -12,6 +12,7 @@
 - 同一個 `hooks::ensure` 也把 `skills/panex/SKILL.md`（編譯時 `include_str!` 嵌入）寫到 `~/.claude/skills/panex/SKILL.md`，內容不同就整份覆蓋（2026-10-22 使用者裁定自動安裝）。這個資料夾歸 panex 管，不要在裡面放別的東西。寫入條件同上：只有正式安裝的 panex 會寫。測試 skill 時放在測試 repo 的 `.claude/skills/`，不要寫進使用者的全域資料夾。
 - `panex-cli notify` 在 panex 外必須安靜地 exit 0，不能讓 Claude Code 顯示 hook error 或卡住。
 
+- **簽章金鑰與憑證不可遺失、不可換**：`~/.config/panex-signing/` 放更新簽章金鑰（遺失＝已安裝的版本再也收不到更新，只能請使用者手動重裝）與 macOS 簽章憑證（換了＝所有 Mac 使用者要重新授權）。它們也各存一份在 GitHub secrets，但 secrets 讀不回來，不能當備份。不要把這個資料夾當暫存清掉；細節見 `modules/updates.md`、`operations.md`。
 - **測試不要碰使用者正在用的 panex**：用獨立測試實例（`--config '{"identifier":"dev.panex.terminal.test"}'` 建置、`XDG_CONFIG_HOME` 指 scratch、`PANEX_PIPE_NAME` 換管道、WebView2 除錯埠用 9556），資料用使用者檔案的複本。要換掉使用者的實例前先問，他可能有 agent 在跑。
 - **改 session／config 格式一定要寫遷移並備份**：`#[serde(default)]` 會把舊格式靜默讀成空的，下一次存檔就把使用者資料洗掉。
 
