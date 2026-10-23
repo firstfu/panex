@@ -181,6 +181,11 @@ async function main() {
       );
       mkdirSync(join(repo, "src"), { recursive: true });
       writeFileSync(join(repo, "src", "app.ts"), "const answer = 42;\nexport function main() { return answer; }\n");
+      mkdirSync(join(repo, "assets"), { recursive: true });
+      // A real 1×1 PNG, an SVG with a script that must not run, and a PDF-looking binary.
+      writeFileSync(join(repo, "assets", "dot.png"), Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+      writeFileSync(join(repo, "assets", "logo.svg"), '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><script>window.__svgran=1</script><rect width="40" height="20" fill="red"/></svg>');
+      writeFileSync(join(repo, "assets", "spec.pdf"), Buffer.from([0x25, 0x50, 0x44, 0x46, 0, 1, 2, 3]));
       const rows = () => evalJs(`return [...document.querySelectorAll("#files-body .f-row")].map((e) => (e.dataset.dir !== undefined ? "d:" + e.dataset.dir : e.dataset.path) + (e.querySelector(".f-dot") ? "•" : "") + (e.querySelector(".g-st")?.textContent ?? ""))`);
       // The panel's open state lives in WebKit's localStorage, which outlives HOME: open it only if closed.
       evalJs(`if (document.querySelector("#git").hidden) document.querySelector("#git-toggle").click(); document.querySelector('.g-tab[data-mode="files"]').click(); return true;`);
@@ -188,11 +193,11 @@ async function main() {
       let last;
       const top = await waitFor("the tree", () => {
         const r = (last = rows());
-        return r.join() === "d:docs•,d:src•,README.md" && r;
+        return r.join() === "d:assets•,d:docs•,d:src•,README.md" && r;
       }, 10000).catch((e) => { throw new Error(`${e.message}: ${JSON.stringify(last)} ${evalJs('return document.querySelector("#files-body").textContent')}`); });
       evalJs(`document.querySelector('#files-body .f-dir[data-dir="docs"]').click(); return true;`);
       const opened = await waitFor("docs expanded", () => rows().includes("docs/guide.mdU") && rows(), 5000);
-      if (opened.join() !== "d:docs•,docs/guide.mdU,d:src•,README.md") throw new Error(JSON.stringify({ top, opened }));
+      if (opened.join() !== "d:assets•,d:docs•,docs/guide.mdU,d:src•,README.md") throw new Error(JSON.stringify({ top, opened }));
       evalJs(`document.querySelector('#files-body .f-file[data-path="docs/guide.md"]').click(); return true;`);
       const view = await waitFor("the rendered document", () =>
         evalJs(`const md = document.querySelector("#gv-body .md"); return md && { table: !!md.querySelector("table"), img: !!md.querySelector("img"),
@@ -206,6 +211,20 @@ async function main() {
       const code = await waitFor("the code view", () =>
         evalJs(`const c = document.querySelector("#gv-body .f-code"); return c && { ln: c.querySelector(".f-ln").textContent, kw: !!c.querySelector(".hljs-keyword"), text: c.querySelector(".f-src").textContent }`), 10000);
       if (code.ln !== "1\n2" || !code.kw || !code.text.startsWith("const answer = 42;")) throw new Error(JSON.stringify(code));
+      evalJs(`document.querySelector('#files-body .f-dir[data-dir="assets"]').click(); return true;`);
+      await waitFor("assets expanded", () => rows().includes("assets/dot.pngU"), 5000);
+      const open = (p) => evalJs(`document.querySelector('#files-body .f-file[data-path="${p}"]').click(); return true;`);
+      open("assets/dot.png");
+      const png = await waitFor("the image", () => evalJs(`const i = document.querySelector("#gv-body .f-stage img"); return i?.complete && i.naturalWidth && { w: i.naturalWidth, dim: document.querySelector(".f-dim").textContent }`), 5000);
+      if (png.w !== 1 || png.dim !== "1 × 1") throw new Error(JSON.stringify(png));
+      open("assets/logo.svg");
+      const svg = await waitFor("the svg", () => evalJs(`const i = document.querySelector("#gv-body .f-stage img"); return i?.complete && i.naturalWidth && { w: i.naturalWidth, src: !!document.querySelector('[data-file-act="source"]'), ran: !!window.__svgran }`), 5000);
+      if (svg.w !== 40 || !svg.src || svg.ran) throw new Error(JSON.stringify(svg));
+      evalJs(`document.querySelector('[data-file-act="source"]').click(); return true;`);
+      await waitFor("the svg source", () => evalJs(`return document.querySelector("#gv-body .f-src")?.textContent.startsWith("<svg")`), 5000);
+      open("assets/spec.pdf");
+      const pdf = await waitFor("the pdf card", () => evalJs(`const c = document.querySelector("#gv-body .f-other"); return c && { kind: c.querySelector(".f-kind").textContent, acts: [...c.querySelectorAll("[data-file-act]")].map((b) => b.dataset.fileAct) }`), 5000);
+      if (pdf.kind !== "PDF 文件" || pdf.acts.join() !== "quicklook,open,reveal") throw new Error(JSON.stringify(pdf));
       evalJs(`document.querySelector("#gv-close").click(); document.querySelector("#git-close").click(); return true;`);
     });
 

@@ -140,32 +140,32 @@ fn shell_exec(file: &str, params: Option<&str>) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-fn shell_open(target: &str) -> Result<(), String> {
+pub(crate) fn shell_open(target: &str) -> Result<(), String> {
     shell_exec(target, None)
 }
 
 #[cfg(windows)]
-fn reveal(p: &Path) -> Result<(), String> {
+pub(crate) fn reveal(p: &Path) -> Result<(), String> {
     // Windows file names can't contain '"', so quoting is enough.
     shell_exec("explorer.exe", Some(&format!("/select,\"{}\"", p.display())))
 }
 
 #[cfg(target_os = "macos")]
-fn shell_open(target: &str) -> Result<(), String> {
+pub(crate) fn shell_open(target: &str) -> Result<(), String> {
     std::process::Command::new("open").arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[cfg(target_os = "macos")]
-fn reveal(p: &Path) -> Result<(), String> {
+pub(crate) fn reveal(p: &Path) -> Result<(), String> {
     std::process::Command::new("open").arg("-R").arg(p).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn shell_open(target: &str) -> Result<(), String> {
+pub(crate) fn shell_open(target: &str) -> Result<(), String> {
     std::process::Command::new("xdg-open").arg(target).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
-fn reveal(p: &Path) -> Result<(), String> {
+pub(crate) fn reveal(p: &Path) -> Result<(), String> {
     shell_open(&p.parent().unwrap_or(p).to_string_lossy())
 }

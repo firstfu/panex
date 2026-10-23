@@ -108,3 +108,44 @@ export function langOf(path: string): string {
   const dot = name.lastIndexOf(".");
   return dot > 0 ? name.slice(dot + 1) : "";
 }
+
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "ico", "svg"]);
+const extOf = (path: string) => {
+  const name = path.split("/").pop()!.toLowerCase();
+  const dot = name.lastIndexOf(".");
+  return dot > 0 ? name.slice(dot + 1) : "";
+};
+
+/** Formats the webview can show in an <img> (the backend agrees, see files.rs image_mime). */
+export const isImage = (path: string) => IMAGE_EXT.has(extOf(path));
+
+// Untranslated labels (i18n keys) for files the panel hands to the system instead.
+const KINDS: [string[], string][] = [
+  [["pdf"], "PDF 文件"],
+  [["xlsx", "xls", "xlsm", "csv", "numbers"], "試算表"],
+  [["docx", "doc", "pages", "rtf"], "文書檔"],
+  [["pptx", "ppt", "key"], "簡報"],
+  [["mp3", "aac", "m4a", "wav", "flac", "ogg", "opus"], "音訊"],
+  [["mp4", "mov", "m4v", "webm", "mkv", "avi"], "影片"],
+  [["zip", "gz", "tgz", "7z", "rar", "tar", "dmg"], "壓縮檔"],
+  [["ttf", "otf", "woff", "woff2"], "字型"],
+];
+
+/** What kind of file this is, as an i18n key ("二進位檔案" when unknown). */
+export function kindOf(path: string): string {
+  const ext = extOf(path);
+  return KINDS.find(([exts]) => exts.includes(ext))?.[1] ?? "二進位檔案";
+}
+
+/** 1536 → "1.5 KB". */
+export function fmtSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let v = bytes / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+}

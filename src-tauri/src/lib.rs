@@ -91,6 +91,8 @@ pub fn run() {
             git::git_show,
             files::project_tree,
             files::file_read,
+            files::file_image,
+            files::file_action,
             pty::shells_list,
             pty::pty_spawn,
             pty::pty_write,

@@ -1,18 +1,21 @@
 // The Files tab of the right panel: the current tab's whole project as a folder tree (what git
 // tracks plus untracked files it doesn't ignore), with the Git tab's change letters on files and
 // a dot on folders that contain changes. A file opens read only in the diff viewer's overlay:
-// Markdown rendered, code with line numbers and highlighting. No editing, no watcher.
+// Markdown rendered, code with line numbers and highlighting, images shown. Anything else (PDF,
+// spreadsheets, audio…) gets Quick Look / default app / reveal buttons. No editing, no watcher.
 
 import { invoke } from "@tauri-apps/api/core";
 import type { MarkdownIt, StateCore } from "markdown-it";
 import type { HLJSApi } from "highlight.js";
 import { t as tr } from "./i18n";
-import { type Change, type TreeDir, ancestors, buildTree, changeMarks, isMarkdown, langOf, resolveLink, slug } from "./tree";
+import { type Change, type TreeDir, ancestors, buildTree, changeMarks, fmtSize, isImage, isMarkdown, kindOf, langOf, resolveLink, slug } from "./tree";
 import { type Tab } from "./types";
 import { $, esc } from "./util";
 import { activeTab } from "./state";
 import { isViewerCurrent, openViewer } from "./git-panel";
 import { openLink } from "./links";
+import { showNotice } from "./config";
+import { IS_MAC } from "./platform";
 
 // The tree is read when the tab is shown and again after each git status refresh (shell prompt,
 // Claude Code Stop, window focus), and only while this tab is on screen.
@@ -25,6 +28,7 @@ interface FileText {
   text: string;
   truncated: boolean;
   binary: boolean;
+  size: number;
 }
 
 const filesBodyEl = $("files-body");
@@ -186,7 +190,35 @@ function codeHtml(hljs: HLJSApi, path: string, text: string): string {
   return `<div class="f-code"><pre class="f-ln" aria-hidden="true">${nums}</pre><pre class="f-src hljs">${highlight(hljs, body, langOf(path))}</pre></div>`;
 }
 
-async function openFile(root: string, path: string, anchor = "") {
+/** Buttons that hand the open file to the system; Quick Look only exists on macOS. */
+function actionsHtml(): string {
+  const btn = (act: string, label: string) => `<button class="f-act" data-file-act="${act}">${esc(tr(label))}</button>`;
+  return (IS_MAC ? btn("quicklook", "快速查看") : "") + btn("open", "用預設 App 開啟") + btn("reveal", IS_MAC ? "在 Finder 中顯示" : "在檔案總管中顯示");
+}
+
+/** A file the panel can't show: what it is, how big, and the ways to open it. */
+function otherHtml(path: string, size: number, note = ""): string {
+  const name = path.split("/").pop()!;
+  return (
+    `<div class="f-other"><div class="f-kind">${esc(tr(kindOf(path)))}</div><div class="f-oname">${esc(name)}</div>` +
+    `<div class="f-osize">${esc(fmtSize(size))}${note ? ` · ${esc(note)}` : ""}</div>` +
+    `<div class="f-acts">${actionsHtml()}</div>` +
+    (IS_MAC ? `<div class="f-ohint">${esc(tr("快速查看可以預覽 PDF、Office 文件、音訊與影片"))}</div>` : "") +
+    `</div>`
+  );
+}
+
+function imageHtml(path: string, url: string, size: number): string {
+  const svg = /\.svg$/i.test(path);
+  return (
+    `<div class="f-media"><div class="f-mbar"><span class="f-dim"></span><span>${esc(fmtSize(size))}</span>` +
+    (svg ? `<button class="f-act" data-file-act="source">${esc(tr("看原始碼"))}</button>` : "") +
+    `<span class="f-mgap"></span>${actionsHtml()}</div>` +
+    `<div class="f-stage"><img alt="${esc(path)}" src="${url}" /></div></div>`
+  );
+}
+
+async function openFile(root: string, path: string, anchor = "", source = false) {
   sel = path;
   selRoot = root;
   // Show where the file is: a link from another file may land in a collapsed folder.
@@ -200,9 +232,20 @@ async function openFile(root: string, path: string, anchor = "") {
   filesBodyEl.querySelector(`.f-file[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ block: "nearest" });
   const req = openViewer(path);
   try {
+    if (isImage(path) && !source) {
+      const img = await invoke<{ url: string; size: number }>("file_image", { root, path });
+      if (!isViewerCurrent(req)) return;
+      viewerBody.innerHTML = img.url ? imageHtml(path, img.url, img.size) : otherHtml(path, img.size, tr("圖片太大，不在這裡顯示"));
+      const el = viewerBody.querySelector<HTMLImageElement>(".f-stage img");
+      el?.addEventListener("load", () => {
+        const dim = viewerBody.querySelector(".f-dim");
+        if (dim && el.naturalWidth) dim.textContent = `${el.naturalWidth} × ${el.naturalHeight}`;
+      });
+      return;
+    }
     const [r, hljs] = await Promise.all([invoke<FileText>("file_read", { root, path }), highlighter()]);
     let html: string;
-    if (r.binary) html = `<div class="gn">${esc(tr("二進位檔案，不顯示內容"))}</div>`;
+    if (r.binary) html = otherHtml(path, r.size);
     else if (!r.text) html = `<div class="gn">${esc(tr("空檔案"))}</div>`;
     else if (isMarkdown(path)) html = `<div class="md">${(await markdown()).render(r.text)}</div>`;
     else html = codeHtml(hljs, path, r.text);
@@ -239,6 +282,14 @@ filesBodyEl.addEventListener("click", (e) => {
   const row = target.closest<HTMLElement>(".f-row");
   if (row?.dataset.dir !== undefined) toggleDir(list.root, row.dataset.dir);
   else if (row?.dataset.path) openFile(list.root, row.dataset.path);
+});
+
+// The open file's system buttons, and an SVG's "view source".
+viewerBody.addEventListener("click", (e) => {
+  const act = (e.target as HTMLElement).closest<HTMLElement>("[data-file-act]")?.dataset.fileAct;
+  if (!act || !sel) return;
+  if (act === "source") return void openFile(selRoot, sel, "", true);
+  invoke("file_action", { root: selRoot, path: sel, action: act }).catch((err) => showNotice(String(err)));
 });
 
 // Links inside a rendered document never navigate the app's page.

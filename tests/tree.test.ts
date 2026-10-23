@@ -1,8 +1,8 @@
-// Files panel helpers: folder tree, change marks, links between files, anchors, languages.
+// Files panel helpers: folder tree, change marks, links between files, anchors, languages, file kinds.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ancestors, buildTree, changeMarks, langOf, resolveLink, slug } from "../src/tree.ts";
+import { ancestors, buildTree, changeMarks, fmtSize, isImage, kindOf, langOf, resolveLink, slug } from "../src/tree.ts";
 
 test("builds a sorted folder tree from flat paths", () => {
   const t = buildTree(["src/b.ts", "README.md", "src/a/x.ts", "Cargo.toml", "src/A.ts"]);
@@ -46,4 +46,15 @@ test("languages come from the extension or a known name", () => {
   assert.equal(langOf("Dockerfile"), "dockerfile");
   assert.equal(langOf(".env.local"), "bash");
   assert.equal(langOf("LICENSE"), "");
+});
+
+test("images, kinds and sizes", () => {
+  assert.equal(isImage("assets/Logo.SVG"), true);
+  assert.equal(isImage("a.pdf"), false);
+  assert.equal(kindOf("眼誌/中短距離4.xlsx"), "試算表");
+  assert.equal(kindOf("voice0.aac"), "音訊");
+  assert.equal(kindOf("blob"), "二進位檔案");
+  assert.equal(fmtSize(512), "512 B");
+  assert.equal(fmtSize(1536), "1.5 KB");
+  assert.equal(fmtSize(20 * 1024 * 1024), "20 MB");
 });

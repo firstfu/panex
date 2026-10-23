@@ -1,6 +1,7 @@
 //! The Files panel's access to the project, read only: the list of files that make up the
 //! project (what git tracks plus untracked files it doesn't ignore, or a capped folder walk
-//! outside git) and reading one file. Nothing outside the project folder is ever read.
+//! outside git), reading one file as text or as an image, and handing a file the panel can't
+//! show to the system (Quick Look, default app, Finder). Nothing outside the project is touched.
 
 use crate::git::git_capped;
 use serde::Serialize;
@@ -16,6 +17,8 @@ const MAX_DEPTH: usize = 8;
 /// Directory entries looked at by the walk outside git, so a huge folder can't stall it.
 const MAX_ENTRIES: usize = 50_000;
 const MAX_FILE_BYTES: u64 = 1 << 20;
+/// Images are sent whole (base64) to be shown as a data: URL; bigger ones get the system buttons.
+const MAX_IMAGE_BYTES: u64 = 20 << 20;
 /// Skipped by the walk outside git (inside git, .gitignore decides).
 const SKIP_DIRS: &[&str] = &["node_modules", "target", "dist", "build", "vendor", "__pycache__"];
 
@@ -33,6 +36,15 @@ pub struct FileText {
     truncated: bool,
     /// Has a NUL byte near the start; `text` is empty.
     binary: bool,
+    /// File size in bytes.
+    size: u64,
+}
+
+#[derive(Serialize)]
+pub struct FileImage {
+    /// `data:<mime>;base64,…`, empty when the file is over MAX_IMAGE_BYTES.
+    url: String,
+    size: u64,
 }
 
 /// The project's files. In a repo root: `git ls-files` (tracked, plus untracked that aren't
@@ -98,15 +110,8 @@ fn walk(dir: &Path, rel: &str, depth: usize, out: &mut Vec<String>, seen: &mut u
 /// Reads one file of the project, at most MAX_FILE_BYTES. Refuses a path that resolves
 /// (through `..` or a symlink) to outside `root`.
 pub fn read_at(root: &Path, path: &str) -> Result<FileText, String> {
-    let rel = Path::new(path);
-    if path.is_empty() || !rel.components().all(|c| matches!(c, Component::Normal(_))) {
-        return Err(format!("invalid path: {path}"));
-    }
-    let base = fs::canonicalize(root).map_err(|e| e.to_string())?;
-    let full: PathBuf = fs::canonicalize(base.join(rel)).map_err(|e| e.to_string())?;
-    if !full.starts_with(&base) || !full.is_file() {
-        return Err(format!("invalid path: {path}"));
-    }
+    let full = inside(root, path)?;
+    let size = fs::metadata(&full).map_err(|e| e.to_string())?.len();
     let mut buf = Vec::new();
     fs::File::open(&full)
         .map_err(|e| e.to_string())?
@@ -115,11 +120,83 @@ pub fn read_at(root: &Path, path: &str) -> Result<FileText, String> {
         .map_err(|e| e.to_string())?;
     // Same test git uses for "binary": a NUL in the first 8000 bytes.
     if buf.iter().take(8000).any(|&b| b == 0) {
-        return Ok(FileText { text: String::new(), truncated: false, binary: true });
+        return Ok(FileText { text: String::new(), truncated: false, binary: true, size });
     }
     let truncated = buf.len() as u64 > MAX_FILE_BYTES;
     buf.truncate(MAX_FILE_BYTES as usize);
-    Ok(FileText { text: String::from_utf8_lossy(&buf).into_owned(), truncated, binary: false })
+    Ok(FileText { text: String::from_utf8_lossy(&buf).into_owned(), truncated, binary: false, size })
+}
+
+/// The real path of a project file, or an error when `path` is not a plain relative path or
+/// resolves (through `..` or a symlink) to outside `root`.
+fn inside(root: &Path, path: &str) -> Result<PathBuf, String> {
+    let rel = Path::new(path);
+    if path.is_empty() || !rel.components().all(|c| matches!(c, Component::Normal(_))) {
+        return Err(format!("invalid path: {path}"));
+    }
+    let base = fs::canonicalize(root).map_err(|e| e.to_string())?;
+    let full = fs::canonicalize(base.join(rel)).map_err(|e| e.to_string())?;
+    if !full.starts_with(&base) || !full.is_file() {
+        return Err(format!("invalid path: {path}"));
+    }
+    Ok(full)
+}
+
+/// MIME type of the image formats the webview shows; None for anything else.
+fn image_mime(path: &str) -> Option<&'static str> {
+    let ext = path.rsplit('.').next()?.to_ascii_lowercase();
+    Some(match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "avif" => "image/avif",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        // Shown through <img>, where an SVG's scripts never run.
+        "svg" => "image/svg+xml",
+        _ => return None,
+    })
+}
+
+/// An image of the project as a data: URL (CSP allows data: images, nothing else is needed).
+pub fn image_at(root: &Path, path: &str) -> Result<FileImage, String> {
+    use base64::Engine;
+    let mime = image_mime(path).ok_or_else(|| format!("not an image: {path}"))?;
+    let full = inside(root, path)?;
+    let size = fs::metadata(&full).map_err(|e| e.to_string())?.len();
+    if size > MAX_IMAGE_BYTES {
+        return Ok(FileImage { url: String::new(), size });
+    }
+    let bytes = fs::read(&full).map_err(|e| e.to_string())?;
+    Ok(FileImage { url: format!("data:{mime};base64,{}", base64::engine::general_purpose::STANDARD.encode(bytes)), size })
+}
+
+/// One image file, for the viewer.
+#[tauri::command]
+pub async fn file_image(root: String, path: String) -> Result<FileImage, String> {
+    tauri::async_runtime::spawn_blocking(move || image_at(Path::new(&root), &path)).await.map_err(|e| e.to_string())?
+}
+
+/// Hands a project file to the system: "quicklook" (macOS Quick Look, which previews PDF, Office
+/// files, audio and video natively), "open" (its default app) or "reveal" (Finder / Explorer).
+#[tauri::command]
+pub fn file_action(root: String, path: String, action: String) -> Result<(), String> {
+    let full = inside(Path::new(&root), &path)?;
+    match action.as_str() {
+        "open" => crate::links::shell_open(&full.to_string_lossy()),
+        "reveal" => crate::links::reveal(&full),
+        #[cfg(target_os = "macos")]
+        "quicklook" => std::process::Command::new("qlmanage")
+            .arg("-p")
+            .arg(&full)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+        _ => Err(format!("unknown action: {action}")),
+    }
 }
 
 /// The project's files; `root` is the repo root (or the tab's folder outside git).
@@ -192,6 +269,9 @@ mod tests {
         fs::write(outside.join("secret"), "no").unwrap();
         assert_eq!(read_at(&root, "a.rs").unwrap().text, "hello");
         assert!(read_at(&root, "b.bin").unwrap().binary);
+        fs::write(root.join("i.png"), [0x89u8, b'P', b'N', b'G']).unwrap();
+        assert_eq!(image_at(&root, "i.png").unwrap().url, "data:image/png;base64,iVBORw==");
+        assert!(image_at(&root, "a.rs").is_err());
         assert!(read_at(&root, "../panex-files-outside-0/secret").is_err());
         assert!(read_at(&root, "/etc/passwd").is_err());
         #[cfg(unix)]
