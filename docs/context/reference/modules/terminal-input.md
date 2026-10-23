@@ -7,7 +7,7 @@
 ## 機制
 
 - **`guardImeInput`**（`src/terminal.ts`，只在 macOS 掛上）：在 tab 容器的 capture 階段攔 `input`。`insertText` 的 `input` 若比它的 `keydown`（keyCode 229）先到，就由 panex 用 `term.input(data, true)` 送出並 `stopPropagation`，不讓 xterm 處理。
-- **交回 xterm 的情況**：229 的 `keydown` 先到（Chromium 的順序，xterm 的 textarea 比對會補送）、正在組字（`compositionstart`～`compositionend` 後一個 tick）、`isComposing`。
+- **交回 xterm 的情況**：這次按鍵 xterm 已在 `keypress` 處理過（見下方「空白送兩次」）、229 的 `keydown` 先到（Chromium 的順序，xterm 的 textarea 比對會補送）、正在組字（`compositionstart`～`compositionend` 後一個 tick）、`isComposing`。
 
 ## 踩過的雷
 
@@ -17,9 +17,16 @@ WKWebView 在輸入法（實測 OpenVanilla 嘸蝦米）啟用時，一個鍵的
 - **不能改成「input 一律由 panex 送」**：229 的 `keydown` 先到時，xterm 的 textarea 比對會自己送一次，再送就重複。所以只接管「input 先於 keydown」的那一種。
 - **原生 App（Terminal.app、cmux）沒有這個問題**，因為沒有「事件轉成 DOM 事件再由 xterm 解讀」這一層。
 
+### 守衛重送 `keypress` 已處理的按鍵 → 空白與大寫字母變兩個
+WebKit 上空白與大寫字母走 `keydown`（非 229）→ `keypress`（xterm 在這裡送出）→ `beforeinput` → `input`；小寫字母在 `keydown` 就被 xterm 送出並取消，不會有後兩者。守衛攔的是 `input`，沒分辨就重送，所以一個空白變兩個（0.5.5–0.6.0；`pip3 install` 變 `pip3  install`，zsh-autosuggestions 對不上歷史，畫面上空白也寬一格）。現在 `keypress` 設旗標、下一個 `keydown` 清除，旗標在時 `input` 一律放行。
+
+- **除錯陷阱**：守衛在 `el` 的 capture 階段 `stopPropagation`，掛在 textarea 上的記錄監聽器看不到被它攔下的 `input`，會誤以為沒有 `input`。要看事件順序時掛在 `window` 的 capture。
+- **怎麼抓到的**：在頁面包 `window.fetch`，記 `ipc://…/pty_write` 的 body，一個鍵數幾次寫入；比 pty 端的內容更能看出是誰多送。
+
 ### 輸入路徑只能用真實按鍵測
 `panex-cli e2e` 與 `__e2e.key` 合成的 `KeyboardEvent` 跳過 macOS 原生的 NSEvent → WebKit 文字輸入路徑，重現不出上面這類問題。
 
 - 測法：測試版實例（見 `operations.md`）＋ `osascript`（JXA 的 System Events `keyCode`，Shift 用 `using: "shift down"`）送真實按鍵，同時在頁面 capture 記 `keydown`／`input`／composition 事件，在 pty 端用 raw 模式的小程式（Python `tty.setraw`＋`os.read`）記每個字抵達的時間。比對「送出的鍵數」與「抵達 pty 的字數」才看得出丟字；用逐鍵順序配對會在丟字後整個錯位。
+- 測輸入法要切系統輸入來源時，用 Swift `TISSelectInputSource`（ABC 是 `com.apple.keylayout.ABC`、嘸蝦米是 `org.openvanilla.inputmethod.OpenVanilla`），測完切回使用者原本的。OpenVanilla 中文模式下字母是字根、會進組字，打不出英文，要測英文走 ABC。
 - 送鍵前要給 panex「輔助使用」權限（系統設定 → 隱私權與安全性）。從 panex 分頁裡跑 `osascript`，macOS 把權限算在 panex 頭上。ad-hoc 簽章的 panex 換版後，清單裡的舊項目會對不上、開關顯示開著仍回 `不允許「osascript」傳送按鍵 (1002)`：`tccutil reset Accessibility dev.panex.terminal` 清掉，再重新加入並重開 panex。
 - 送鍵期間測試視窗要在最前面，不能碰鍵盤滑鼠。

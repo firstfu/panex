@@ -4,6 +4,18 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-24 — 發佈 v0.6.1：修 macOS 空白與大寫字母被送兩次（`aa52519`、`50d473d`）
+
+**變更**
+- `src/terminal.ts` 的 `guardImeInput` 多追蹤 `keypress`：xterm 已在 `keypress` 送出的按鍵，之後 WebKit 補的 `input` 不再由守衛重送。版本號 0.6.0 → 0.6.1，tag `v0.6.1`，CI 一次跑通，兩個安裝檔與 `latest.json` 都回 302 指向新版。
+- 驗證：測試實例＋`osascript` 真實按鍵，在頁面包 `fetch` 記每次 `pty_write`。修前一個空白 1ms 內兩次 `pty_write " "`，修後一次；ABC 與 OpenVanilla 下空白、Shift+U 都不重複。
+
+**為什麼**
+- 使用者回報 panex 的空白比 iTerm2 寬、zsh-autosuggestions 不出現。根因是 0.5.5 加的守衛：空白與大寫字母走 `keydown → keypress`，xterm 送過一次，守衛又對隨後的 `input` 送一次，`pip3 install` 變 `pip3  install`，對不上歷史。0.5.5、0.5.6、0.6.0 都受影響。
+
+**下一步**
+- 使用者從 0.6.0 的更新列更新到 0.6.1，順便是第一次真實驗證 App 內更新路徑（尚未驗證）。
+
 ## 2026-10-23 — 發佈 v0.6.0：第一個含 App 內更新的版本（`fcc31bb`）
 
 **變更**
