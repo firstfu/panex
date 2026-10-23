@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-24 — 右側面板新增「檔案」分頁：整個專案的資料夾樹＋唯讀檢視（`729821c`）
+
+**變更**
+- 右側面板改成「Git｜檔案」兩個分頁，新快捷鍵 `toggleFilesPanel`（`Ctrl+Shift+E`／`⌘⇧E`）。後端 `files.rs`：`project_tree`（`git ls-files`，非 git 資料夾改掃目錄）與 `file_read`（限專案內、1 MB、偵測二進位）；`git_capped` 改成 `pub(crate)` 共用。前端 `files-panel.ts`（樹、檢視、連結）、`tree.ts`（純函式）。
+- 新依賴 `markdown-it@15.0.2`、`highlight.js@11.12.0`（都選發佈兩週以上的版本、精確鎖版），各自是延遲載入的 chunk。
+- `boundaries.md` 拿掉「前端不引入 UI 框架」，改成允許，但沒在用時成本仍要是零；`overview.md` 同步。README 英／繁中、schema、i18n 已更新。
+- 驗證：Rust 單元測試 3 項（gitignore、目錄掃描、讀檔不出專案含 symlink）、前端 12 項、macOS e2e 12 項全過（連跑 3 次；改完後第一次跑有一次「等不到樹」與一次 worktree 對話框焦點失敗，之後重現不出來）。測試實例開 panex 自己的 repo 截圖確認樹、程式碼上色、Markdown 表格。
+
+**為什麼**
+- 使用者要在側欄直接看專案，方便理解 AI 開發了什麼。先做的「Markdown 文件清單（依修改時間）」被否決：Git 已經看得到最近改了什麼，缺的是整個專案的結構。
+
+**下一步**
+- 尚未推送、未發版；Windows 沒測（路徑分隔符、`git ls-files` 輸出在 Windows 上應同為 `/`，未實測）。
+- 沒做、可能有人要：檢視器裡的搜尋、鍵盤上下移動選取、「用編輯器開啟」按鈕。
+
 ## 2026-10-24 — 發佈 v0.6.1：修 macOS 空白與大寫字母被送兩次（`aa52519`、`50d473d`）
 
 **變更**
