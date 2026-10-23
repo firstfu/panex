@@ -12,6 +12,7 @@ mod git;
 mod hooks;
 mod links;
 mod notify;
+mod perms;
 mod pty;
 mod session;
 mod ssh;
@@ -113,6 +114,8 @@ pub fn run() {
             hooks::hooks_status,
             hooks::hooks_install,
             hooks::hooks_sync,
+            perms::perms_status,
+            perms::perms_open,
             updater::update_check,
             updater::update_install,
         ])

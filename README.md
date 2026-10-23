@@ -105,7 +105,7 @@ Most of the memory you'll see in Task Manager belongs to WebView2, the Edge engi
 
 ## Privacy
 
-There's no telemetry. The one network connection panex makes on its own is the **update check**: at launch, and when the window regains focus after at least six hours, it asks GitHub for `latest.json` from the newest release. Nothing about you or your machine is sent beyond what any HTTPS request carries. Turn it off under **Settings → Look → Check for updates automatically** (`app.checkForUpdates` in `panex.json`) and panex makes no connections at all, apart from an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches. Updates are never installed on their own, and every download is verified against a public key built into the app.
+There's no telemetry. The one network connection panex makes on its own is the **update check**: at launch, and when the window regains focus after at least six hours, it asks GitHub for `latest.json` from the newest release. Nothing about you or your machine is sent beyond what any HTTPS request carries. Turn it off under **Settings → General → Check for updates automatically** (`app.checkForUpdates` in `panex.json`) and panex makes no connections at all, apart from an SSH connection you open yourself, which runs your system's `ssh`. The Git panel never fetches. Updates are never installed on their own, and every download is verified against a public key built into the app.
 
 The only file it writes outside its own folders is `~/.claude/settings.json`: when panex starts and its Claude Code hooks are missing or point at an old install, it adds them. It backs the file up first (`settings.json.panex-bak`) and keeps your other hooks. The code is in [`src-tauri/src/hooks.rs`](src-tauri/src/hooks.rs).
 
@@ -126,9 +126,11 @@ Requires **Windows 10 or 11** with WebView2 (already part of Windows 11 and up-t
 
 Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘⇧G Git panel, ⌘⇧E files, ⌘B sidebar, ⌘, settings.
 
+Programs in your tabs run as panex in macOS's eyes, so when an agent sends keys with `osascript` or takes a screenshot with `screencapture`, it's panex that needs Accessibility or Screen Recording. **Settings → General → Permissions** shows which ones are allowed and opens the right page of System Settings. panex itself needs none of them.
+
 ### Updating
 
-When a newer version is out, a line appears at the bottom of the sidebar. Click **Update and restart**: panex downloads the new version, installs it and restarts. Restarting ends the programs running in your tabs (with an agent mid-turn, panex asks first); workspaces, scrollback and Claude Code conversations come back. You can also check by hand in **Settings → Look**.
+When a newer version is out, a line appears at the bottom of the sidebar. Click **Update and restart**: panex downloads the new version, installs it and restarts. Restarting ends the programs running in your tabs (with an agent mid-turn, panex asks first); workspaces, scrollback and Claude Code conversations come back. You can also check by hand in **Settings → General**.
 
 - **macOS**: releases are signed with the same certificate every time, so Accessibility, Files & Folders and the other permissions you granted stay allowed after an update, and an update installed from inside panex doesn't need **Open Anyway** again. The first release with this needs one last re-allow if you ran an older one.
 - **Windows**: the installer runs in passive mode (a small progress window, no questions) and starts panex again.

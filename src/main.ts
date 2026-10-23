@@ -26,6 +26,7 @@ import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { sweepGoneWorktrees, wireControl } from "./control";
 import { tidyGroups } from "./groups";
+import { refreshPerms } from "./settings-panel";
 import { checkForUpdateSoon } from "./update";
 
 async function main() {
@@ -42,6 +43,8 @@ async function main() {
     if (S.focused) sweepGoneWorktrees();
     // Throttled inside (every 6 h); no timer, so an idle panex never wakes up on its own.
     if (S.focused) checkForUpdateSoon();
+    // Back from System Settings: the permission rows may have changed.
+    if (S.focused) void refreshPerms();
   });
   win.onCloseRequested(async (e) => {
     // Closing kills the agents' processes; --resume brings the conversation back but not the turn in progress.
@@ -134,7 +137,7 @@ async function main() {
   renderShellMenu();
   // The backend already installed the hooks at launch; the line only shows a button if that failed.
   refreshHooks();
-  getVersion().then((v) => ($("s-version").textContent = `panex v${v}`)).catch(() => {});
+  getVersion().then((v) => ($("s-version").textContent = `v${v}`)).catch(() => {});
 
   const saved = (session.workspaces ?? []).filter((w) => w.tabs?.length);
   const restored = await Promise.all(

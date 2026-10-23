@@ -476,7 +476,19 @@ body.git-viewing #terms > .term { visibility: hidden; }
 #settings .s-tab:focus-visible { outline-width: 1px; outline-offset: -1px; }
 .s-tab.on::before { content: ""; position: absolute; left: -12px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0; background: var(--s-accent); }
 .s-hint { margin: auto 8px 0; font-size: 11.5px; line-height: 1.5; color: #6b6b74; }
-.s-ver { margin: 8px 8px 0; font-size: 11.5px; color: #6b6b74; user-select: text; }
+/* General page: the app card on top, permission rows (macOS). */
+.about { display: flex; align-items: center; gap: 14px; padding: 6px 0 16px; border-bottom: 1px solid var(--s-line); }
+.about-icon { width: 52px; height: 52px; flex: none; }
+.about-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.about-text b { font-size: 17px; font-weight: 700; }
+.about-text span { font-size: 12.5px; color: var(--s-muted); user-select: text; }
+.about-links { flex: none; display: flex; gap: 8px; }
+.s-sub { margin: 22px 0 4px; font-size: 13px; font-weight: 600; color: var(--s-text); }
+.s-sub-note { margin: 0 0 4px; font-size: 12.5px; line-height: 1.5; color: var(--s-muted); max-width: 70ch; }
+.perm-state { font-size: 12px; padding: 2px 8px; border-radius: 999px; color: var(--s-muted); background: rgba(255, 255, 255, 0.06); }
+.perm-state:empty { display: none; }
+.perm-state.ok { color: #86efac; background: rgba(34, 197, 94, 0.14); }
+.perm-state.no { color: #fca5a5; background: rgba(239, 68, 68, 0.14); }
 
 /* Right side */
 .s-body { position: relative; overflow-y: auto; padding: 22px 28px 28px; scrollbar-width: thin; scrollbar-color: #3a3a42 transparent; }
@@ -640,7 +652,7 @@ button.bind:hover { border-color: var(--s-line); background: rgba(255, 255, 255,
   #settings .panel { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
   .s-nav { flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; border-right: 0; border-bottom: 1px solid var(--s-line); }
   .s-nav h2 { margin: 0 12px 0 4px; }
-  .s-hint, .s-ver { display: none; }
+  .s-hint { display: none; }
   .s-tab.on::before { display: none; }
   .row { flex-direction: column; align-items: stretch; gap: 10px; }
 }

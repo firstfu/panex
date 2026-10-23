@@ -182,7 +182,8 @@ async function main() {
       mkdirSync(join(repo, "src"), { recursive: true });
       writeFileSync(join(repo, "src", "app.ts"), "const answer = 42;\nexport function main() { return answer; }\n");
       const rows = () => evalJs(`return [...document.querySelectorAll("#files-body .f-row")].map((e) => (e.dataset.dir !== undefined ? "d:" + e.dataset.dir : e.dataset.path) + (e.querySelector(".f-dot") ? "•" : "") + (e.querySelector(".g-st")?.textContent ?? ""))`);
-      evalJs(`document.querySelector("#git-toggle").click(); document.querySelector('.g-tab[data-mode="files"]').click(); return true;`);
+      // The panel's open state lives in WebKit's localStorage, which outlives HOME: open it only if closed.
+      evalJs(`if (document.querySelector("#git").hidden) document.querySelector("#git-toggle").click(); document.querySelector('.g-tab[data-mode="files"]').click(); return true;`);
       // Folders first; both new folders carry the dot once git status is in.
       let last;
       const top = await waitFor("the tree", () => {
@@ -206,6 +207,17 @@ async function main() {
         evalJs(`const c = document.querySelector("#gv-body .f-code"); return c && { ln: c.querySelector(".f-ln").textContent, kw: !!c.querySelector(".hljs-keyword"), text: c.querySelector(".f-src").textContent }`), 10000);
       if (code.ln !== "1\n2" || !code.kw || !code.text.startsWith("const answer = 42;")) throw new Error(JSON.stringify(code));
       evalJs(`document.querySelector("#gv-close").click(); document.querySelector("#git-close").click(); return true;`);
+    });
+
+    await check("settings open on General with the version and every permission's state", async () => {
+      evalJs(`document.querySelector("#settings-btn").click(); return true;`);
+      const g = await waitFor("the permission states", () => {
+        const v = evalJs(`return { page: document.querySelector(".s-tab.on")?.dataset.page, ver: document.querySelector("#s-version").textContent,
+          states: [...document.querySelectorAll(".perm .perm-state")].map((e) => e.textContent) }`);
+        return v.states.every(Boolean) && v;
+      }, 5000);
+      if (g.page !== "general" || !/^v\d+\.\d+\.\d+$/.test(g.ver) || g.states.length !== 3) throw new Error(JSON.stringify(g));
+      evalJs(`document.querySelector("#settings [data-close]").click(); return true;`);
     });
 
     await check("Shift+Enter sends ESC CR to the shell (macOS default)", async () => {

@@ -13,6 +13,9 @@ import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, write
 import { scheduleRender } from "./render";
 import { hideCtx } from "./context-menu";
 import { checkForUpdate, showManualResult } from "./update";
+import { openLink } from "./links";
+import { IS_MAC } from "./platform";
+import appIcon from "../src-tauri/icons/128x128@2x.png";
 
 export const settingsEl = $("settings");
 let capturingId: string | undefined;
@@ -35,7 +38,7 @@ const WARN_NOTES = [
   "這個動作要用「修飾鍵＋數字」，例如按 Ctrl+Alt+1 就代表 Ctrl+Alt+1–9。",
 ];
 let keysNote = "";
-let settingsPage = "look";
+let settingsPage = "general";
 
 /** Each key of a binding as its own keycap; chord steps are separated by a small gap. */
 function keycaps(steps: Steps, digits = false): string {
@@ -106,8 +109,34 @@ function renderKeys() {
   $("keys-note").classList.toggle("warn", WARN_NOTES.some((k) => tr(k) === keysNote));
 }
 
+interface PermStatus {
+  accessibility: boolean | null;
+  screen_recording: boolean | null;
+  full_disk: boolean | null;
+}
+
+/**
+ * Reads the macOS permissions into the General page. Only while that page is on screen: when it
+ * opens and when the window gets focus back (the user returning from System Settings), so there
+ * is no timer.
+ */
+export async function refreshPerms() {
+  if (!IS_MAC || settingsEl.hidden || settingsPage !== "general") return;
+  const p = await invoke<PermStatus>("perms_status").catch(() => undefined);
+  const state: Record<string, boolean | null | undefined> = { accessibility: p?.accessibility, screen: p?.screen_recording, disk: p?.full_disk };
+  settingsEl.querySelectorAll<HTMLElement>(".perm").forEach((row) => {
+    const v = state[row.dataset.perm ?? ""];
+    const el = row.querySelector<HTMLElement>(".perm-state");
+    if (!el) return;
+    el.className = `perm-state${v === true ? " ok" : v === false ? " no" : ""}`;
+    el.textContent = v === true ? tr("已授權") : v === false ? tr("未授權") : tr("無法判斷");
+    row.querySelector<HTMLElement>("[data-perm-open]")!.textContent = tr(v === true ? "打開設定" : "授權…");
+  });
+}
+
 function showSettingsPage(page: string) {
   settingsPage = page;
+  if (page === "general") void refreshPerms();
   settingsEl.querySelectorAll<HTMLElement>(".s-tab").forEach((t) => t.classList.toggle("on", t.dataset.page === page));
   settingsEl.querySelectorAll<HTMLElement>(".s-page").forEach((p) => (p.hidden = p.dataset.page !== page));
   if (page !== "keys") capturingId = undefined;
@@ -192,6 +221,7 @@ export function openSettings() {
   showSettingsPage(settingsPage);
   const wasHidden = settingsEl.hidden;
   settingsEl.hidden = false;
+  void refreshPerms(); // after unhiding: it reads nothing while the panel is hidden
   if (wasHidden) settingsEl.querySelector<HTMLElement>(".s-tab.on")?.focus();
 }
 
@@ -382,6 +412,13 @@ $<HTMLInputElement>("s-resume").onchange = (e) => {
 };
 $<HTMLInputElement>("s-update").onchange = (e) => updateSettings({ autoUpdate: (e.target as HTMLInputElement).checked });
 $("s-update-check").onclick = () => void checkForUpdate(true);
+$<HTMLImageElement>("s-app-icon").src = appIcon;
+$("s-github").onclick = () => void openLink("open_url", { url: "https://github.com/firstfu/panex" });
+$("s-report").onclick = () => void openLink("open_url", { url: "https://github.com/firstfu/panex/issues/new" });
+settingsEl.addEventListener("click", (e) => {
+  const kind = (e.target as HTMLElement).closest<HTMLElement>("[data-perm-open]")?.dataset.permOpen;
+  if (kind) invoke("perms_open", { kind }).catch((err) => showNotice(String(err)));
+});
 $<HTMLInputElement>("s-confirm-close").onchange = (e) =>
   updateSettings({ confirmClose: (e.target as HTMLInputElement).checked });
 // The WorktreeCreate hook in ~/.claude/settings.json follows this switch, and the backend reads

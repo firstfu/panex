@@ -119,26 +119,24 @@
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <nav class="s-nav">
           <h2 id="settings-title" data-i18n>設定</h2>
+          <button class="s-tab" data-page="general" data-i18n>一般</button>
           <button class="s-tab" data-page="look" data-i18n>外觀</button>
           <button class="s-tab" data-page="term" data-i18n>終端機</button>
           <button class="s-tab" data-page="keys" data-i18n>快捷鍵</button>
           <button class="s-tab" data-page="file" data-i18n>設定檔</button>
           <p class="s-hint" data-i18n>改動會立即套用並存進 panex.json</p>
-          <p class="s-ver" id="s-version"></p>
         </nav>
 
         <div class="s-body">
           <button class="s-close" data-close aria-label="關閉設定" data-i18n-aria>×</button>
 
-          <section class="s-page" data-page="look">
-            <div class="row">
-              <div class="row-text"><b data-i18n>語言</b><span data-i18n>介面語言，自動 = 跟隨系統</span></div>
-              <div class="row-ctl">
-                <div class="seg" id="s-language" role="radiogroup">
-                  <button data-v="auto" role="radio" data-i18n>自動</button>
-                  <button data-v="en" role="radio">English</button>
-                  <button data-v="zh-Hant" role="radio">繁體中文</button>
-                </div>
+          <section class="s-page" data-page="general">
+            <div class="about">
+              <img class="about-icon" id="s-app-icon" alt="" />
+              <div class="about-text"><b>panex</b><span id="s-version"></span></div>
+              <div class="about-links">
+                <button id="s-github" class="ghost">GitHub</button>
+                <button id="s-report" class="ghost" data-i18n>回報問題…</button>
               </div>
             </div>
             <div class="row">
@@ -148,6 +146,40 @@
             <div class="row">
               <div class="row-text"><b data-i18n>檢查更新</b><span id="s-update-status"></span></div>
               <div class="row-ctl"><button id="s-update-check" class="ghost" data-i18n>立即檢查</button></div>
+            </div>
+            <div class="mac-only">
+              <h3 class="s-sub" data-i18n>權限</h3>
+              <p class="s-sub-note" data-i18n>panex 自己不需要這些權限。分頁裡的程式（例如 agent 跑 osascript 送按鍵、screencapture 截圖）用到時，macOS 會算在 panex 頭上，所以在這裡授權。</p>
+              <div class="row perm" data-perm="accessibility">
+                <div class="row-text"><b data-i18n>輔助使用</b><span data-i18n>讓分頁裡的程式送按鍵、操作其他 App（osascript、自動化測試）</span></div>
+                <div class="row-ctl"><span class="perm-state"></span><button class="ghost" data-perm-open="accessibility" data-i18n>授權…</button></div>
+              </div>
+              <div class="row perm" data-perm="screen">
+                <div class="row-text"><b data-i18n>螢幕錄製</b><span data-i18n>讓分頁裡的程式截圖、讀取視窗標題（screencapture）</span></div>
+                <div class="row-ctl"><span class="perm-state"></span><button class="ghost" data-perm-open="screen" data-i18n>授權…</button></div>
+              </div>
+              <div class="row perm" data-perm="disk">
+                <div class="row-text"><b data-i18n>完整磁碟取用</b><span data-i18n>讓分頁裡的程式讀取郵件、訊息、Safari 等受保護的資料</span></div>
+                <div class="row-ctl"><span class="perm-state"></span><button class="ghost" data-perm-open="disk" data-i18n>授權…</button></div>
+              </div>
+              <div class="row perm" data-perm="files">
+                <div class="row-text"><b data-i18n>檔案與資料夾</b><span data-i18n>桌面、文件、下載等資料夾第一次被存取時，macOS 會跳出詢問；之後可以在這裡改</span></div>
+                <div class="row-ctl"><button class="ghost" data-perm-open="files" data-i18n>打開設定</button></div>
+              </div>
+              <p class="s-sub-note" data-i18n>按「授權…」後若清單裡沒有 panex，按清單下方的 ＋，到「應用程式」選 panex 加入。改完通常要重開 panex 才生效。</p>
+            </div>
+          </section>
+
+          <section class="s-page" data-page="look" hidden>
+            <div class="row">
+              <div class="row-text"><b data-i18n>語言</b><span data-i18n>介面語言，自動 = 跟隨系統</span></div>
+              <div class="row-ctl">
+                <div class="seg" id="s-language" role="radiogroup">
+                  <button data-v="auto" role="radio" data-i18n>自動</button>
+                  <button data-v="en" role="radio">English</button>
+                  <button data-v="zh-Hant" role="radio">繁體中文</button>
+                </div>
+              </div>
             </div>
             <div class="row">
               <div class="row-text"><b data-i18n>不透明度</b><span data-i18n>文字永遠清楚，只有背景會變透明</span></div>
