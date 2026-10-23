@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-24 — 檔案檢視：圖片直接顯示、其他二進位交給系統（`57de0c8`）
+
+**變更**
+- 後端 `files.rs` 新增 `file_image`（圖片轉 `data:` URL，上限 20 MB）與 `file_action`（quicklook／open／reveal，路徑同樣限在專案內）；`FileText` 多回傳 `size`；`links.rs` 的 `shell_open`／`reveal` 改 `pub(crate)` 共用。
+- 前端：圖片放在棋盤格背景上、標尺寸與大小，SVG 有「看原始碼」；PDF、試算表、文書、音訊、影片等顯示類型卡片與三個按鈕（`tree.ts` 的 `kindOf`／`fmtSize`，有單元測試）。README 英／繁中、overview 同步。
+- 驗證：前端 13 項、e2e 13 項（檔案分頁那項加了 PNG 尺寸、SVG 內 script 不執行與原始碼切換、PDF 卡片按鈕）全過；測試實例截圖確認圖片與試算表卡片，實際按「快速查看」有起 `qlmanage -p`，檢視器保持開著。
+
+**為什麼**
+- 使用者回報圖片、SVG、PDF、Excel 都看不了（舊版一律「二進位檔案，不顯示內容」，SVG 只會顯示原始碼）。PDF／Excel 不內嵌：pdf.js 約 1 MB 且要放寬 CSP，SheetJS 的 npm 版停更；macOS 的 Quick Look 品質更好又零依賴。
+
+**下一步**
+- 未推送；v0.7.1（一般設定頁）的 CI 還在跑，這筆不在 0.7.1 裡。Windows 沒有 Quick Look 按鈕，開啟／顯示位置沒在 Windows 測過。
+- 若常要在 panel 內看 PDF，再評估 pdf.js。
+
 ## 2026-10-24 — 發佈 v0.7.0：右側面板的「檔案」分頁（`a807754`）
 
 **變更**
