@@ -196,6 +196,7 @@
               "moveTabRight",
               "toggleSidebar",
               "toggleGitPanel",
+              "toggleFilesPanel",
               "find",
               "clearScrollback",
               "copy",

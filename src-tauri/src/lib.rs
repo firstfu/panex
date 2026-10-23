@@ -4,6 +4,7 @@
 
 mod config;
 mod control;
+mod files;
 #[cfg(feature = "e2e")]
 mod e2e;
 mod fonts;
@@ -87,6 +88,8 @@ pub fn run() {
             git::git_diff,
             git::git_log,
             git::git_show,
+            files::project_tree,
+            files::file_read,
             pty::shells_list,
             pty::pty_spawn,
             pty::pty_write,

@@ -10,7 +10,7 @@ import { askCloseTab, askCloseWorkspaces, cycleTab, cycleWorkspace, jumpToUnread
 import { openWorktreeDialog } from "./worktree-dialog";
 import { moveBy } from "./groups";
 import { openSshDialog } from "./ssh-dialog";
-import { isGitOpen, setGitOpen } from "./git-panel";
+import { togglePanel } from "./git-panel";
 import { openSearch } from "./search";
 import { startRename } from "./rename";
 import { closeSettings, openSettings, settingsEl } from "./settings-panel";
@@ -56,7 +56,8 @@ export function runAction(id: string, digit = 0) {
     case "moveTabLeft": return S.visibleTabId && moveTab(S.visibleTabId, ti - 1);
     case "moveTabRight": return S.visibleTabId && moveTab(S.visibleTabId, ti + 1);
     case "toggleSidebar": return updateSettings({ sidebarHidden: !S.settings.sidebarHidden });
-    case "toggleGitPanel": return setGitOpen(!isGitOpen());
+    case "toggleGitPanel": return togglePanel("git");
+    case "toggleFilesPanel": return togglePanel("files");
     case "clearScrollback": return tab?.term.clear();
     case "find": return openSearch();
     case "copy": return copySelection(tab);

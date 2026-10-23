@@ -346,7 +346,7 @@ const MAX_DIFF_BYTES: usize = 1 << 20;
 
 /// Runs a read-only git command and keeps at most `limit` bytes of its output (cut at a line
 /// end); a longer output kills git instead of buffering all of it. Returns (text, truncated).
-fn git_capped(root: &Path, args: &[&str], limit: usize) -> Result<(String, bool), String> {
+pub(crate) fn git_capped(root: &Path, args: &[&str], limit: usize) -> Result<(String, bool), String> {
     let all: Vec<&str> = READ_ONLY.iter().chain(args).copied().collect();
     let mut child = git_cmd(root, &all)
         .stdin(Stdio::null())

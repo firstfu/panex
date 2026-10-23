@@ -174,6 +174,40 @@ async function main() {
       if (got !== join(repo, "docs")) throw new Error(`copied ${JSON.stringify(got)}`);
     });
 
+    await check("files tab: project tree with change marks, Markdown rendered safely, code highlighted", async () => {
+      writeFileSync(
+        join(repo, "docs", "guide.md"),
+        "# Guide\n\n## Next steps\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n<img src=x onerror=\"window.__pwned=1\">\n\n![logo](logo.png)\n\n[readme](../README.md) [jump](#next-steps)\n",
+      );
+      mkdirSync(join(repo, "src"), { recursive: true });
+      writeFileSync(join(repo, "src", "app.ts"), "const answer = 42;\nexport function main() { return answer; }\n");
+      const rows = () => evalJs(`return [...document.querySelectorAll("#files-body .f-row")].map((e) => (e.dataset.dir !== undefined ? "d:" + e.dataset.dir : e.dataset.path) + (e.querySelector(".f-dot") ? "•" : "") + (e.querySelector(".g-st")?.textContent ?? ""))`);
+      evalJs(`document.querySelector("#git-toggle").click(); document.querySelector('.g-tab[data-mode="files"]').click(); return true;`);
+      // Folders first; both new folders carry the dot once git status is in.
+      let last;
+      const top = await waitFor("the tree", () => {
+        const r = (last = rows());
+        return r.join() === "d:docs•,d:src•,README.md" && r;
+      }, 10000).catch((e) => { throw new Error(`${e.message}: ${JSON.stringify(last)} ${evalJs('return document.querySelector("#files-body").textContent')}`); });
+      evalJs(`document.querySelector('#files-body .f-dir[data-dir="docs"]').click(); return true;`);
+      const opened = await waitFor("docs expanded", () => rows().includes("docs/guide.mdU") && rows(), 5000);
+      if (opened.join() !== "d:docs•,docs/guide.mdU,d:src•,README.md") throw new Error(JSON.stringify({ top, opened }));
+      evalJs(`document.querySelector('#files-body .f-file[data-path="docs/guide.md"]').click(); return true;`);
+      const view = await waitFor("the rendered document", () =>
+        evalJs(`const md = document.querySelector("#gv-body .md"); return md && { table: !!md.querySelector("table"), img: !!md.querySelector("img"),
+          text: md.textContent, id: !!md.querySelector("#md-next-steps"), pwned: !!window.__pwned }`), 10000);
+      if (!view.table || view.img || view.pwned || !view.text.includes("<img src=x") || !view.id) throw new Error(JSON.stringify(view));
+      evalJs(`[...document.querySelectorAll("#gv-body .md a")].find((a) => a.textContent === "readme").click(); return true;`);
+      await waitFor("the linked README", () => evalJs(`return document.querySelector("#gv-title").textContent === "README.md" && document.querySelector("#gv-body .md")?.textContent.includes("e2e")`), 5000);
+      evalJs(`document.querySelector('#files-body .f-dir[data-dir="src"]').click(); return true;`);
+      await waitFor("src expanded", () => rows().includes("src/app.tsU"), 5000);
+      evalJs(`document.querySelector('#files-body .f-file[data-path="src/app.ts"]').click(); return true;`);
+      const code = await waitFor("the code view", () =>
+        evalJs(`const c = document.querySelector("#gv-body .f-code"); return c && { ln: c.querySelector(".f-ln").textContent, kw: !!c.querySelector(".hljs-keyword"), text: c.querySelector(".f-src").textContent }`), 10000);
+      if (code.ln !== "1\n2" || !code.kw || !code.text.startsWith("const answer = 42;")) throw new Error(JSON.stringify(code));
+      evalJs(`document.querySelector("#gv-close").click(); document.querySelector("#git-close").click(); return true;`);
+    });
+
     await check("Shift+Enter sends ESC CR to the shell (macOS default)", async () => {
       const out = join(tmp, "shift.txt");
       evalJs(`window.__e2e.run(${JSON.stringify(`cat -v > '${out}'`)}); return true;`);

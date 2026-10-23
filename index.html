@@ -47,11 +47,15 @@
     <div id="git-resizer" role="separator" aria-orientation="vertical" title="拖曳調整 Git 面板寬度（雙擊還原）" data-i18n-title hidden></div>
     <aside id="git" hidden>
       <div class="g-head">
-        <span class="g-title">Git</span>
+        <div class="g-tabs" role="tablist">
+          <button class="g-tab" data-mode="git" role="tab">Git</button>
+          <button id="files-tab" class="g-tab" data-mode="files" role="tab" data-i18n>檔案</button>
+        </div>
         <button id="git-refresh" title="重新整理" aria-label="重新整理" data-i18n-title data-i18n-aria><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v3h-3" /></svg></button>
         <button id="git-close" aria-label="關閉" data-i18n-aria>×</button>
       </div>
       <div id="git-body"></div>
+      <div id="files-body" hidden></div>
     </aside>
 
     <div id="ctx" hidden></div>

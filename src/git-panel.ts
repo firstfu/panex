@@ -1,4 +1,5 @@
-// The read-only Git panel (status, diffs, recent commits) and the sidebar git badges.
+// The right panel, read only: its Git tab (status, diffs, recent commits), the sidebar git badges,
+// and the overlay viewer it shares with the Files tab (files-panel.ts).
 
 import { invoke } from "@tauri-apps/api/core";
 import { t as tr } from "./i18n";
@@ -6,6 +7,7 @@ import { type GitCommit, type GitFile, type GitStatus, type GitText, type Tab } 
 import { $, esc } from "./util";
 import { S, activeTab, tabs, workspaces, wsActiveTab } from "./state";
 import { scheduleRender } from "./render";
+import { clearFileSel, markFilesStale, renderFilesPanel } from "./files-panel";
 
 // Read only. Nothing polls or watches the repo: a status read (one short `git status`) runs only
 // after a shell prompt, a Claude Code "Stop", the window regaining focus, or the panel opening,
@@ -24,6 +26,9 @@ let gitOpen = false;
 let gitLog: { root: string; key: string; commits: GitCommit[]; error?: string } | undefined;
 let gitSel = ""; // the row whose diff is on screen
 let gvReq = 0; // drops viewer answers that arrive after a newer request
+export type PanelMode = "git" | "files";
+let panelMode: PanelMode = "git";
+try { if (localStorage.getItem("panex.panelTab") === "files") panelMode = "files"; } catch { /* storage unavailable */ }
 
 export function scheduleGit(tab?: Tab) {
   if (!tab?.cwd || tab.ssh) return;
@@ -58,7 +63,10 @@ async function refreshGit(tab: Tab) {
     tab.gitBusy = false;
   }
   if (gitBadges(tab) !== before) scheduleRender();
-  if (tab.id === S.visibleTabId) renderGitPanel();
+  if (tab.id === S.visibleTabId) {
+    markFilesStale(); // the same events (prompt, Stop, focus) are when files may have come or gone
+    renderGitPanel();
+  }
   if (tab.gitAgain) {
     tab.gitAgain = false;
     scheduleGit(tab);
@@ -76,6 +84,24 @@ export function gitBadges(tab: Tab): string {
   );
 }
 
+/** Shows the panel on the given tab; open and already there, closes it (the shortcuts' toggle). */
+export function togglePanel(mode: PanelMode) {
+  if (gitOpen && panelMode === mode) return setGitOpen(false);
+  setPanelMode(mode);
+  if (!gitOpen) setGitOpen(true);
+}
+
+export function setPanelMode(mode: PanelMode) {
+  panelMode = mode;
+  try { localStorage.setItem("panex.panelTab", mode); } catch { /* storage unavailable */ }
+  for (const b of document.querySelectorAll<HTMLElement>(".g-tab")) b.classList.toggle("on", b.dataset.mode === mode);
+  gitBodyEl.hidden = mode !== "git";
+  $("files-body").hidden = mode !== "files";
+  if (mode === "files") markFilesStale();
+  else gitLog = undefined; // the commit list isn't kept fresh while hidden
+  renderGitPanel();
+}
+
 export function setGitOpen(open: boolean) {
   gitOpen = open;
   gitEl.hidden = gitResizer.hidden = !open;
@@ -84,11 +110,12 @@ export function setGitOpen(open: boolean) {
   if (!open) {
     gitLog = undefined; // re-read on the next open; nothing to keep fresh meanwhile
     gitBodyEl.replaceChildren();
+    $("files-body").replaceChildren();
     closeGitView();
     return;
   }
-  renderGitPanel();
-  scheduleGit(activeTab());
+  scheduleGit(activeTab()); // first, so the Files tab waits for the repo root instead of listing the cwd
+  setPanelMode(panelMode);
 }
 
 const gitMsg = (text: string) => `<div class="g-msg">${esc(text)}</div>`;
@@ -114,6 +141,7 @@ function fileRow(f: GitFile, kind: "staged" | "unstaged" | "untracked"): string 
 
 export function renderGitPanel() {
   if (!gitOpen) return;
+  if (panelMode === "files") return renderFilesPanel();
   const tab = activeTab();
   const g = tab?.git;
   if (!tab) return void gitBodyEl.replaceChildren();
@@ -200,6 +228,18 @@ function gitLines(text: string, allAdded = false): string {
   return html;
 }
 
+/** Opens the overlay viewer with a loading line; returns the request number for isViewerCurrent. */
+export function openViewer(title: string) {
+  if (gitSel) {
+    gitSel = "";
+    renderGitPanel();
+  }
+  return showGitView(title);
+}
+
+/** False once the viewer was closed or reused for something newer. */
+export const isViewerCurrent = (req: number) => req === gvReq && !gitViewEl.hidden;
+
 function showGitView(title: string) {
   $("gv-title").textContent = title;
   gvBodyEl.innerHTML = `<div class="gn">${esc(tr("載入中…"))}</div>`;
@@ -216,10 +256,9 @@ export function closeGitView(refocus = true) {
   gitViewEl.hidden = true;
   gvBodyEl.replaceChildren(); // a big diff shouldn't stay in the DOM
   document.body.classList.remove("git-viewing");
-  if (gitSel) {
-    gitSel = "";
-    renderGitPanel();
-  }
+  gitSel = "";
+  clearFileSel();
+  renderGitPanel();
   if (refocus) activeTab()?.term.focus();
 }
 
@@ -263,10 +302,12 @@ $("git-toggle").onclick = () => setGitOpen(!gitOpen);
 $("git-close").onclick = () => setGitOpen(false);
 $("git-refresh").onclick = () => {
   gitLog = undefined;
+  markFilesStale();
   const tab = activeTab();
   if (tab) refreshGit(tab);
 };
 $("gv-close").onclick = () => closeGitView();
+for (const b of document.querySelectorAll<HTMLElement>(".g-tab")) b.onclick = () => setPanelMode(b.dataset.mode as PanelMode);
 
 // Drag the panel's left edge to resize it, like the sidebar.
 const GIT_W = { min: 200, max: 560, def: 280 };

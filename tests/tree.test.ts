@@ -1,0 +1,49 @@
+// Files panel helpers: folder tree, change marks, links between files, anchors, languages.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { ancestors, buildTree, changeMarks, langOf, resolveLink, slug } from "../src/tree.ts";
+
+test("builds a sorted folder tree from flat paths", () => {
+  const t = buildTree(["src/b.ts", "README.md", "src/a/x.ts", "Cargo.toml", "src/A.ts"]);
+  assert.deepEqual(t.files, ["Cargo.toml", "README.md"]);
+  assert.deepEqual(t.dirs.map((d) => d.path), ["src"]);
+  assert.deepEqual(t.dirs[0].files, ["A.ts", "b.ts"]);
+  assert.deepEqual(t.dirs[0].dirs.map((d) => d.path), ["src/a"]);
+});
+
+test("change marks reach every folder above a change, and untracked folders", () => {
+  const files = ["src/a/x.ts", "src/b.ts", "docs/new/n.md", "README.md"];
+  const { letters, dirs } = changeMarks(files, [
+    { path: "src/a/x.ts", letter: "M" },
+    { path: "docs/new/", letter: "U" },
+  ]);
+  assert.equal(letters.get("src/a/x.ts"), "M");
+  assert.equal(letters.get("docs/new/n.md"), "U");
+  assert.equal(letters.has("src/b.ts"), false);
+  assert.deepEqual([...dirs].sort(), ["docs", "docs/new", "src", "src/a"]);
+});
+
+test("ancestors lists the folders above a path", () => {
+  assert.deepEqual(ancestors("a/b/c.ts"), ["a", "a/b"]);
+  assert.deepEqual(ancestors("c.ts"), []);
+});
+
+test("links resolve relative to the file and never leave the project", () => {
+  assert.equal(resolveLink("docs/context/reference/overview.md", "boundaries.md"), "docs/context/reference/boundaries.md");
+  assert.equal(resolveLink("docs/context/reference/overview.md", "../journal/./process.md"), "docs/context/journal/process.md");
+  assert.equal(resolveLink("docs/a.md", "/README.md"), "README.md");
+  assert.equal(resolveLink("docs/a.md", "../../etc/passwd"), undefined);
+});
+
+test("heading anchors follow GitHub", () => {
+  assert.equal(slug("Session 開始順序"), "session-開始順序");
+  assert.equal(slug("What's `new`?"), "whats-new");
+});
+
+test("languages come from the extension or a known name", () => {
+  assert.equal(langOf("src/main.rs"), "rs");
+  assert.equal(langOf("Dockerfile"), "dockerfile");
+  assert.equal(langOf(".env.local"), "bash");
+  assert.equal(langOf("LICENSE"), "");
+});

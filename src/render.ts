@@ -205,6 +205,7 @@ export function renderShellMenu() {
   $("new-tab").title = withKey("新工作區", "newWorkspace");
   $("sidebar-toggle").title = withKey("顯示 / 隱藏側欄", "toggleSidebar");
   $("git-toggle").title = withKey("顯示 / 隱藏 Git 面板", "toggleGitPanel");
+  $("files-tab").title = withKey("顯示 / 隱藏專案檔案", "toggleFilesPanel");
 }
 
 /** Updates the sidebar's hook status line; resolves to whether the hooks are installed. */

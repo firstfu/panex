@@ -56,6 +56,8 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 按 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> 會在右側打開 Git 面板，顯示目前分頁所在 repo 的已暫存變更、變更與未追蹤檔案，以及最近 30 筆提交，還沒推送的會標出來。點檔案或提交，就會在終端機上方顯示 diff，按 <kbd>Esc</kbd> 關閉。側欄每個工作區的分支後面會加上 `↑` 未推送的提交、`↓` 上游較新的提交、`●` 未提交的變更，一眼就看得出哪個 agent 還留著東西沒收尾。
 
+面板的**檔案**分頁（<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>）用資料夾樹列出整個專案，範圍跟 git 看到的一樣：已追蹤的檔案加上新檔案，`.gitignore` 排除的（`node_modules`、建置產物）不列。有變更的檔案標上跟 Git 分頁相同的字母，資料夾裡有變更會加一個點，不用打開就看得出 agent 動了專案的哪一塊。點檔案就在終端機上方顯示內容：Markdown 排版後顯示，程式碼有行號與語法上色。這裡只能看、不能改。文件裡的 HTML 原樣顯示成文字、圖片不載入，所以檔案不能執行任何東西，也不會連網。
+
 面板只負責看：不會 stage、commit、push，也不會 fetch。它也不輪詢、不監看檔案，只在 shell 出現提示符、Claude Code 做完一輪，或你切回視窗時跑一次 `git status`，沒在用的時候不花任何資源。
 
 ### SSH 連線
@@ -122,7 +124,7 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.6.1_aarch64.dmg`，打開後把 **panex** 拖進「應用程式」。
 2. App 沒有經過 Apple 公證，第一次開啟會被擋：先開一次，再到 **系統設定 → 隱私權與安全性** 按 **強制打開**。如果顯示「已損毀」，在終端機執行 `xattr -cr /Applications/panex.app` 後再開。
 
-分頁會啟動你的登入 shell（`$SHELL`，通常是 zsh）。預設快捷鍵用 ⌘：⌘T 新分頁、⌘W 關分頁、⌘N 新工作區、⌘1–9／⌥1–9 跳轉、⌘↑↓ 切工作區、⌘←→ 切分頁、⌘⇧G Git 面板、⌘B 側欄、⌘, 設定。
+分頁會啟動你的登入 shell（`$SHELL`，通常是 zsh）。預設快捷鍵用 ⌘：⌘T 新分頁、⌘W 關分頁、⌘N 新工作區、⌘1–9／⌥1–9 跳轉、⌘↑↓ 切工作區、⌘←→ 切分頁、⌘⇧G Git 面板、⌘⇧E 檔案、⌘B 側欄、⌘, 設定。
 
 ### 更新
 
@@ -179,6 +181,7 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | 跳到需要處理的分頁（`jumpToUnread`） |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | 顯示／隱藏側欄（`toggleSidebar`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | 顯示／隱藏 Git 面板（`toggleGitPanel`） |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> | 顯示／隱藏專案檔案（`toggleFilesPanel`） |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>（macOS：<kbd>Shift</kbd>+<kbd>Enter</kbd>） | 換行而不送出，給 Claude Code 用（`insertNewline`） |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | 放大／縮小／重設字型（也可 Ctrl+滾輪） |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | 設定 |

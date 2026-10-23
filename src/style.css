@@ -291,7 +291,30 @@ body.resizing-git #git-resizer { pointer-events: auto; }
   display: inline-flex; align-items: center; justify-content: center;
 }
 .g-head button:hover { background: var(--side-hover); color: var(--fg); }
-#git-body { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+#git-body, #files-body { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+#git-body[hidden], #files-body[hidden] { display: none; }
+.g-tabs { flex: 1; display: flex; gap: 2px; }
+.g-head .g-tab {
+  width: auto; padding: 0 8px; font-weight: 600; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.g-head .g-tab.on { color: var(--fg); background: var(--side-active); }
+/* Files tab: the project tree (files-panel.ts). Indentation comes inline from the depth. */
+.f-head { display: flex; align-items: baseline; gap: 8px; }
+.f-head .g-branch { flex: none; max-width: 60%; }
+.f-head .g-sync { flex: 1; margin: 0; }
+.f-collapse { flex: none; border: 0; background: none; color: var(--dim); cursor: pointer; font-size: 13px; padding: 0 2px; border-radius: 4px; }
+.f-collapse:hover { color: var(--fg); background: var(--side-hover); }
+.f-row { align-items: center; gap: 4px; }
+.f-row .g-name { flex: 1; min-width: 0; max-width: none; }
+.f-chev { flex: none; width: 12px; height: 12px; position: relative; }
+.f-dir .f-chev::before {
+  content: ""; position: absolute; left: 3px; top: 2px; width: 5px; height: 5px;
+  border-right: 1.5px solid var(--dim); border-bottom: 1.5px solid var(--dim); transform: rotate(-45deg); transition: transform 0.12s;
+}
+.f-dir.open .f-chev::before { transform: translate(-1px, -1px) rotate(45deg); }
+.f-dir .g-name { color: var(--fg); }
+.f-file .g-name { color: #d4d4d8; }
+.f-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: #e2c08d; margin-right: 3px; }
 .g-repo { padding: 8px 12px 6px; }
 .g-branch { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g-sync { font-size: 11px; color: var(--dim); margin-top: 2px; }
@@ -339,6 +362,52 @@ body.git-viewing #terms > .term { visibility: hidden; }
 #gv-body .gh { color: #60a5fa; }
 #gv-body .gm { color: var(--dim); }
 #gv-body .gn { white-space: normal; color: var(--dim); font-family: inherit; padding: 6px 12px; }
+
+/* A rendered Markdown document in the same viewer (docs-panel.ts). */
+#gv-body > div.md {
+  white-space: normal; min-width: 0; max-width: 920px; padding: 8px 28px 32px;
+  font: 14px/1.65 "Segoe UI", -apple-system, "Microsoft JhengHei", "PingFang TC", sans-serif; color: var(--fg);
+}
+.md h1, .md h2, .md h3, .md h4 { margin: 1.4em 0 0.5em; line-height: 1.3; }
+.md h1 { font-size: 1.6em; padding-bottom: 0.3em; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.md h2 { font-size: 1.3em; padding-bottom: 0.25em; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.md h3 { font-size: 1.1em; }
+.md > :first-child { margin-top: 0.4em; }
+.md p, .md ul, .md ol, .md blockquote, .md pre, .md table { margin: 0 0 0.9em; }
+.md ul, .md ol { padding-left: 1.6em; }
+.md li + li { margin-top: 0.2em; }
+.md a { color: #60a5fa; text-decoration: none; cursor: pointer; }
+.md a:hover { text-decoration: underline; }
+.md code { font: 0.9em "Cascadia Mono", Consolas, ui-monospace, monospace; background: rgba(255, 255, 255, 0.08); padding: 0.1em 0.35em; border-radius: 4px; }
+.md pre { background: rgba(0, 0, 0, 0.3); padding: 10px 12px; border-radius: 6px; overflow-x: auto; }
+.md pre code { background: none; padding: 0; white-space: pre; }
+.md blockquote { padding: 0 1em; color: var(--dim); border-left: 3px solid rgba(255, 255, 255, 0.18); }
+.md table { border-collapse: collapse; display: block; overflow-x: auto; }
+.md th, .md td { border: 1px solid rgba(255, 255, 255, 0.14); padding: 5px 10px; vertical-align: top; }
+.md th { background: rgba(255, 255, 255, 0.05); text-align: left; }
+.md hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.12); margin: 1.4em 0; }
+.md .md-img { color: var(--dim); }
+.md pre code.hljs, .md pre code { display: block; }
+
+/* A source file in the viewer: line numbers and code share one line height. */
+#gv-body > div.f-code { display: flex; white-space: normal; padding: 0; min-width: max-content; }
+.f-code pre { margin: 0; font: inherit; white-space: pre; }
+.f-ln { flex: none; padding: 0 12px 0 16px; text-align: right; color: rgba(161, 161, 170, 0.5); user-select: none; border-right: 1px solid rgba(255, 255, 255, 0.06); }
+.f-src { padding: 0 16px; }
+
+/* highlight.js classes, in the terminal's dark palette. */
+.hljs-comment, .hljs-quote { color: #6b7280; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-doctag { color: #c084fc; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-template-tag { color: #86efac; }
+.hljs-number, .hljs-symbol, .hljs-bullet { color: #fdba74; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: #93c5fd; }
+.hljs-type, .hljs-title.class_, .hljs-built_in, .hljs-class .hljs-title { color: #67e8f9; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-property { color: #f9a8d4; }
+.hljs-meta, .hljs-meta .hljs-keyword { color: #fcd34d; }
+.hljs-name, .hljs-tag { color: #f87171; }
+.hljs-deletion { color: #fca5a5; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
 
 /* Let the body background (and its transparency) show through xterm. */
 .xterm .xterm-viewport, .xterm .xterm-screen { background-color: transparent !important; }

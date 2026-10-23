@@ -56,6 +56,8 @@ Workspaces, tabs, each tab's shell and working directory, and the scrollback tex
 
 <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> opens a Git panel on the right for the current tab's repo: staged changes, changes and untracked files, and the last 30 commits, with the ones you haven't pushed marked. Click a file or a commit to read its diff over the terminal; <kbd>Esc</kbd> closes it. In the sidebar, each workspace's branch carries `↑` unpushed commits, `↓` commits waiting upstream and `●` uncommitted changes, so you can tell at a glance which agent left work behind.
 
+The panel's **Files** tab (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>) shows the whole project as a folder tree, the way git sees it: tracked files plus new ones, with whatever `.gitignore` excludes (`node_modules`, build output) left out. Changed files carry the same letters as the Git tab and folders with changes inside get a dot, so you can see which part of the project an agent worked on before opening anything. Click a file to read it over the terminal: Markdown rendered, code with line numbers and highlighting. It's for reading; nothing in it edits files. Raw HTML in a document is shown as text and images aren't loaded, so a file can't run anything or reach the network.
+
 The panel only reads: it doesn't stage, commit, push or fetch. It doesn't poll or watch your files either. It runs `git status` once after a shell prompt, after Claude Code finishes a turn, or when you come back to the window, so it costs nothing while you're not using it.
 
 ### SSH connections
@@ -122,7 +124,7 @@ Requires **Windows 10 or 11** with WebView2 (already part of Windows 11 and up-t
 1. Download `panex_0.6.1_aarch64.dmg` from [Releases](https://github.com/firstfu/panex/releases/latest), open it and drag **panex** into **Applications**.
 2. The app isn't notarized, so macOS blocks the first launch. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. If macOS says the app is damaged, run `xattr -cr /Applications/panex.app` in Terminal and open it again.
 
-Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘⇧G Git panel, ⌘B sidebar, ⌘, settings.
+Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘⇧G Git panel, ⌘⇧E files, ⌘B sidebar, ⌘, settings.
 
 ### Updating
 
@@ -179,6 +181,7 @@ A string is one combination, an array of strings is a chord, an array of arrays 
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> | Jump to the tab that needs you (`jumpToUnread`) |
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | Show / hide the sidebar (`toggleSidebar`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Show / hide the Git panel (`toggleGitPanel`) |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> | Show / hide the project files (`toggleFilesPanel`) |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (macOS: <kbd>Shift</kbd>+<kbd>Enter</kbd>) | Newline without sending, for Claude Code (`insertNewline`) |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | Font size up / down / reset (or Ctrl+wheel) |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
