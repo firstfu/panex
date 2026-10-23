@@ -162,9 +162,14 @@ function guardImeInput(el: HTMLElement, term: Terminal) {
   el.addEventListener("compositionstart", () => (composing = true), true);
   // xterm reads the textarea a tick after compositionend; stay out until then.
   el.addEventListener("compositionend", () => setTimeout(() => (composing = false)), true);
+  // 空白與大寫字母在 WebKit 走 keydown → keypress（xterm 已在 keypress 送出），隨後還會補一個
+  // `input`；不擋掉的話守衛會再送一次，一個空白變兩個（zsh 的 autosuggestion 因此對不上歷史）。
+  let keyPressed = false;
+  el.addEventListener("keypress", () => (keyPressed = true), true);
   el.addEventListener(
     "keydown",
     (e) => {
+      keyPressed = false;
       if (e.keyCode !== 229) return;
       if (inputAhead) inputAhead = false;
       else imeKeyPending = true;
@@ -175,6 +180,10 @@ function guardImeInput(el: HTMLElement, term: Terminal) {
     "input",
     (e) => {
       const ev = e as InputEvent;
+      if (keyPressed) {
+        keyPressed = false;
+        return;
+      }
       if (ev.inputType !== "insertText" || !ev.data || ev.isComposing || composing) return;
       if (imeKeyPending) {
         imeKeyPending = false;
