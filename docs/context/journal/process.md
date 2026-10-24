@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-25 — dim／斜體文字的黑底：改寫 SGR 2 成灰色、丟掉斜體（未 commit）
+
+**變更**
+- `sanitize.ts` 新增 `createDimFilter`：把輸出裡的 SGR 2 換成固定灰色前景（`38;2;114;114;118`），22 時補 39 還原；SGR 3／23（斜體）整個丟掉；跨 chunk 的跳脫序列暫存到下一塊。
+- `terminal.ts`：pty 輸出先經 `TextDecoder`（stream）＋ 過濾器再 `term.write`；還原的 scrollback 也過一次。
+- `tests/sanitize.test.ts` 補兩個測試。`tsc`、`npm test` 通過；e2e 測試實例截圖驗收（dim、灰、dim＋斜體、純斜體各一行）無黑底。
+
+**為什麼**
+- Claude Code 輸入框提示（`Try "edit main.ts…"`）與 recap 用 dim，在 panex 裡會多出黑色底塊。用最小頁面重現：xterm WebGL ＋ `allowTransparency` ＋ 透明背景時，dim 格子會畫黑底；SGR 90、RGB 灰、DOM 渲染器都正常。`@xterm/addon-webgl` 0.19.0 已是最新穩定版，升級修不了。
+- 驗收時發現純斜體（沒有 dim）也會有同樣的黑底，Claude Code 的 recap 是 dim＋斜體，所以一併丟掉斜體。代價：疊在彩色字上的 dim 會變灰、斜體全變直體。
+
+**下一步**
+- 使用者自己的 App 重啟後再看一次 Claude Code 的提示與 recap，再 commit。若 xterm 日後修掉這個 bug，可整段移除過濾器。
+
 ## 2026-10-24 — 設定面板可拖曳移動（未 commit）
 
 **變更**

@@ -38,3 +38,22 @@ test("squeezeBlankRuns leaves ordinary output alone", () => {
     assert.equal(squeezeBlankRuns(s), s);
   }
 });
+
+test("createDimFilter 把 dim 換成灰色並在 22 還原前景", async () => {
+  const { createDimFilter } = await import("../src/sanitize.ts");
+  const f = createDimFilter();
+  assert.equal(f("\x1b[2mhi\x1b[22m"), "\x1b[38;2;114;114;118mhi\x1b[22;39m");
+  assert.equal(f("\x1b[22m"), "\x1b[22m"); // 沒有 dim 就不補 39
+  assert.equal(f("\x1b[38;2;2;2;2m"), "\x1b[38;2;2;2;2m"); // 擴充色裡的 2 不是 dim
+  assert.equal(f("\x1b[38;5;2m"), "\x1b[38;5;2m");
+  assert.equal(f("\x1b[2;3m"), "\x1b[38;2;114;114;118m"); // 斜體被丟掉
+  assert.equal(f("\x1b[3mi\x1b[23m"), "i"); // 只剩斜體的序列整段消失，不能變成 \x1b[m
+});
+
+test("createDimFilter 跨 chunk 的跳脫序列與自設前景", async () => {
+  const { createDimFilter } = await import("../src/sanitize.ts");
+  const f = createDimFilter();
+  assert.equal(f("a\x1b["), "a");
+  assert.equal(f("2mb"), "\x1b[38;2;114;114;118mb");
+  assert.equal(f("\x1b[32mx\x1b[22m"), "\x1b[32mx\x1b[22m"); // 自設綠色後不該被 39 蓋掉
+});

@@ -10,7 +10,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { t as tr } from "./i18n";
-import { squeezeBlankRuns, validSessionId, validSshTarget } from "./sanitize";
+import { createDimFilter, squeezeBlankRuns, validSessionId, validSshTarget } from "./sanitize";
 import { type SavedTab, type Tab } from "./types";
 import { termFontFamily } from "./settings";
 import { $ } from "./util";
@@ -23,6 +23,9 @@ import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
 import { inFolder } from "./groups";
 import { IS_MAC } from "./platform";
+
+// 每個終端機一個 dim 過濾器與串流解碼器，原因見 createDimFilter。
+const outFilters = new WeakMap<Tab, { dim: (s: string) => string; dec: TextDecoder }>();
 
 const SNAPSHOT_DELAY_MS = 4000;
 const SNAPSHOT_LINES = 1000;
@@ -85,7 +88,7 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
   scheduleGit(tab);
 
   if (restored) {
-    term.write(squeezeBlankRuns(restored), () => {
+    term.write(createDimFilter()(squeezeBlankRuns(restored)), () => {
       // The snapshot leaves the cursor wherever the program had it (TUIs park it mid-screen),
       // so move below the last non-empty line before printing the marker.
       const b = term.buffer.active;
@@ -211,7 +214,10 @@ export async function spawn(tab: Tab) {
   autoResume(tab);
   const onData = new Channel<ArrayBuffer>();
   onData.onmessage = (buf) => {
-    tab.term.write(new Uint8Array(buf));
+    let f = outFilters.get(tab);
+    if (!f) outFilters.set(tab, (f = { dim: createDimFilter(), dec: new TextDecoder() }));
+    // stream: true 讓被切在 chunk 邊界的 UTF-8 字元留到下一塊
+    tab.term.write(f.dim(f.dec.decode(new Uint8Array(buf), { stream: true })));
     markDirty(tab);
   };
   // Set before the call: ConPTY asks for the cursor position right away and
