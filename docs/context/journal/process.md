@@ -4,7 +4,16 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
-## 2026-10-25 — dim／斜體文字的黑底：改寫 SGR 2 成灰色、丟掉斜體（未 commit）
+## 2026-10-25 — 發布 0.7.3（`73dc78a`，tag `v0.7.3`）
+
+**變更**
+- 版本號改到 0.7.3（`tauri.conf.json`、`Cargo.toml`、`Cargo.lock`、`package.json`、`package-lock.json`、兩份 README）；內容是設定面板可拖曳（`1c11332`）加上 dim／斜體黑底修正（`5efdb10`）。
+- 發版前兩組測試全過；push 前的私人資訊掃描單獨跑，只命中公開 repo 網址。CI 兩平台成功，兩個安裝檔與 `latest.json` 的 `releases/latest/download` 都回 302 指向 v0.7.3。
+
+**下一步**
+- 黑底修正只在隔離測試實例驗過，尚未在使用者自己的 App 看過。
+
+## 2026-10-25 — dim／斜體文字的黑底：改寫 SGR 2 成灰色、丟掉斜體（`5efdb10`）
 
 **變更**
 - `sanitize.ts` 新增 `createDimFilter`：把輸出裡的 SGR 2 換成固定灰色前景（`38;2;114;114;118`），22 時補 39 還原；SGR 3／23（斜體）整個丟掉；跨 chunk 的跳脫序列暫存到下一塊。
@@ -16,7 +25,7 @@
 - 驗收時發現純斜體（沒有 dim）也會有同樣的黑底，Claude Code 的 recap 是 dim＋斜體，所以一併丟掉斜體。代價：疊在彩色字上的 dim 會變灰、斜體全變直體。
 
 **下一步**
-- 使用者自己的 App 重啟後再看一次 Claude Code 的提示與 recap，再 commit。若 xterm 日後修掉這個 bug，可整段移除過濾器。
+- 更新到 0.7.3 後在自己的 App 再看一次 Claude Code 的提示與 recap。若 xterm 日後修掉這個 bug，可整段移除過濾器。
 
 ## 2026-10-24 — 設定面板可拖曳移動（未 commit）
 
