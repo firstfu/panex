@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-24 — 設定面板可拖曳移動（未 commit）
+
+**變更**
+- `settings-panel.ts`：在左側欄或「一般」頁的 App 卡片空白處按住拖曳，面板跟著移動（pointer 事件＋`setPointerCapture`，位移用 CSS `translate`，不跟開啟動畫的 `transform` 衝突）；至少留 80px 在視窗內，視窗縮小時重新夾。位移只存在記憶體，關掉再開沿用，重開 App 回置中。
+- `style.css`：把手區 `cursor: grab`，拖曳中 `grabbing`。
+- 驗證：`tsc`、前端單元測試、`vite build` 通過；尚未在實際 App 裡手動拖過。
+
+**為什麼**
+- 使用者要求設定窗口可以移動（面板會擋住後面終端機的內容）。
+
+**下一步**
+- 在 App 裡實測拖曳；若想要記住位置跨重開，再考慮存 localStorage。
+
 ## 2026-10-24 — 發佈 v0.7.1：設定的「一般」頁與 macOS 權限（`f102fe9`）
 
 **變更**

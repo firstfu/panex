@@ -455,6 +455,51 @@ $("s-win-current").onclick = async () => {
 settingsEl.addEventListener("mousedown", (e) => {
   if (e.target === settingsEl) closeSettings();
 });
+
+// 拖左側欄或「一般」頁頂端的 App 卡片空白處可移動面板。位移只存在記憶體（這次開著 App 期間沿用），
+// 用 CSS `translate` 而非 `transform`，才不會跟開啟動畫的 transform 互相覆蓋。
+const settingsPanel = settingsEl.querySelector<HTMLElement>(".panel")!;
+let panelDx = 0;
+let panelDy = 0;
+
+/**
+ * 套用面板位移，並夾在視窗內：面板至少留 80px 在畫面裡，避免拖出去後抓不回來。
+ * @param dx 相對置中位置的水平位移（px）
+ * @param dy 相對置中位置的垂直位移（px）
+ */
+function movePanel(dx: number, dy: number) {
+  const w = settingsPanel.offsetWidth;
+  const h = settingsPanel.offsetHeight;
+  const maxX = Math.max(0, (innerWidth + w) / 2 - 80);
+  const maxY = Math.max(0, (innerHeight + h) / 2 - 80);
+  panelDx = Math.min(maxX, Math.max(-maxX, dx));
+  panelDy = Math.min(maxY, Math.max(-maxY, dy));
+  settingsPanel.style.translate = panelDx || panelDy ? `${panelDx}px ${panelDy}px` : "";
+}
+
+settingsPanel.addEventListener("pointerdown", (e) => {
+  const t = e.target as HTMLElement;
+  if (e.button !== 0 || !t.closest(".s-nav, .about") || t.closest("button, a, input, select, textarea, .about-text span")) return;
+  e.preventDefault();
+  const startX = e.clientX - panelDx;
+  const startY = e.clientY - panelDy;
+  settingsPanel.setPointerCapture(e.pointerId);
+  settingsPanel.classList.add("moving");
+  const onMove = (m: PointerEvent) => movePanel(m.clientX - startX, m.clientY - startY);
+  const onUp = () => {
+    settingsPanel.classList.remove("moving");
+    settingsPanel.removeEventListener("pointermove", onMove);
+    settingsPanel.removeEventListener("pointerup", onUp);
+    settingsPanel.removeEventListener("pointercancel", onUp);
+  };
+  settingsPanel.addEventListener("pointermove", onMove);
+  settingsPanel.addEventListener("pointerup", onUp);
+  settingsPanel.addEventListener("pointercancel", onUp);
+});
+// 視窗縮小後重新夾一次，免得面板留在看不到的地方。
+addEventListener("resize", () => {
+  if (panelDx || panelDy) movePanel(panelDx, panelDy);
+});
 settingsEl.addEventListener("click", (e) => {
   if ((e.target as HTMLElement).closest("[data-close]")) closeSettings();
 });

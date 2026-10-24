@@ -490,7 +490,10 @@ body.git-viewing #terms > .term { visibility: hidden; }
   @keyframes s-in { from { opacity: 0; transform: translateY(6px) scale(0.99); } }
 }
 
-/* Left rail */
+/* Left rail（也是拖曳面板的把手） */
+.s-nav, .about { cursor: grab; }
+.about-links, .about-text span { cursor: auto; }
+#settings .panel.moving, #settings .panel.moving * { cursor: grabbing; }
 .s-nav { display: flex; flex-direction: column; gap: 2px; padding: 20px 12px 16px; background: var(--s-rail); border-right: 1px solid var(--s-line); }
 .s-nav h2 { font-size: 18px; font-weight: 600; margin: 0 8px 14px; letter-spacing: 0.02em; }
 .s-tab {
