@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-25 — README 與素材更新：新 hero／快捷鍵截圖、27 秒 demo 影片（未 commit）
+
+**變更**
+- 在 macOS 測試實例重拍 `assets/hero.png`（原本是 10/20 的 Windows 舊畫面）與 `assets/shortcuts.png`，新增 `assets/demo.mp4`（190 KB）與 `assets/demo.gif`（0.5 MB）。影片內容：兩個 agent 回報（藍＝要權限、綠＝完成）→ 切過去看 → Git 面板的 diff → 檔案分頁排版後的 README。畫面裡的 agent 是假腳本印出來的 Claude Code 風格輸出，通知是真的 `panex-cli notify`。
+- 英文與繁中 README：hero 下方加 demo；簽章說明改成「Windows 安裝檔未簽章、macOS 版未公證」；效能表標明是 Windows 實測；快捷鍵表補「工作區上移／下移」「搜尋／清除捲動歷史」；設定面板列出五頁並說明可從側欄拖曳；FAQ 加 dim／斜體為何變灰與直體。
+- 做法與雷寫進 `operations.md` 的「macOS 上重拍截圖與 demo 影片」。
+
+**為什麼**
+- 使用者要求 README 全面對照功能更新並更新影片；盤點後文字大致已跟上 0.7.x，缺口在視覺素材與少數細節。
+
+**下一步**
+- 確認 GitHub 上 `<a href="assets/demo.mp4">` 連結與 GIF 顯示正常，再 commit／push（push 前先獨立掃一次私人資訊；影片與截圖裡只有示範的 `web-app`／`api-server`／`docs`）。
+
 ## 2026-10-25 — 發布 0.7.3（`73dc78a`，tag `v0.7.3`）
 
 **變更**

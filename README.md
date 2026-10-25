@@ -19,10 +19,16 @@ English · [繁體中文](translations/README.zh-Hant.md)
 
 <img src="assets/hero.png" width="860" alt="panex: three workspaces in the sidebar, one waiting for permission (blue), one finished (green), and a workspace with two tabs">
 
+<br>
+
+<a href="assets/demo.mp4"><img src="assets/demo.gif" width="860" alt="A 27-second demo: two agents report in the sidebar, then the Git panel shows a diff and the Files tab renders a README"></a>
+
+<sub>27 s: two agents report in, then a look at the diff and the project files. <a href="assets/demo.mp4">Full-quality video</a></sub>
+
 </div>
 
 > [!NOTE]
-> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The downloads **aren't code-signed**, so Windows SmartScreen and macOS Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex's only network connection is the [update check](#privacy), which you can turn off.
+> panex runs on **Windows 10 and 11** and **macOS on Apple Silicon** (new in 0.3.0; on a Mac, ⌘ takes the place of Ctrl in the default shortcuts). Linux builds but isn't tested. The Windows installer isn't code-signed and the macOS app isn't notarized, so SmartScreen and Gatekeeper warn on the first run ([steps](#install)). All the code is here, and panex's only network connection is the [update check](#privacy), which you can turn off.
 
 ## Why panex
 
@@ -92,7 +98,7 @@ Click a shortcut in Settings and press the new keys. Bind two combinations to on
 
 ## Performance
 
-Measured on the release build:
+Measured on the Windows release build:
 
 | | |
 |---|---|
@@ -147,7 +153,7 @@ Settings live in `%USERPROFILE%\.config\panex\panex.json` (`~/.config/panex/pane
 - Write only the keys you want to change. Everything else uses the defaults.
 - `panex.schema.json` sits next to it, so editors such as VS Code offer completion and descriptions.
 - Saving the file applies it about 0.3 s later. If it doesn't parse, panex keeps the last good settings and shows the error with a button to open the file.
-- The Settings panel (⚙ or <kbd>Ctrl</kbd>+<kbd>,</kbd>) writes to the same file.
+- The Settings panel (⚙ or <kbd>Ctrl</kbd>+<kbd>,</kbd>) writes to the same file. It has General, Appearance, Terminal, Shortcuts and Config file pages, and you can drag it by its side rail if it covers something you want to read.
 
 ```json
 {
@@ -177,6 +183,7 @@ A string is one combination, an array of strings is a chord, an array of arrays 
 | <kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | Go to workspace 1–8, 9 = last (`selectWorkspaceByNumber`) |
 | <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | Go to tab 1–8, 9 = last (`selectTabByNumber`) |
 | <kbd>Ctrl</kbd>+<kbd>PgDn</kbd> / <kbd>PgUp</kbd> | Next / previous workspace |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PgUp</kbd> / <kbd>PgDn</kbd> (macOS: <kbd>⌥</kbd><kbd>⌘</kbd><kbd>↑</kbd> / <kbd>↓</kbd>) | Move the workspace up / down (`moveWorkspaceUp`, `moveWorkspaceDown`) |
 | <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | Next / previous tab |
 | <kbd>Ctrl</kbd>+<kbd>W</kbd> | Close tab; closing the last one closes its workspace (`closeTab`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> | Rename workspace / tab (or double-click) |
@@ -184,6 +191,7 @@ A string is one combination, an array of strings is a chord, an array of arrays 
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | Show / hide the sidebar (`toggleSidebar`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | Show / hide the Git panel (`toggleGitPanel`) |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> | Show / hide the project files (`toggleFilesPanel`) |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | Search / clear the scrollback (`find`, `clearScrollback`) |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd> (macOS: <kbd>Shift</kbd>+<kbd>Enter</kbd>) | Newline without sending, for Claude Code (`insertNewline`) |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | Font size up / down / reset (or Ctrl+wheel) |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | Settings |
@@ -220,6 +228,12 @@ panex sets this up by itself at launch. If the bottom of the sidebar says **Clau
 <summary><b>Ctrl+T, Ctrl+N or another key doesn't reach the program in my terminal</b></summary>
 
 panex handles its shortcuts before the terminal sees them. For example, Claude Code uses Ctrl+T to toggle its todo list. If you need a key inside the terminal, open Settings → 快捷鍵 (Shortcuts) and rebind or clear the panex shortcut.
+</details>
+
+<details>
+<summary><b>Claude Code's dim hints are gray and its italics are upright</b></summary>
+
+On purpose. With the GPU renderer, dim and italic text got a black box behind it, so panex draws dim text in a fixed gray and drops italics. The cost: dim text over colored text turns gray, and italics look upright.
 </details>
 
 <details>

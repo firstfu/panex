@@ -19,10 +19,16 @@
 
 <img src="../assets/hero.png" width="860" alt="panex：側欄三個工作區，一個在等待權限（藍色）、一個已完成（綠色），另一個工作區有兩個分頁">
 
+<br>
+
+<a href="../assets/demo.mp4"><img src="../assets/demo.gif" width="860" alt="27 秒示範：側欄兩個 agent 回報狀態，接著在 Git 面板看 diff、在檔案分頁看排版後的 README"></a>
+
+<sub>27 秒：兩個 agent 回報狀態，再看 diff 與專案檔案。<a href="../assets/demo.mp4">高畫質影片</a></sub>
+
 </div>
 
 > [!NOTE]
-> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。下載檔**沒有程式碼簽章**，第一次執行時 Windows SmartScreen 與 macOS Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex 唯一會自己連的網路是[檢查更新](#隱私)，可以關掉。
+> panex 支援 **Windows 10、11** 與 **Apple Silicon 的 macOS**（0.3.0 起；Mac 上預設快捷鍵以 ⌘ 取代 Ctrl）。Linux 能建置但還沒測試過。Windows 安裝檔沒有程式碼簽章、macOS 版沒有經過 Apple 公證，第一次執行時 SmartScreen 與 Gatekeeper 會擋（[步驟](#安裝)）。原始碼全部在這裡，而且 panex 唯一會自己連的網路是[檢查更新](#隱私)，可以關掉。
 
 ## 為什麼做 panex
 
@@ -92,7 +98,7 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 ## 效能
 
-在 release 版上實測：
+在 Windows 的 release 版上實測：
 
 | | |
 |---|---|
@@ -147,7 +153,7 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 - 只寫你想改的鍵，其他都用預設值。
 - 旁邊有 `panex.schema.json`，用 VS Code 等編輯器開啟會有自動完成和說明。
 - 存檔後約 0.3 秒自動套用。如果檔案格式有錯，panex 會沿用上次正確的設定，並顯示錯誤和開啟檔案的按鈕。
-- 設定面板（⚙ 或 <kbd>Ctrl</kbd>+<kbd>,</kbd>）寫的也是同一個檔案。
+- 設定面板（⚙ 或 <kbd>Ctrl</kbd>+<kbd>,</kbd>）寫的也是同一個檔案。面板有一般、外觀、終端機、快捷鍵、設定檔五頁；擋到後面想看的內容時，從左側欄按住就能拖著走。
 
 ```json
 {
@@ -177,6 +183,7 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 | <kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | 跳到第 1–8 個工作區，9 是最後一個（`selectWorkspaceByNumber`） |
 | <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> | 跳到第 1–8 個分頁，9 是最後一個（`selectTabByNumber`） |
 | <kbd>Ctrl</kbd>+<kbd>PgDn</kbd> / <kbd>PgUp</kbd> | 下一個／上一個工作區 |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PgUp</kbd> / <kbd>PgDn</kbd>（macOS：<kbd>⌥</kbd><kbd>⌘</kbd><kbd>↑</kbd> / <kbd>↓</kbd>） | 工作區上移／下移（`moveWorkspaceUp`、`moveWorkspaceDown`） |
 | <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> | 下一個／上一個分頁 |
 | <kbd>Ctrl</kbd>+<kbd>W</kbd> | 關閉分頁，關掉最後一個時工作區一起關（`closeTab`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> | 重新命名工作區／分頁（也可雙擊） |
@@ -184,6 +191,7 @@ panex 啟動時，如果 `~/.claude/settings.json` 裡還沒有執行 `panex-cli
 | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd> | 顯示／隱藏側欄（`toggleSidebar`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | 顯示／隱藏 Git 面板（`toggleGitPanel`） |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd> | 顯示／隱藏專案檔案（`toggleFilesPanel`） |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> | 搜尋／清除捲動歷史（`find`、`clearScrollback`） |
 | <kbd>Ctrl</kbd>+<kbd>Enter</kbd>（macOS：<kbd>Shift</kbd>+<kbd>Enter</kbd>） | 換行而不送出，給 Claude Code 用（`insertNewline`） |
 | <kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd> | 放大／縮小／重設字型（也可 Ctrl+滾輪） |
 | <kbd>Ctrl</kbd>+<kbd>,</kbd> | 設定 |
@@ -220,6 +228,12 @@ panex 啟動時會自動設定好。如果側欄底部出現 **Claude Code 通�
 <summary><b>Ctrl+T、Ctrl+N 等按鍵送不到終端機裡的程式</b></summary>
 
 panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T 切換待辦清單。如果某個按鍵你要在終端機裡用，到設定 → 快捷鍵，把 panex 的那組改掉或取消綁定即可。
+</details>
+
+<details>
+<summary><b>Claude Code 的淡色提示是灰色、斜體變成直體</b></summary>
+
+這是刻意的。用 GPU 渲染時，淡色（dim）和斜體文字後面會多出一塊黑底，所以 panex 把淡色字改畫成固定的灰色、並丟掉斜體。代價是疊在彩色字上的淡色字會變灰、斜體看起來是直的。
 </details>
 
 <details>

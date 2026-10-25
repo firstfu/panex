@@ -69,6 +69,18 @@ cd .. && node tests/e2e/run.mjs [--keep]   # --keep 留下暫存資料夾供檢�
 
 用上面的測試實例、全新空資料夾開一個示範版面（例如 `D:\demo\panex`、`api-server`、`docs` 三個工作區，一個送 permission_prompt 通知、一個送 Stop），截圖存到 `assets/`。截圖裡不能出現使用者真實的分頁名稱或路徑；拍完刪掉示範資料夾與測試實例資料。
 
+### macOS 上重拍截圖與 demo 影片（2026-10-25）
+
+用上面「macOS 端對端測試」的測試版，另寫一支腳本（不放進 repo）：`HOME` 指到暫存資料夾、`.zshrc` 設中性提示字元（`PROMPT='%F{green}%1~%f %# '`，否則提示字元會露出帳號與主機名）、`panex.json` 設 `app.language: "en"`、`session.json` 合成三個工作區，示範 repo 放 `/Users/Shared/demo/…`（側欄顯示完整 cwd，放暫存資料夾會顯示 `/private/tmp/…`）。
+
+- 場景用假 agent 腳本印 Claude Code 風格的輸出，通知用真的 `panex-cli notify`。**目前正在看的分頁不會亮燈**，所以通知要等切到別的工作區之後才送（腳本等一個檔案出現再送，錄影時再 `touch`）。
+- `__e2e` 的文字輸入要找「看得見的」textarea：`[...document.querySelectorAll(".xterm-helper-textarea")].find(t => t.offsetParent)`；用 `querySelector` 會拿到第一個（隱藏的）分頁。
+- 視窗用行程 ID 在 `CGWindowListCopyWindowInfo` 裡挑最大的（使用者自己的 panex 同名，還有一堆 500×500 與 30 px 高的雜窗）；`screencapture -x -o -l<id>` 截圖，`screencapture -v -x -l<id> out.mov` 錄影。
+- 錄影的左上角會被系統的紫色錄影指示蓋住紅綠燈，視窗外還有陰影：用 `ffmpeg` 裁掉標題列與陰影，只留 App 內容（1× 螢幕，視窗 1518×860，影片含陰影共 1630×972，裁成 `crop=1514:822:58:72`）。mp4 用 H.264 `-crf 27`，GIF 用 `palettegen`／`paletteuse`、10 fps、960 寬（約 0.5 MB）。
+- 拍攝用的 DOM 微調（例如藏掉側欄底部「Claude Code 通知：未啟用」那列 `#hooks-row`）只在測試實例裡做。
+- 設定頁的「一般」頁會顯示啟動它的終端機的權限狀態，不要拿來當截圖。
+- 腳本重新啟動時若清掉暫存資料夾，裡面的 `.mov`／`.mp4` 也跟著沒了：轉檔後立刻複製到 `assets/`。
+
 ## 發布 release
 
 安裝檔由 CI 建（`.github/workflows/release.yml`），本機不必建置：
