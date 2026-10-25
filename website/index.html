@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>panex: the terminal for running multiple Claude Code sessions</title>
+<meta name="description" content="Free, open-source terminal for Windows and macOS. Run multiple Claude Code sessions at once, get notified when one needs you, use a git worktree per task, and resume after a crash.">
+<link rel="canonical" href="https://firstfu.github.io/panex/">
+<link rel="alternate" hreflang="zh-Hant" href="https://firstfu.github.io/panex/zh/">
+<link rel="alternate" hreflang="en" href="https://firstfu.github.io/panex/">
+<link rel="icon" href="assets/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="panex">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://firstfu.github.io/panex/">
+<meta property="og:title" content="panex: the terminal for running multiple Claude Code sessions">
+<meta property="og:description" content="See which agent needs you. Pick up where you left off after a crash. Free, open source, 9 MB.">
+<meta property="og:image" content="https://firstfu.github.io/panex/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="panex: know which AI agent needs you">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://firstfu.github.io/panex/assets/og.png">
+<link rel="stylesheet" href="style.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"panex","applicationCategory":"DeveloperApplication","operatingSystem":"Windows 10, Windows 11, macOS (Apple Silicon)","license":"https://opensource.org/licenses/MIT","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://firstfu.github.io/panex/","downloadUrl":"https://github.com/firstfu/panex/releases/latest"}
+</script>
+</head>
+<body>
+
+<header class="nav"><div class="wrap">
+  <a class="brand" href="./"><img src="assets/icon.png" alt="">panex</a>
+  <nav class="links">
+    <a class="hide-m" href="#features">Features</a>
+    <a class="hide-m" href="guide.html">Guide</a>
+    <a class="hide-m" href="#install">Install</a>
+    <a class="hide-m" href="#faq">FAQ</a>
+    <a href="zh/">繁體中文</a>
+    <a href="https://github.com/firstfu/panex">GitHub</a>
+    <a class="btn primary" href="#install">Download</a>
+  </nav>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+  <span class="pill"><i></i> Free · open source · Windows &amp; macOS</span>
+  <h1>The terminal that tells you <em>which agent needs you</em></h1>
+  <p class="lead">Twenty minutes ago Claude Code hit a permission prompt, and you were in another window. panex is a terminal that lights up the agent waiting for you, so you can run several at once, and it brings everything back if the app closes or crashes.</p>
+  <div class="cta">
+    <a class="btn primary" href="#install">Download panex</a>
+    <a class="btn" href="guide.html">Read the guide</a>
+  </div>
+  <p class="sub">Windows 10/11 · macOS (Apple Silicon) · MIT licensed · 9 MB, no CPU when idle</p>
+  <div class="shot"><img src="assets/hero.png" width="1518" height="860" alt="panex: three workspaces in the sidebar, one waiting for permission (blue), one finished (green), a Git and Files panel on the right"></div>
+</div></div>
+
+<section id="demo" class="alt"><div class="wrap center">
+  <span class="eyebrow">27-second tour</span>
+  <h2>Two agents report in. You look at the diff.</h2>
+  <p class="sec-lead">Status in the sidebar, a Git panel for the diff, and a Files tab that renders the README, all without leaving the window.</p>
+  <div class="shot" style="margin-top:0"><video src="assets/demo.mp4" poster="assets/hero.png" controls muted loop playsinline preload="none"></video></div>
+</div></section>
+
+<section id="features"><div class="wrap">
+  <div class="center">
+    <span class="eyebrow">Features</span>
+    <h2>Built around how agents actually work</h2>
+    <p class="sec-lead">Every feature answers one question: what is each agent doing right now, and what do I need to do next?</p>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>Know which agent needs you</h3>
+      <p>When Claude Code asks for permission or finishes, its tab gets a dot and its workspace lights up in the sidebar with the message. <b style="color:var(--blue)">Blue</b> means it is waiting for you, <b style="color:var(--green)">green</b> means it is done.</p>
+      <ul>
+        <li>While working, the workspace shows a spinner and how long the turn has run</li>
+        <li>In the background you also get a desktop notification and a taskbar flash</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> jumps to the tab that needs you</li>
+        <li>Set up automatically through Claude Code hooks; nothing to turn on</li>
+      </ul>
+      <a class="more" href="guide.html#notifications">How notifications work →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <span class="ws blue"><b>api-server <span class="st">● needs you</span></b><small>Claude needs your permission to run npm test</small></span>
+      <span class="ws green"><b>docs <span class="st">✓ done · 2m 14s</span></b><small>Updated the install guide</small></span>
+      <span class="ws run"><b>web-app <span class="st">⠙ 0:48</span></b><small>main · ● 3 uncommitted</small></span>
+    </div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>Crew mode: let an agent start other agents</h3>
+      <p>Ask Claude Code in a panex tab to split a job across parallel agents. It opens new workspaces right below its own, each in its own git worktree if you like, and you can watch and type into every one.</p>
+      <ul>
+        <li>It waits for them, and tells you when one is asking a question instead of answering for you</li>
+        <li>When they finish it collects their work from git</li>
+        <li>Only processes started inside panex can send these commands</li>
+      </ul>
+      <a class="more" href="guide.html#crew">Crew mode in detail →</a>
+    </div>
+    <div class="mock" aria-hidden="true"><span class="dim"># inside a Claude Code tab</span>
+<pre style="margin:10px 0 0;border:0;padding:0;background:none">$ panex-cli open --worktree try-a -- claude "approach A"
+$ panex-cli open --worktree try-b -- claude "approach B"
+$ panex-cli wait
+<span class="diff-add">try-a  done</span>
+<span style="color:var(--blue)">try-b  needs input</span></pre></div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>Comes back after a crash</h3>
+      <p>Workspaces, tabs, each tab's shell and folder, and the scrollback are saved as you go. Close panex, reboot, or kill it: next time it opens exactly where you were.</p>
+      <ul>
+        <li>panex remembers which Claude Code session each tab was running and runs <code>claude --resume</code> for you when you open it</li>
+        <li>Tabs where you had already quit Claude stay at the prompt</li>
+        <li>Restored tabs don't start a shell until you open them</li>
+      </ul>
+      <a class="more" href="guide.html#restore">What is and isn't restored →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="tabs"><span class="on">claude</span><span>dev server</span><span>+</span></div>
+      <span class="dim">── restored ──────────────</span><br>$ claude --resume 3f9a…<br><span class="diff-add">✓ back in the conversation</span>
+    </div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>See what changed without leaving the terminal</h3>
+      <p>A read-only Git panel lists staged, changed and untracked files and the last 30 commits. Click one to read its diff over the terminal. The Files tab shows the whole project as a tree, with Markdown rendered and code highlighted.</p>
+      <ul>
+        <li>Sidebar badges: <code>↑</code> unpushed, <code>↓</code> behind, <code>●</code> uncommitted</li>
+        <li>No polling, no file watcher: it reads once after a prompt, a finished turn, or when you return</li>
+        <li>Raw HTML in documents is shown as text, so a file can't run anything</li>
+      </ul>
+      <a class="more" href="guide.html#git">Git and Files panels →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="tabs"><span>GIT</span><span class="on">FILES</span></div>
+      <div class="tree"><div class="dot">▸ src</div><div>package.json</div><div>README.md</div></div>
+      <br><span class="diff-del">- total = a + b</span><br><span class="diff-add">+ total = round(a + b, 2)</span>
+    </div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>A worktree for every task</h3>
+      <p>Right-click a workspace to start a new one in a fresh git worktree, with your <code>.env</code> files copied over and an optional setup command. Worktrees of one repo are grouped in the sidebar.</p>
+      <ul>
+        <li>Closing one lists what would be lost first: uncommitted files, commits on no other branch, agents still working</li>
+        <li>Works with Claude Code's own <code>--worktree</code> and <code>EnterWorktree</code></li>
+      </ul>
+      <a class="more" href="guide.html#worktrees">Worktrees →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <span class="ws"><b>shop ▾</b><small>main</small></span>
+      <span class="ws" style="margin-left:18px"><b>fix-cart <span class="st dim">worktree</span></b><small>fix-cart ● 2</small></span>
+      <span class="ws" style="margin-left:18px"><b>try-stripe <span class="st dim">worktree</span></b><small>try-stripe ↑1</small></span>
+    </div>
+  </div>
+</div></section>
+
+<section id="shots"><div class="wrap">
+  <div class="center"><span class="eyebrow">See it work</span><h2>Real screens, not mockups</h2></div>
+  <div class="shots">
+    <figure><a href="assets/shot-diff.png" target="_blank" rel="noopener"><img src="assets/shot-diff.png" width="1514" height="822" loading="lazy" alt="The Git panel showing the diff of src/cart.ts next to the terminal"></a><figcaption><b>Git panel.</b> Click a changed file or a commit to read its diff over the terminal. Esc closes it.</figcaption></figure>
+    <figure><a href="assets/shot-files.png" target="_blank" rel="noopener"><img src="assets/shot-files.png" width="1514" height="822" loading="lazy" alt="The Files tab showing a README rendered as formatted Markdown"></a><figcaption><b>Files tab.</b> The whole project as a tree; Markdown is rendered, code is highlighted, changed files are marked.</figcaption></figure>
+    <figure><a href="assets/shot-worktrees.png" target="_blank" rel="noopener"><img src="assets/shot-worktrees.png" width="1518" height="860" loading="lazy" alt="The sidebar showing a repo group: shop on top, with fix-cart and try-stripe indented below, each tagged worktree"></a><figcaption><b>Worktree groups.</b> A repo's worktrees sit under its main workspace, tagged, with their own branch status.</figcaption></figure>
+    <figure><a href="assets/shot-crew.png" target="_blank" rel="noopener"><img src="assets/shot-crew.png" width="1518" height="860" loading="lazy" alt="Crew mode: a lead agent started three agents; one is running, one is done, one is waiting for permission"></a><figcaption><b>Crew mode.</b> One agent started three others and waits. Running, done and needs-you show in the sidebar.</figcaption></figure>
+  </div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <div class="center"><span class="eyebrow">And more</span><h2>The details that make a terminal comfortable</h2></div>
+  <div class="grid" style="margin-top:36px">
+    <div class="card"><span class="ic">⌨️</span><h3>Every shortcut is yours</h3><p>Click a shortcut in Settings and press new keys. Chords, two bindings per action, or unbind a key so it reaches the terminal.</p></div>
+    <div class="card"><span class="ic">🔐</span><h3>SSH connections</h3><p>Pick a host from <code>~/.ssh/config</code> or type <code>user@host:port</code>. It runs your system's <code>ssh</code>; passwords are never stored.</p></div>
+    <div class="card"><span class="ic">🎨</span><h3>Look the way you like</h3><p>Transparency, Mica or Acrylic on Windows 11, any installed monospace font, color emoji, and an English or Traditional Chinese interface.</p></div>
+    <div class="card"><span class="ic">🔎</span><h3>Search and links</h3><p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> searches scrollback. Ctrl+click opens URLs, or <code>src/main.ts:120</code> in VS Code or Cursor at that line.</p></div>
+    <div class="card"><span class="ic">🧾</span><h3>One JSON config</h3><p>Plain file with a schema for editor completion, applied about 0.3 s after you save. The Settings panel writes to the same file.</p></div>
+    <div class="card"><span class="ic">🛡️</span><h3>Asks before interrupting</h3><p>Closing panex, a tab or a workspace while an agent is mid-task asks first, so a stray click doesn't cut it off.</p></div>
+  </div>
+</div></section>
+
+<section id="compare"><div class="wrap">
+  <div class="center"><span class="eyebrow">Compared</span><h2>What panex adds to a regular terminal</h2>
+  <p class="sec-lead">A general-purpose terminal such as Windows Terminal runs your agents fine. It just doesn't know they're agents.</p></div>
+  <div class="tbl cmp"><table>
+    <tr><th>&nbsp;</th><th>panex</th><th>General-purpose terminal<br><small>(e.g. Windows Terminal)</small></th></tr>
+    <tr><td>Shows which agent is working, waiting for you, or done</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>One agent starts other agents and waits for them (crew mode)</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Resumes each tab's Claude Code conversation after a restart</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Git changes and project files beside the terminal</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>A git worktree per task, grouped by repo in the sidebar</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>Runs any command-line program</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>Split panes inside a tab</td><td class="soon">not yet</td><td class="yes">✓</td></tr>
+  </table></div>
+  <p class="cmp-note">“—” means not built in; scripts and plugins can fill some of these gaps. Looking for the kind of agent terminal that has only existed on macOS? panex is built Windows-first and also runs on macOS (Apple Silicon).</p>
+</div></section>
+
+<section id="performance"><div class="wrap center">
+  <span class="eyebrow">Performance</span>
+  <h2>Small enough to forget it's running</h2>
+  <p class="sec-lead">Measured on the Windows release build. panex never runs a timer while idle.</p>
+  <div class="stats">
+    <div class="stat"><b>9 MB</b><span>panex.exe</span></div>
+    <div class="stat"><b>2.3 MB</b><span>installer</span></div>
+    <div class="stat"><b>0.03 s</b><span>CPU in 10 s idle, 7 tabs</span></div>
+    <div class="stat"><b>≈ 7 MB</b><span>private memory</span></div>
+  </div>
+  <p class="sub" style="max-width:640px;margin-inline:auto">Most of the memory in Task Manager belongs to WebView2, which draws the window. Restored tabs don't start a shell until opened, and only the visible tab uses GPU rendering.</p>
+</div></section>
+
+<section id="privacy" class="alt"><div class="wrap">
+  <div class="center"><span class="eyebrow">Privacy</span><h2>No telemetry. Everything is in the repo.</h2></div>
+  <div class="grid" style="margin-top:36px">
+    <div class="card"><h3>One network call</h3><p>The update check asks GitHub for <code>latest.json</code>. Turn it off in Settings and panex makes no connections at all.</p></div>
+    <div class="card"><h3>Verified updates</h3><p>Updates are never installed on their own, and each download is checked against a public key built into the app.</p></div>
+    <div class="card"><h3>One file outside its folders</h3><p><code>~/.claude/settings.json</code> gets the hooks, after a backup, keeping your other hooks. See <a href="https://github.com/firstfu/panex/blob/main/src-tauri/src/hooks.rs">hooks.rs</a>.</p></div>
+  </div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <div class="center"><span class="eyebrow">Install</span><h2>Download panex</h2>
+  <p class="sec-lead">The installer isn't code-signed and the Mac app isn't notarized, so Windows and macOS warn once on first run. The steps below get past it.</p></div>
+  <div style="max-width:760px;margin:0 auto">
+    <div class="tabbar" role="tablist"><button data-tab="win" aria-selected="true">Windows</button><button data-tab="mac" aria-selected="false">macOS</button></div>
+    <div class="panel" id="tab-win">
+      <ol class="steps">
+        <li><b>Download</b> <code>panex_0.7.3_x64-setup.exe</code> from <a href="https://github.com/firstfu/panex/releases/latest">Releases</a>.</li>
+        <li><b>Run it.</b> SmartScreen warns the first time: click <b>More info</b>, then <b>Run anyway</b>.</li>
+        <li>panex installs for your user only (no administrator rights) and adds a Start menu entry.</li>
+      </ol>
+      <p class="sub">Needs Windows 10 or 11 with WebView2, already part of Windows 11 and up-to-date Windows 10.</p>
+      <a class="btn primary" href="https://github.com/firstfu/panex/releases/latest">Download for Windows</a>
+    </div>
+    <div class="panel" id="tab-mac" hidden>
+      <ol class="steps">
+        <li><b>Download</b> <code>panex_0.7.3_aarch64.dmg</code> from <a href="https://github.com/firstfu/panex/releases/latest">Releases</a>, open it and drag panex into Applications.</li>
+        <li><b>Open it once.</b> macOS blocks the first launch: go to System Settings → Privacy &amp; Security and click <b>Open Anyway</b>.</li>
+        <li>If macOS says the app is damaged, run this and open it again:<pre><code>xattr -cr /Applications/panex.app</code></pre></li>
+      </ol>
+      <p class="sub">Apple Silicon only. ⌘ replaces Ctrl in the default shortcuts.</p>
+      <a class="btn primary" href="https://github.com/firstfu/panex/releases/latest">Download for macOS</a>
+    </div>
+    <p class="sub" style="margin-top:22px">After that, updates arrive in the app: a line appears at the bottom of the sidebar, and <b>Update and restart</b> does the rest. Or <a href="https://github.com/firstfu/panex#build-from-source">build from source</a>.</p>
+  </div>
+</div></section>
+
+<section id="faq" class="alt"><div class="wrap" style="max-width:820px">
+  <div class="center"><span class="eyebrow">FAQ</span><h2>Common questions</h2></div>
+  <div style="margin-top:32px">
+    <details><summary>How do I run multiple Claude Code sessions at once?</summary><p>Press <kbd>Ctrl</kbd>+<kbd>N</kbd> for a workspace per project or task and start <code>claude</code> in each. The sidebar shows which one is working, waiting for you or done, and <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> jumps to the one that needs you. When several sessions work on the same repo, give each its own git worktree (right-click a workspace) so they don't edit the same files.</p></details>
+    <details><summary>Is panex a terminal for Claude Code on Windows?</summary><p>Yes. It is built for Windows 10 and 11 first (cmd, Windows PowerShell and PowerShell 7) and also runs on macOS with Apple Silicon. Status lighting, resume and crew mode use Claude Code's hooks, which panex installs by itself.</p></details>
+    <details><summary>Does it only work with Claude Code?</summary><p>Any program runs in a panex tab, since it is a normal terminal. Status lighting and crew mode rely on Claude Code's hooks. Other tools can still notify by running <code>panex-cli notify "message"</code> or printing a bell, OSC 9 or OSC 777 sequence.</p></details>
+    <details><summary>Notifications don't show up</summary><p>panex sets hooks up itself at launch. If the bottom of the sidebar says notifications are not enabled, it couldn't write <code>~/.claude/settings.json</code> (for example the file isn't valid JSON): fix it and click Enable. Only sessions started inside panex light up tabs.</p></details>
+    <details><summary>Ctrl+T or Ctrl+N doesn't reach my program</summary><p>panex handles its shortcuts first. Claude Code uses Ctrl+T for its todo list, for example. Open Settings → Shortcuts and rebind or clear the panex shortcut.</p></details>
+    <details><summary>Do I lose macOS permissions when I update?</summary><p>No. Releases are signed with the same certificate every time and macOS ties permissions to that signature. A build you compile yourself is signed ad hoc, so macOS asks again after each rebuild.</p></details>
+    <details><summary>Where is my data?</summary><p>Settings: <code>~/.config/panex/panex.json</code> (<code>%USERPROFILE%\.config\panex\</code> on Windows). Layout and scrollback: <code>%APPDATA%\dev.panex.terminal\</code> on Windows. Delete either to start fresh.</p></details>
+    <details><summary>How do I uninstall it?</summary><p>Use Settings → Apps → Installed apps → panex → Uninstall on Windows. To remove your data, delete the two folders above, then remove the <code>panex-cli</code> entries from <code>~/.claude/settings.json</code> or restore <code>settings.json.panex-bak</code>.</p></details>
+    <details><summary>Are split panes coming?</summary><p>Not yet. Split panes and listening ports in the sidebar are only built once real people ask for them: <a href="https://github.com/firstfu/panex/issues/new">open an issue</a> and tell the author how you'd use it.</p></details>
+  </div>
+</div></section>
+
+<section><div class="wrap center">
+  <h2>Stop alt-tabbing between agents</h2>
+  <p class="sec-lead">Free, MIT licensed, built by one person. Issues and pull requests are very welcome.</p>
+  <div class="cta"><a class="btn primary" href="#install">Download panex</a><a class="btn" href="https://github.com/firstfu/panex">View on GitHub</a></div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>© panex · MIT License</span>
+  <nav><a href="guide.html">Guide</a><a href="https://github.com/firstfu/panex/releases">Releases</a><a href="https://github.com/firstfu/panex/issues">Issues</a><a href="https://github.com/firstfu/panex">GitHub</a><a href="zh/">繁體中文</a></nav>
+</div></footer>
+<script src="site.js"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple)
 [![Latest release](https://img.shields.io/github/v/release/firstfu/panex)](https://github.com/firstfu/panex/releases/latest)
 
-[下載](https://github.com/firstfu/panex/releases/latest) · [功能](#功能) · [安裝](#安裝) · [設定](#設定) · [常見問題](#常見問題)
+[網站](https://firstfu.github.io/panex/zh/) · [下載](https://github.com/firstfu/panex/releases/latest) · [功能](#功能) · [安裝](#安裝) · [設定](#設定) · [常見問題](#常見問題)
 
 [English](../README.md) · 繁體中文
 

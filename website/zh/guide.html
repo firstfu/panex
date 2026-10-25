@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>panex 使用指南：通知、worktree 與重開還原</title>
+<meta name="description" content="用 panex 管理多個 Claude Code session：工作區與分頁、agent 通知、小隊模式、重開接回對話、Git 與檔案面板、git worktree、SSH、快捷鍵與設定檔。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="panex">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://firstfu.github.io/panex/zh/guide.html">
+<meta property="og:title" content="panex 使用指南：通知、worktree 與重開還原">
+<meta property="og:image" content="https://firstfu.github.io/panex/assets/og-zh.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://firstfu.github.io/panex/assets/og-zh.png">
+<link rel="canonical" href="https://firstfu.github.io/panex/zh/guide.html">
+<link rel="alternate" hreflang="en" href="https://firstfu.github.io/panex/guide.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://firstfu.github.io/panex/zh/guide.html">
+<link rel="icon" href="../assets/icon.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav"><div class="wrap">
+  <a class="brand" href="./"><img src="../assets/icon.png" alt="">panex</a>
+  <nav class="links">
+    <a class="hide-m" href="./#features">功能</a>
+    <a class="hide-m" href="guide.html"><b style="color:var(--text)">使用指南</b></a>
+    <a class="hide-m" href="./#install">安裝</a>
+    <a href="../guide.html">English</a>
+    <a href="https://github.com/firstfu/panex">GitHub</a>
+    <a class="btn primary" href="./#install">下載</a>
+  </nav>
+</div></header>
+
+<div class="wrap doc">
+<aside class="toc" aria-label="本頁目錄">
+  <b>開始</b>
+  <a href="#basics">工作區與分頁</a>
+  <b>Agent</b>
+  <a href="#notifications">Agent 通知</a>
+  <a href="#crew">小隊模式</a>
+  <a href="#restore">還原與接回</a>
+  <b>專案</b>
+  <a href="#git">Git 與檔案面板</a>
+  <a href="#worktrees">Worktree 與群組</a>
+  <a href="#ssh">SSH</a>
+  <b>自訂</b>
+  <a href="#shortcuts">快捷鍵</a>
+  <a href="#config">設定檔</a>
+  <a href="#terminal">終端機小技巧</a>
+  <a href="#macos">macOS 權限</a>
+</aside>
+
+<article>
+<h1>使用指南</h1>
+<p>panex 的每個功能，依你會遇到的順序說明。在 Mac 上請把 <kbd>Ctrl</kbd> 讀成 <kbd>⌘</kbd>、<kbd>Alt</kbd> 讀成 <kbd>⌥</kbd>（本頁會自動替你換掉按鍵圖示）。</p>
+
+<section id="basics">
+  <h2>工作區與分頁</h2>
+  <p>panex 分兩層。<b>側欄</b>列出<b>工作區</b>，一個專案或任務一個；每個工作區上方有自己的一排<b>分頁</b>，每個分頁是一個 shell。</p>
+  <ol>
+    <li><kbd>Ctrl</kbd>+<kbd>N</kbd> 新增工作區，<kbd>Ctrl</kbd>+<kbd>T</kbd> 在目前工作區新增分頁。新分頁會開在你原本所在的資料夾。</li>
+    <li>改名：<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>（工作區）、<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd>（分頁），或雙擊名稱。右鍵工作區可以設定顏色。</li>
+    <li>拖曳工作區或分頁調整順序。<kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd> 跳到工作區，<kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> 跳到分頁（9 一律是最後一個）。</li>
+    <li>側欄每一列顯示資料夾、git 分支與狀態。關掉工作區的最後一個分頁會連工作區一起關；關掉最後一個工作區會自動開一個新的。</li>
+  </ol>
+  <h3>選擇 shell</h3>
+  <p>Windows 預設是 <b>cmd</b>，有安裝時也能選 Windows PowerShell 與 PowerShell 7：在<b>設定 → 終端機 → 預設 shell</b> 選，或用「新增工作區」旁的 <b>⌄</b> 選單。macOS 的分頁啟動你的登入 shell（<code>$SHELL</code>）。</p>
+</section>
+
+<section id="notifications">
+  <h2>Agent 通知</h2>
+  <p>這就是 panex 存在的理由：知道好幾個 agent 之中，哪一個在等你。</p>
+  <div class="tbl"><table>
+    <tr><th>狀態</th><th>你會看到</th></tr>
+    <tr><td><span class="status"><i style="background:var(--muted)"></i>工作中</span></td><td>工作區顯示轉圈圈與這一輪的經過時間。</td></tr>
+    <tr><td><span class="status"><i style="background:var(--blue)"></i>需要你</span></td><td>分頁亮藍點，側欄顯示 agent 的訊息（權限確認或提問）。</td></tr>
+    <tr><td><span class="status"><i style="background:var(--green)"></i>完成</span></td><td>綠色勾勾與這一輪花了多久。</td></tr>
+  </table></div>
+  <p>工作區有多個分頁時，顯示其中最緊急的狀態。panex 在背景時另有桌面通知與工作列閃爍；無論如何，分頁與工作區都會亮。<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> 直接跳到需要你的分頁。</p>
+  <h3>運作方式</h3>
+  <p>panex 啟動時會把 <code>Notification</code>、<code>Stop</code>、<code>StopFailure</code>、<code>UserPromptSubmit</code>、<code>SessionEnd</code> 這幾個 hooks 加進 <code>~/.claude/settings.json</code>，各自執行 <code>panex-cli notify</code> 把訊息交給 panex。寫入前會先備份（<code>settings.json.panex-bak</code>），你其他的 hooks 都保留。在 panex 之外這個小程式會立刻結束，所以其他終端機裡的 Claude Code 不受影響。</p>
+  <h3>其他工具</h3>
+  <pre><code>panex-cli notify "建置完成"</code></pre>
+  <p>或讓任何程式印出 bell（<code>\a</code>）、OSC 9、OSC 777 序列。</p>
+  <div class="callout warn"><b>沒有亮？</b>通知只對在 panex <i>裡面</i>啟動的 session 有效。如果側欄底部寫著通知未啟用，代表 panex 寫不進設定檔（是不是不合法的 JSON？），修好後按<b>啟用</b>。</div>
+</section>
+
+<section id="crew">
+  <h2>小隊模式</h2>
+  <p>小隊模式讓一個 agent 在新的 panex 分頁裡啟動其他 agent、等它們做完，再收回成果。你不用打任何指令：在 panex 分頁裡對 Claude Code 說「這件事用三種做法平行試試看」之類的話就行。</p>
+  <ol>
+    <li>Claude 在自己下方為每個幫手開一個新工作區。開啟 worktree 時，每個幫手各有自己的 git worktree，不會互相覆蓋。</li>
+    <li>幫手跑在你可以打開、觀看、打字的分頁裡。開啟過程是靜默的：你的畫面不會被切走。</li>
+    <li>Claude 會等它們。其中一個停下來問問題時，Claude 會告訴<i>你</i>，而不是替你回答。</li>
+    <li>全部做完後，Claude 從 git 收回成果。</li>
+  </ol>
+  <h3>背後的兩個指令</h3>
+  <pre><code># 在新工作區啟動一個指令（可選擇開新 worktree）
+panex-cli open --worktree try-a -- claude "做法 A"
+
+# 阻塞等待這些 agent 做完或需要你
+panex-cli wait</code></pre>
+  <p>完整說明見 <code>panex-cli help</code>。panex 會安裝一個小小的 Claude Code skill（<code>~/.claude/skills/panex/SKILL.md</code>）教 Claude 怎麼用；在 panex 之外它什麼也不做。</p>
+  <div class="callout"><b>設計上就是安全的。</b>請求必須帶上 panex 每次啟動隨機產生、只交給自己開的 shell 的 token，外面的程序一律拒絕。<code>wait</code> 等待期間不耗資源，它依賴 Claude Code 的 hooks，所以只對 Claude Code 有效。</div>
+</section>
+
+<section id="restore">
+  <h2>還原與接回</h2>
+  <p>關掉 panex、重開機、或從工作管理員強制結束：重開後回到原本的地方。</p>
+  <div class="tbl"><table>
+    <tr><th>會還原</th><th>不會</th></tr>
+    <tr><td>工作區、分頁、顏色、順序、群組</td><td>當時正在跑的程式（dev server、建置）</td></tr>
+    <tr><td>各分頁的 shell 與工作資料夾</td><td>全螢幕程式（alternate screen）裡的內容</td></tr>
+    <tr><td>捲動歷史文字（最後 1000 行）</td><td>當機前最後幾秒（約每 4 秒存一次）</td></tr>
+    <tr><td>仍在跑 Claude Code 的分頁所屬的對話</td><td></td></tr>
+  </table></div>
+  <p>對 Claude Code，panex 記得每個執行中 session 的 id。重開後打開該分頁，它會自動執行 <code>claude --resume &lt;id&gt;</code>，你就回到原本的對話。已經離開 Claude 的分頁會停在提示字元。可在<b>設定 → 終端機</b>關閉。</p>
+  <p>還原的分頁要打開才會啟動 shell，所以重開時不會一次啟動所有 shell。</p>
+</section>
+
+<section id="git">
+  <h2>Git 與檔案面板</h2>
+  <p>右側面板，分成兩個分頁。完全唯讀：不會 stage、commit、push 或 fetch。</p>
+  <h3>Git —— <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></h3>
+  <ol>
+    <li>列出目前分頁 repo 的已暫存、變更、未追蹤檔案，以及最近 30 筆提交，未推送的有標記。</li>
+    <li>點檔案或提交，就在終端機上方看它的 diff。<kbd>Esc</kbd> 關閉。</li>
+    <li>側欄每個分支後面有 <code>↑</code> 未推送、<code>↓</code> 遠端領先（以上次 fetch 為準）、<code>●</code> 未提交。哪個 agent 留下了未完成的工作，一眼就看得出來。</li>
+  </ol>
+  <h3>檔案 —— <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></h3>
+  <ol>
+    <li>用資料夾樹顯示整個專案，跟 git 看到的一樣：已追蹤與新增的檔案，扣掉 <code>.gitignore</code> 排除的。不在 repo 裡就改掃資料夾（略過隱藏資料夾、<code>node_modules</code>、<code>target</code>）。</li>
+    <li>變更的檔案標與 Git 分頁相同的字母，含有變更的資料夾加一個點，所以不用打開任何東西，就看得出 agent 動了專案的哪一塊。</li>
+    <li>點檔案閱讀：Markdown 排版、程式碼上色加行號（超過 300 KB 不上色）、圖片與 SVG 直接顯示。其他檔案（如 PDF、試算表）提供 <b>Quick Look</b>（macOS）、<b>用預設 App 開啟</b>、<b>在 Finder／檔案總管顯示</b>。</li>
+  </ol>
+  <div class="callout"><b>沒在用就零成本。</b>沒有輪詢，也沒有檔案監看。panex 只在 shell 顯示提示字元後、Claude Code 做完一輪後、或你回到視窗時跑一次 <code>git status</code>，而且只針對你正在看的分頁。git 一律加 <code>--no-optional-locks</code>，不會跟 agent 搶 index 鎖。</div>
+  <div class="callout"><b>檔案無法執行任何東西。</b>文件裡的原始 HTML 只當文字顯示，Markdown 裡的圖片不會載入，連結交給你的瀏覽器開。讀取範圍限於專案內：<code>..</code> 與指向外面的 symlink 都會被拒絕。</div>
+</section>
+
+<section id="worktrees">
+  <h2>Worktree 與群組</h2>
+  <p>git worktree 是同一個 repo 在另一個資料夾的第二份簽出，讓 agent 能在某個分支上工作而不打擾你的。</p>
+  <h3>開一個</h3>
+  <ol>
+    <li>右鍵工作區 →「用新 worktree 開新工作區…」（或綁定 <code>newWorktree</code>）。</li>
+    <li>輸入分支名；分支與起點兩欄都有本機分支可選。分支已存在就直接簽出，否則從起點建立。</li>
+    <li>panex 在 repo 旁邊建立 worktree（<code>&lt;repo&gt;-worktrees/&lt;分支&gt;</code>），複製 <code>worktree.copyFiles</code> 列的檔案（預設 <code>.env</code>、<code>.env.local</code>，絕不覆蓋），開一個以分支命名的工作區；若設了 <code>worktree.setupCommand</code> 就自動執行。</li>
+  </ol>
+  <p><code>.env</code>、<code>node_modules</code> 這類 git 不追蹤的檔案不會自己出現在新的 worktree，這就是需要這兩個設定的原因。</p>
+  <h3>移除</h3>
+  <p>右鍵該工作區 →「關閉工作區並刪除 worktree…」。刪除前 panex 會列出你會損失什麼：未提交的檔案、其他分支與遠端都沒有的 commit、還在工作的 agent。只要有任何一項，按鈕就變成<b>仍要刪除</b>，焦點留在取消。是否一併刪除分支由你決定；分支有獨有 commit 時預設保留。主 checkout 永遠不能這樣刪。</p>
+  <p>用其他方式刪掉的 worktree（<code>git worktree remove</code>、<code>rm -rf</code>），會在下次 panex 取得焦點或 shell 回到提示字元時自己從側欄消失。</p>
+  <h3>群組</h3>
+  <p>同一個 repo 的簽出會分成一組：主資料夾的工作區在最上面並有收合箭頭，它的 worktree 縮排在下方、標上 <code>worktree</code>。收合時最上面那列顯示組內最緊急的狀態。右鍵可把工作區加入群組、移出、收合或解散。一組至少兩個成員，成員永遠相鄰，所以 <kbd>Ctrl</kbd>+數字仍等於畫面由上到下的順序。</p>
+  <h3>搭配 Claude Code 自己的 worktree</h3>
+  <p>Claude Code 開 worktree 時（<code>claude --worktree</code>、<code>EnterWorktree</code>），panex 會把它建在 repo 旁邊，並在該 repo 底下加一個工作區。對話仍留在你開始的那個分頁。Claude 移除它時，panex 會刪掉並關閉那個工作區。可在<b>設定 → 終端機</b>關閉。由於 hooks 是全域的，在 panex 之外的 Claude Code 仍照原本的方式運作。</p>
+</section>
+
+<section id="ssh">
+  <h2>SSH 連線</h2>
+  <ol>
+    <li>打開「新增工作區」旁的 <b>⌄</b> 選單 →「SSH 連線…」。</li>
+    <li>從 <code>~/.ssh/config</code> 選主機（會跟著 <code>Include</code> 讀、略過萬用字元），或輸入 <code>[帳號@]主機[:埠號]</code>。</li>
+    <li>它會開在自己的工作區；在該工作區按＋開的新分頁連同一台主機。</li>
+  </ol>
+  <p>panex 直接跑系統的 <code>ssh</code>，所以金鑰、config、<code>known_hosts</code>、agent 照常沿用。密碼在終端機裡輸入、不會被儲存。連線中斷時會顯示提示，按 <kbd>Enter</kbd> 重新連線；重開 panex 也會自動重連。SSH 分頁不記資料夾，因為遠端路徑對本機沒有意義。</p>
+</section>
+
+<section id="shortcuts">
+  <h2>快捷鍵</h2>
+  <p>打開<b>設定 → 快捷鍵</b>，點一個快捷鍵、按下新組合即可。一個動作可以綁兩組，可以用連續按鍵（例如 <kbd>Ctrl</kbd>+<kbd>K</kbd> <kbd>Ctrl</kbd>+<kbd>N</kbd>），也可以取消綁定讓該按鍵交給終端機。一個組合只能有一個擁有者：原本的會被拿掉，並告訴你是哪一個。</p>
+  <img src="../assets/shortcuts.png" width="780" height="440" loading="lazy" alt="設定裡的快捷鍵頁，分成工作區與分頁等群組，每個按鍵畫成鍵帽" style="border:1px solid var(--line);border-radius:12px;margin:18px 0">
+  <h3>預設值</h3>
+  <div class="tbl"><table>
+    <tr><th>按鍵</th><th>動作</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>新增工作區（<code>newWorkspace</code>）</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td>新增分頁（<code>newTab</code>）</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td><td>跳到第 1–8 個工作區，9 ＝ 最後一個</td></tr>
+    <tr><td><kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td><td>跳到第 1–8 個分頁，9 ＝ 最後一個</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>PgDn</kbd> / <kbd>PgUp</kbd></td><td>下一個／上一個工作區</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td>工作區上移／下移（macOS：<kbd>⌥</kbd><kbd>⌘</kbd><kbd>↑</kbd> / <kbd>↓</kbd>）</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>下一個／上一個分頁</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>關閉分頁（最後一個會連工作區一起關）</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd></td><td>重新命名工作區／分頁</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd></td><td>跳到需要你的分頁</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd></td><td>顯示／隱藏側欄</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git 面板</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td><td>專案檔案</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> / <kbd>K</kbd></td><td>搜尋／清除捲動歷史</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>在 Claude Code 裡換行而不送出（macOS：<kbd>Shift</kbd>+<kbd>Enter</kbd>）</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd></td><td>字型放大／縮小／重設（或 Ctrl+滾輪）</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>設定</td></tr>
+  </table></div>
+  <div class="callout"><b>按鍵沒傳給你的程式？</b>panex 會先處理自己的快捷鍵。到設定 → 快捷鍵改綁或清除 panex 的那一個。</div>
+</section>
+
+<section id="config">
+  <h2>設定檔</h2>
+  <p>設定面板（⚙ 或 <kbd>Ctrl</kbd>+<kbd>,</kbd>）有一般、外觀、終端機、快捷鍵與設定檔幾頁。它寫的是同一個純 JSON 檔 <code>~/.config/panex/panex.json</code>（Windows 為 <code>%USERPROFILE%\.config\panex\panex.json</code>），你也可以手動編輯。</p>
+  <ul>
+    <li>只寫你想改的鍵，其餘用預設值。</li>
+    <li>旁邊放著 <code>panex.schema.json</code>，所以 VS Code 這類編輯器會提供補完與說明。</li>
+    <li>存檔約 0.3 秒後生效。檔案無法解析時，panex 保留最後一份正常的設定，並顯示錯誤與開啟檔案的按鈕。</li>
+    <li>面板擋到想讀的內容時，可以拖曳它側邊的把手移開。</li>
+  </ul>
+<pre><code>{
+  "$schema": "./panex.schema.json",
+  "schemaVersion": 2,
+  "app": { "opacity": 85, "windowEffect": "acrylic" },
+  "terminal": { "fontSize": 15, "defaultShell": "powershell" },
+  "shortcuts": {
+    "bindings": {
+      "newTab": [["ctrl+t"], ["ctrl+shift+t"]],
+      "renameTab": "f2",
+      "nextWorkspace": ["ctrl+k", "ctrl+n"],
+      "clearScrollback": null
+    }
+  }
+}</code></pre>
+  <p><code>bindings</code> 裡：字串是一組按鍵、字串陣列是連續按鍵、陣列裡放陣列是多組任選一組、<code>null</code> 是取消綁定。所有動作 id 都列在 schema 裡。</p>
+</section>
+
+<section id="terminal">
+  <h2>終端機小技巧</h2>
+  <ul>
+    <li><b>搜尋：</b><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 搜尋捲動歷史。</li>
+    <li><b>連結：</b>Ctrl+點擊網址用瀏覽器開啟，或點 <code>src/main.ts:120</code> 這種路徑開檔案；在設定 → 終端機選了 VS Code 或 Cursor 就會跳到該行。</li>
+    <li><b>複製貼上：</b>有選取文字時 Ctrl+C 是複製，否則是中斷；Ctrl+V 貼上。把檔案拖進視窗會貼上路徑（含空格會加雙引號）。</li>
+    <li><b>字型：</b>可選任何已安裝的等寬字型；中文與 emoji 自動備援，emoji 有顏色。</li>
+    <li><b>視窗：</b>可調不透明度（文字永遠清楚，只有背景變透明），Windows 11 另有 Mica 與 Acrylic 背景。</li>
+    <li><b>介面語言：</b>英文或繁體中文，跟隨系統或在設定切換。</li>
+    <li><b>安全關閉：</b>agent 工作到一半時關閉 panex、分頁或工作區會先詢問（設定 → 終端機）。</li>
+    <li><b>淡色與斜體文字：</b>Claude Code 的淡色提示以固定灰色顯示、斜體會變直體。這是刻意的：用 GPU 繪圖時，它們背後會多出一塊黑框。</li>
+  </ul>
+</section>
+
+<section id="macos">
+  <h2>macOS 權限</h2>
+  <p>panex 自己不需要任何權限，但分頁裡的程式在 macOS 看來就是 panex。agent 用 <code>osascript</code> 送按鍵或用 <code>screencapture</code> 截圖時，需要<b>輔助使用</b>或<b>螢幕錄製</b>權限的是 panex。</p>
+  <p><b>設定 → 一般 → 權限</b>會顯示哪些已允許，並開啟系統設定對應的頁面。它只在你打開該頁或回到視窗時讀取狀態，不在背景輪詢。每個版本都用同一張憑證簽章，所以授權過的權限在更新後仍然有效。</p>
+</section>
+
+<section id="updates">
+  <h2>更新</h2>
+  <p>有新版時，側欄底部會出現一行提示。按<b>更新並重新啟動</b>：panex 下載、驗證、安裝後重新啟動。重新啟動會結束分頁裡的程式（agent 做到一半會先詢問）；工作區、捲動歷史與 Claude Code 對話都會回來。可在<b>設定 → 一般</b>手動檢查，或關閉自動檢查。</p>
+  <p>還是卡住了？<a href="https://github.com/firstfu/panex/issues/new">開個 issue</a>，附上你的作業系統版本與使用的 shell。</p>
+</section>
+</article>
+</div>
+
+<footer><div class="wrap">
+  <span>© panex · MIT 授權</span>
+  <nav><a href="./">首頁</a><a href="https://github.com/firstfu/panex/releases">Releases</a><a href="https://github.com/firstfu/panex/issues">Issues</a><a href="../guide.html">English</a></nav>
+</div></footer>
+<script src="../site.js"></script>
+</body>
+</html>

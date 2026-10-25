@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>panex：同時跑多個 Claude Code 的終端機（Windows／macOS）</title>
+<meta name="description" content="免費開源、支援 Windows 與 macOS 的終端機。同時跑多個 Claude Code，一眼看出哪個在等你，每個任務一個 git worktree，當掉重開也能接回對話。">
+<link rel="canonical" href="https://firstfu.github.io/panex/zh/">
+<link rel="alternate" hreflang="en" href="https://firstfu.github.io/panex/">
+<link rel="alternate" hreflang="zh-Hant" href="https://firstfu.github.io/panex/zh/">
+<link rel="icon" href="../assets/icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="panex">
+<meta property="og:locale" content="zh_TW">
+<meta property="og:url" content="https://firstfu.github.io/panex/zh/">
+<meta property="og:title" content="panex：同時跑多個 Claude Code 的終端機">
+<meta property="og:description" content="一眼看出哪個 agent 在等你，當掉重開也能接著做。免費、開源、9 MB。">
+<meta property="og:image" content="https://firstfu.github.io/panex/assets/og-zh.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="panex：一眼看出哪個 agent 在等你">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://firstfu.github.io/panex/assets/og-zh.png">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="nav"><div class="wrap">
+  <a class="brand" href="./"><img src="../assets/icon.png" alt="">panex</a>
+  <nav class="links">
+    <a class="hide-m" href="#features">功能</a>
+    <a class="hide-m" href="guide.html">使用指南</a>
+    <a class="hide-m" href="#install">安裝</a>
+    <a class="hide-m" href="#faq">常見問題</a>
+    <a href="../">English</a>
+    <a href="https://github.com/firstfu/panex">GitHub</a>
+    <a class="btn primary" href="#install">下載</a>
+  </nav>
+</div></header>
+
+<main>
+<div class="hero"><div class="wrap">
+  <span class="pill"><i></i> 免費 · 開源 · Windows 與 macOS</span>
+  <h1>一眼看出<em>哪個 agent 在等你</em>的終端機</h1>
+  <p class="lead">二十分鐘前 Claude Code 就卡在權限確認，而你人在別的視窗。panex 會把在等你的 agent 亮起來，讓你放心同時跑好幾個；關掉或當機後也能原樣接回。</p>
+  <div class="cta">
+    <a class="btn primary" href="#install">下載 panex</a>
+    <a class="btn" href="guide.html">閱讀使用指南</a>
+  </div>
+  <p class="sub">Windows 10/11 · macOS（Apple Silicon）· MIT 授權 · 9 MB、閒置不耗 CPU</p>
+  <div class="shot"><img src="../assets/hero.png" width="1518" height="860" alt="panex：側欄三個工作區，一個在等待權限（藍色）、一個已完成（綠色），右側有 Git 與檔案面板"></div>
+</div></div>
+
+<section id="demo" class="alt"><div class="wrap center">
+  <span class="eyebrow">27 秒導覽</span>
+  <h2>兩個 agent 回報，你直接看 diff</h2>
+  <p class="sec-lead">側欄顯示狀態，Git 面板看 diff，檔案分頁讀排版後的 README，全程不離開視窗。</p>
+  <div class="shot" style="margin-top:0"><video src="../assets/demo.mp4" poster="../assets/hero.png" controls muted loop playsinline preload="none"></video></div>
+</div></section>
+
+<section id="features"><div class="wrap">
+  <div class="center">
+    <span class="eyebrow">功能</span>
+    <h2>為 agent 實際的工作方式而設計</h2>
+    <p class="sec-lead">每個功能都在回答同一件事：每個 agent 現在在做什麼、我下一步該做什麼？</p>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>一眼看出哪個 agent 在等你</h3>
+      <p>Claude Code 要權限或做完時，該分頁會亮點，所屬工作區在側欄顯示訊息。<b style="color:var(--blue)">藍色</b>代表在等你，<b style="color:var(--green)">綠色</b>代表已完成。</p>
+      <ul>
+        <li>工作中的工作區顯示轉圈圈與這一輪已經跑多久</li>
+        <li>視窗在背景時另有桌面通知與工作列閃爍</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> 直接跳到需要你的分頁</li>
+        <li>透過 Claude Code hooks 自動設定，不用開任何開關</li>
+      </ul>
+      <a class="more" href="guide.html#notifications">通知如何運作 →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <span class="ws blue"><b>api-server <span class="st">● 等你回應</span></b><small>Claude 需要你的許可才能執行 npm test</small></span>
+      <span class="ws green"><b>docs <span class="st">✓ 完成 · 2m 14s</span></b><small>已更新安裝說明</small></span>
+      <span class="ws run"><b>web-app <span class="st">⠙ 0:48</span></b><small>main · ● 3 個未提交</small></span>
+    </div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>小隊模式：讓 agent 去開其他 agent</h3>
+      <p>在 panex 分頁裡請 Claude Code 把工作拆給平行的 agent，它會在自己下方開新工作區，需要的話每個各自一個 git worktree，你可以隨時看、隨時打字。</p>
+      <ul>
+        <li>它會等這些 agent；其中一個在問問題時，會告訴你而不是替你回答</li>
+        <li>做完後從 git 收回成果</li>
+        <li>只有在 panex 裡啟動的程序才能下這些指令</li>
+      </ul>
+      <a class="more" href="guide.html#crew">小隊模式詳解 →</a>
+    </div>
+    <div class="mock" aria-hidden="true"><span class="dim"># 在 Claude Code 分頁裡</span>
+<pre style="margin:10px 0 0;border:0;padding:0;background:none">$ panex-cli open --worktree try-a -- claude "做法 A"
+$ panex-cli open --worktree try-b -- claude "做法 B"
+$ panex-cli wait
+<span class="diff-add">try-a  已完成</span>
+<span style="color:var(--blue)">try-b  等你回應</span></pre></div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>當掉重開，回到原本的樣子</h3>
+      <p>工作區、分頁、各分頁的 shell 與資料夾、捲動歷史都隨時存檔。關掉 panex、重開機或強制結束，下次開啟就在你離開的地方。</p>
+      <ul>
+        <li>panex 記得每個分頁跑的是哪個 Claude Code 對話，打開該分頁時自動執行 <code>claude --resume</code></li>
+        <li>已經離開 Claude 的分頁就停在提示字元</li>
+        <li>還原的分頁要點開才啟動 shell</li>
+      </ul>
+      <a class="more" href="guide.html#restore">哪些會還原、哪些不會 →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="tabs"><span class="on">claude</span><span>dev server</span><span>+</span></div>
+      <span class="dim">── 已還原 ──────────────</span><br>$ claude --resume 3f9a…<br><span class="diff-add">✓ 回到原本的對話</span>
+    </div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>不離開終端機，就看得到改了什麼</h3>
+      <p>唯讀的 Git 面板列出已暫存、變更、未追蹤的檔案與最近 30 筆提交，點一下就在終端機上方看 diff。檔案分頁以資料夾樹顯示整個專案，Markdown 排版、程式碼上色。</p>
+      <ul>
+        <li>側欄徽章：<code>↑</code> 未推送、<code>↓</code> 落後、<code>●</code> 未提交</li>
+        <li>沒有輪詢也沒有檔案監看：只在 prompt、一輪結束或你回到視窗時讀一次</li>
+        <li>文件裡的原始 HTML 只當文字顯示，檔案無法執行任何東西</li>
+      </ul>
+      <a class="more" href="guide.html#git">Git 與檔案面板 →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <div class="tabs"><span>GIT</span><span class="on">FILES</span></div>
+      <div class="tree"><div class="dot">▸ src</div><div>package.json</div><div>README.md</div></div>
+      <br><span class="diff-del">- total = a + b</span><br><span class="diff-add">+ total = round(a + b, 2)</span>
+    </div>
+  </div>
+
+  <div class="feat">
+    <div class="feat-txt">
+      <h3>每個任務一個 worktree</h3>
+      <p>右鍵工作區就能用全新的 git worktree 開新工作區，自動複製 <code>.env</code>、可選擇跑一段初始化指令。同一個 repo 的 worktree 會在側欄分成一組。</p>
+      <ul>
+        <li>刪除前先列出會損失什麼：未提交的檔案、其他分支都沒有的 commit、還在工作的 agent</li>
+        <li>支援 Claude Code 自己的 <code>--worktree</code> 與 <code>EnterWorktree</code></li>
+      </ul>
+      <a class="more" href="guide.html#worktrees">Worktree →</a>
+    </div>
+    <div class="mock" aria-hidden="true">
+      <span class="ws"><b>shop ▾</b><small>main</small></span>
+      <span class="ws" style="margin-left:18px"><b>fix-cart <span class="st dim">worktree</span></b><small>fix-cart ● 2</small></span>
+      <span class="ws" style="margin-left:18px"><b>try-stripe <span class="st dim">worktree</span></b><small>try-stripe ↑1</small></span>
+    </div>
+  </div>
+</div></section>
+
+<section id="shots"><div class="wrap">
+  <div class="center"><span class="eyebrow">實際畫面</span><h2>真的畫面，不是示意圖</h2></div>
+  <div class="shots">
+    <figure><a href="../assets/shot-diff.png" target="_blank" rel="noopener"><img src="../assets/shot-diff.png" width="1514" height="822" loading="lazy" alt="Git 面板在終端機旁顯示 src/cart.ts 的 diff"></a><figcaption><b>Git 面板。</b>點變更的檔案或提交，就在終端機上方看 diff，Esc 關閉。</figcaption></figure>
+    <figure><a href="../assets/shot-files.png" target="_blank" rel="noopener"><img src="../assets/shot-files.png" width="1514" height="822" loading="lazy" alt="檔案分頁顯示排版後的 README"></a><figcaption><b>檔案分頁。</b>整個專案的資料夾樹；Markdown 排版、程式碼上色、有變更的檔案加標記。</figcaption></figure>
+    <figure><a href="../assets/shot-worktrees.png" target="_blank" rel="noopener"><img src="../assets/shot-worktrees.png" width="1518" height="860" loading="lazy" alt="側欄顯示一個 repo 群組：shop 在最上面，fix-cart 與 try-stripe 縮排在下方並標上 worktree"></a><figcaption><b>Worktree 群組。</b>同一個 repo 的 worktree 縮排在主工作區下方、加上標籤，各自顯示分支狀態。</figcaption></figure>
+    <figure><a href="../assets/shot-crew.png" target="_blank" rel="noopener"><img src="../assets/shot-crew.png" width="1518" height="860" loading="lazy" alt="小隊模式：主 agent 啟動了三個 agent，一個執行中、一個完成、一個在等權限"></a><figcaption><b>小隊模式。</b>一個 agent 啟動另外三個並等待，執行中、完成與等你回應都顯示在側欄。</figcaption></figure>
+  </div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <div class="center"><span class="eyebrow">還有更多</span><h2>讓終端機用起來順手的細節</h2></div>
+  <div class="grid" style="margin-top:36px">
+    <div class="card"><span class="ic">⌨️</span><h3>每個快捷鍵都能改</h3><p>在設定裡點一個快捷鍵、按下新組合即可。支援連續按鍵、一個動作綁兩組，或取消綁定讓按鍵交給終端機。</p></div>
+    <div class="card"><span class="ic">🔐</span><h3>SSH 連線</h3><p>從 <code>~/.ssh/config</code> 選主機，或輸入 <code>user@host:port</code>。直接跑系統的 <code>ssh</code>，密碼不會被儲存。</p></div>
+    <div class="card"><span class="ic">🎨</span><h3>照你的喜好</h3><p>透明度、Windows 11 的 Mica／Acrylic、任何已安裝的等寬字型、彩色 emoji，介面可用英文或繁體中文。</p></div>
+    <div class="card"><span class="ic">🔎</span><h3>搜尋與連結</h3><p><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> 搜尋捲動歷史。Ctrl+點擊開網址，或用 VS Code／Cursor 開 <code>src/main.ts:120</code> 並跳到該行。</p></div>
+    <div class="card"><span class="ic">🧾</span><h3>單一 JSON 設定檔</h3><p>附 schema 讓編輯器補完，存檔約 0.3 秒後生效。設定面板寫的是同一個檔案。</p></div>
+    <div class="card"><span class="ic">🛡️</span><h3>打斷前先問你</h3><p>agent 工作到一半時關閉 panex、分頁或工作區會先確認，不怕手滑中斷。</p></div>
+  </div>
+</div></section>
+
+<section id="compare"><div class="wrap">
+  <div class="center"><span class="eyebrow">比較</span><h2>panex 在一般終端機之上多了什麼</h2>
+  <p class="sec-lead">Windows Terminal 這類通用終端機跑 agent 完全沒問題，只是它不知道那是 agent。</p></div>
+  <div class="tbl cmp"><table>
+    <tr><th>&nbsp;</th><th>panex</th><th>通用終端機<br><small>（例如 Windows Terminal）</small></th></tr>
+    <tr><td>顯示哪個 agent 在工作、在等你、或已完成</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>一個 agent 去開其他 agent 並等它們做完（小隊模式）</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>重開後自動接回每個分頁的 Claude Code 對話</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>終端機旁直接看 Git 變更與專案檔案</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>每個任務一個 git worktree，側欄依 repo 分組</td><td class="yes">✓</td><td class="no">—</td></tr>
+    <tr><td>執行任何命令列程式</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>分頁內分割窗格</td><td class="soon">尚未支援</td><td class="yes">✓</td></tr>
+  </table></div>
+  <p class="cmp-note">「—」表示沒有內建；腳本與外掛可以補上其中一部分。想找過去只有 macOS 才有的那種 agent 終端機？panex 以 Windows 優先開發，也能在 macOS（Apple Silicon）上跑。</p>
+</div></section>
+
+<section id="performance"><div class="wrap center">
+  <span class="eyebrow">效能</span>
+  <h2>小到你會忘記它在跑</h2>
+  <p class="sec-lead">Windows 正式版實測。panex 閒置時不跑任何計時器。</p>
+  <div class="stats">
+    <div class="stat"><b>9 MB</b><span>panex.exe</span></div>
+    <div class="stat"><b>2.3 MB</b><span>安裝檔</span></div>
+    <div class="stat"><b>0.03 秒</b><span>閒置 10 秒、7 個分頁的 CPU</span></div>
+    <div class="stat"><b>≈ 7 MB</b><span>私有記憶體</span></div>
+  </div>
+  <p class="sub" style="max-width:640px;margin-inline:auto">工作管理員裡看到的大部分記憶體屬於負責畫視窗的 WebView2。還原的分頁要打開才啟動 shell，且只有目前顯示的分頁使用 GPU 繪圖。</p>
+</div></section>
+
+<section id="privacy" class="alt"><div class="wrap">
+  <div class="center"><span class="eyebrow">隱私</span><h2>沒有遙測，程式碼全在 repo 裡</h2></div>
+  <div class="grid" style="margin-top:36px">
+    <div class="card"><h3>只有一個連線</h3><p>檢查更新時向 GitHub 要 <code>latest.json</code>。在設定關掉後，panex 完全不連網。</p></div>
+    <div class="card"><h3>更新經過驗證</h3><p>更新不會自己安裝，每次下載都用內建的公鑰驗證。</p></div>
+    <div class="card"><h3>只動一個外部檔案</h3><p>hooks 寫進 <code>~/.claude/settings.json</code>，先備份、保留你其他的 hooks。程式碼見 <a href="https://github.com/firstfu/panex/blob/main/src-tauri/src/hooks.rs">hooks.rs</a>。</p></div>
+  </div>
+</div></section>
+
+<section id="install"><div class="wrap">
+  <div class="center"><span class="eyebrow">安裝</span><h2>下載 panex</h2>
+  <p class="sec-lead">安裝檔尚未簽章、Mac 版也未經公證，所以第一次執行時 Windows 與 macOS 會各警告一次。照下面步驟即可通過。</p></div>
+  <div style="max-width:760px;margin:0 auto">
+    <div class="tabbar" role="tablist"><button data-tab="win" aria-selected="true">Windows</button><button data-tab="mac" aria-selected="false">macOS</button></div>
+    <div class="panel" id="tab-win">
+      <ol class="steps">
+        <li>到 <a href="https://github.com/firstfu/panex/releases/latest">Releases</a> <b>下載</b> <code>panex_0.7.3_x64-setup.exe</code>。</li>
+        <li><b>執行。</b>第一次 SmartScreen 會警告：按<b>其他資訊</b>，再按<b>仍要執行</b>。</li>
+        <li>panex 只為目前使用者安裝（不需要系統管理員權限），並加入開始功能表。</li>
+      </ol>
+      <p class="sub">需要 Windows 10 或 11 並有 WebView2（Windows 11 與最新的 Windows 10 已內建）。</p>
+      <a class="btn primary" href="https://github.com/firstfu/panex/releases/latest">下載 Windows 版</a>
+    </div>
+    <div class="panel" id="tab-mac" hidden>
+      <ol class="steps">
+        <li>到 <a href="https://github.com/firstfu/panex/releases/latest">Releases</a> <b>下載</b> <code>panex_0.7.3_aarch64.dmg</code>，打開後把 panex 拖進「應用程式」。</li>
+        <li><b>先開啟一次。</b>macOS 會擋下第一次啟動：到「系統設定 → 隱私權與安全性」按<b>仍要打開</b>。</li>
+        <li>如果 macOS 說 App 已損毀，執行下面這行再開一次：<pre><code>xattr -cr /Applications/panex.app</code></pre></li>
+      </ol>
+      <p class="sub">僅支援 Apple Silicon。預設快捷鍵以 ⌘ 取代 Ctrl。</p>
+      <a class="btn primary" href="https://github.com/firstfu/panex/releases/latest">下載 macOS 版</a>
+    </div>
+    <p class="sub" style="margin-top:22px">之後的更新都在 App 內完成：側欄底部會出現一行提示，按<b>更新並重新啟動</b>即可。也可以<a href="https://github.com/firstfu/panex/blob/main/translations/README.zh-Hant.md">從原始碼建置</a>。</p>
+  </div>
+</div></section>
+
+<section id="faq" class="alt"><div class="wrap" style="max-width:820px">
+  <div class="center"><span class="eyebrow">常見問題</span><h2>你可能想問</h2></div>
+  <div style="margin-top:32px">
+    <details><summary>怎麼同時跑多個 Claude Code session？</summary><p>每個專案或任務按 <kbd>Ctrl</kbd>+<kbd>N</kbd> 開一個工作區，各自啟動 <code>claude</code>。側欄會顯示哪個在工作、在等你或已完成，<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> 直接跳到需要你的那個。多個 session 在同一個 repo 工作時，請讓每個各自用一個 git worktree（右鍵工作區），以免改到同一批檔案。</p></details>
+    <details><summary>panex 是 Windows 上的 Claude Code 終端機嗎？</summary><p>是。它以 Windows 10／11 為優先（cmd、Windows PowerShell、PowerShell 7），也能在 Apple Silicon 的 macOS 上跑。狀態亮燈、接回與小隊模式使用 Claude Code 的 hooks，panex 會自己安裝。</p></details>
+    <details><summary>只能搭配 Claude Code 嗎？</summary><p>任何程式都能在 panex 分頁裡跑，它就是一般的終端機。狀態亮燈與小隊模式依賴 Claude Code 的 hooks；其他工具仍可執行 <code>panex-cli notify "訊息"</code>，或印出 bell、OSC 9、OSC 777 序列來通知。</p></details>
+    <details><summary>收不到通知</summary><p>panex 啟動時會自動設定 hooks。如果側欄底部寫著通知未啟用，代表它寫不進 <code>~/.claude/settings.json</code>（例如檔案不是合法的 JSON）：修好檔案後按「啟用」。只有在 panex 裡啟動的 session 才會讓分頁亮燈。</p></details>
+    <details><summary>Ctrl+T、Ctrl+N 沒有傳給我的程式</summary><p>panex 會先處理自己的快捷鍵，例如 Claude Code 用 Ctrl+T 切換待辦清單。到設定 → 快捷鍵，改綁或清除 panex 的那一個。</p></details>
+    <details><summary>更新後 macOS 的權限會不見嗎？</summary><p>不會。每個版本都用同一張憑證簽章，macOS 的權限綁的是簽章。自己編譯的版本是 ad hoc 簽章，每次重建 macOS 都會重問。</p></details>
+    <details><summary>我的資料放在哪裡？</summary><p>設定檔：<code>~/.config/panex/panex.json</code>（Windows 為 <code>%USERPROFILE%\.config\panex\</code>）。版面與捲動歷史：Windows 在 <code>%APPDATA%\dev.panex.terminal\</code>。刪掉任一個就是重新開始。</p></details>
+    <details><summary>怎麼解除安裝？</summary><p>Windows 用「設定 → 應用程式 → 已安裝的應用程式 → panex → 解除安裝」。要連資料一起刪，就刪掉上面兩個資料夾，再從 <code>~/.claude/settings.json</code> 移除含 <code>panex-cli</code> 的條目，或還原 <code>settings.json.panex-bak</code>。</p></details>
+    <details><summary>會有分割窗格嗎？</summary><p>目前沒有。分割窗格與側欄顯示監聽埠，要等到真的有人需要才會做：<a href="https://github.com/firstfu/panex/issues/new">開個 issue</a>，告訴作者你會怎麼用。</p></details>
+  </div>
+</div></section>
+
+<section><div class="wrap center">
+  <h2>不用再在 agent 之間 Alt-Tab</h2>
+  <p class="sec-lead">免費、MIT 授權，由一個人開發。歡迎開 issue 與送 pull request。</p>
+  <div class="cta"><a class="btn primary" href="#install">下載 panex</a><a class="btn" href="https://github.com/firstfu/panex">在 GitHub 查看</a></div>
+</div></section>
+</main>
+
+<footer><div class="wrap">
+  <span>© panex · MIT 授權</span>
+  <nav><a href="guide.html">使用指南</a><a href="https://github.com/firstfu/panex/releases">Releases</a><a href="https://github.com/firstfu/panex/issues">Issues</a><a href="https://github.com/firstfu/panex">GitHub</a><a href="../">English</a></nav>
+</div></footer>
+<script src="../site.js"></script>
+</body>
+</html>

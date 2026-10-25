@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>panex guide: notifications, worktrees and session restore</title>
+<meta name="description" content="How to manage multiple Claude Code sessions in panex: workspaces and tabs, agent notifications, crew mode, resume after restart, Git and Files panels, git worktrees, SSH, shortcuts and config.">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="panex">
+<meta property="og:locale" content="en_US">
+<meta property="og:url" content="https://firstfu.github.io/panex/guide.html">
+<meta property="og:title" content="panex guide: notifications, worktrees and session restore">
+<meta property="og:image" content="https://firstfu.github.io/panex/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://firstfu.github.io/panex/assets/og.png">
+<link rel="canonical" href="https://firstfu.github.io/panex/guide.html">
+<link rel="alternate" hreflang="zh-Hant" href="https://firstfu.github.io/panex/zh/guide.html">
+<link rel="alternate" hreflang="en" href="https://firstfu.github.io/panex/guide.html">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="nav"><div class="wrap">
+  <a class="brand" href="./"><img src="assets/icon.png" alt="">panex</a>
+  <nav class="links">
+    <a class="hide-m" href="./#features">Features</a>
+    <a class="hide-m" href="guide.html"><b style="color:var(--text)">Guide</b></a>
+    <a class="hide-m" href="./#install">Install</a>
+    <a href="zh/guide.html">繁體中文</a>
+    <a href="https://github.com/firstfu/panex">GitHub</a>
+    <a class="btn primary" href="./#install">Download</a>
+  </nav>
+</div></header>
+
+<div class="wrap doc">
+<aside class="toc" aria-label="On this page">
+  <b>Start</b>
+  <a href="#basics">Workspaces &amp; tabs</a>
+  <b>Agents</b>
+  <a href="#notifications">Agent notifications</a>
+  <a href="#crew">Crew mode</a>
+  <a href="#restore">Restore &amp; resume</a>
+  <b>Projects</b>
+  <a href="#git">Git &amp; Files panels</a>
+  <a href="#worktrees">Worktrees &amp; groups</a>
+  <a href="#ssh">SSH</a>
+  <b>Customize</b>
+  <a href="#shortcuts">Shortcuts</a>
+  <a href="#config">Configuration</a>
+  <a href="#terminal">Terminal tips</a>
+  <a href="#macos">macOS permissions</a>
+</aside>
+
+<article>
+<h1>Guide</h1>
+<p>Everything panex does, in the order you'll meet it. On a Mac, read <kbd>Ctrl</kbd> as <kbd>⌘</kbd> and <kbd>Alt</kbd> as <kbd>⌥</kbd> (this page switches the key caps for you).</p>
+
+<section id="basics">
+  <h2>Workspaces and tabs</h2>
+  <p>panex has two levels. The <b>sidebar</b> lists <b>workspaces</b>, one per project or task. Each workspace has its own row of <b>tabs</b> along the top, and each tab is one shell.</p>
+  <ol>
+    <li>Press <kbd>Ctrl</kbd>+<kbd>N</kbd> for a new workspace and <kbd>Ctrl</kbd>+<kbd>T</kbd> for a new tab in the current one. A new tab opens in the same folder as the tab you were in.</li>
+    <li>Rename with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> (workspace) or <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd> (tab), or double-click the name. Right-click a workspace to give it a color.</li>
+    <li>Drag a workspace or tab to reorder it. <kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd> jumps to a workspace and <kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd> to a tab (9 is always the last).</li>
+    <li>Each sidebar row shows the folder, the git branch and its status. Closing the last tab closes the workspace; closing the last workspace opens a fresh one.</li>
+  </ol>
+  <h3>Choosing a shell</h3>
+  <p>On Windows the default is <b>cmd</b>, with Windows PowerShell and PowerShell 7 available when installed: pick one under <b>Settings → Terminal → Default shell</b>, or from the <b>⌄</b> menu next to New workspace. On macOS tabs start your login shell (<code>$SHELL</code>).</p>
+</section>
+
+<section id="notifications">
+  <h2>Agent notifications</h2>
+  <p>This is what panex is for: knowing which of several agents is waiting for you.</p>
+  <div class="tbl"><table>
+    <tr><th>State</th><th>What you see</th></tr>
+    <tr><td><span class="status"><i style="background:var(--muted)"></i>Working</span></td><td>A spinner and the elapsed time of the current turn on the workspace.</td></tr>
+    <tr><td><span class="status"><i style="background:var(--blue)"></i>Needs you</span></td><td>A blue dot on the tab and the agent's message in the sidebar (a permission prompt or a question).</td></tr>
+    <tr><td><span class="status"><i style="background:var(--green)"></i>Done</span></td><td>A green check and how long the turn took.</td></tr>
+  </table></div>
+  <p>A workspace with several tabs shows the most urgent status among them. If panex is in the background you also get a desktop notification and a taskbar flash; the tab and workspace light up either way. <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd> jumps to the tab that needs you.</p>
+  <h3>How it is wired</h3>
+  <p>At startup panex adds <code>Notification</code>, <code>Stop</code>, <code>StopFailure</code>, <code>UserPromptSubmit</code> and <code>SessionEnd</code> hooks to <code>~/.claude/settings.json</code>. Each runs <code>panex-cli notify</code>, which passes the message to panex. The file is backed up first (<code>settings.json.panex-bak</code>) and your other hooks are kept. Outside panex the helper exits at once, so Claude Code in other terminals is unaffected.</p>
+  <h3>Other tools</h3>
+  <pre><code>panex-cli notify "build finished"</code></pre>
+  <p>or print a bell (<code>\a</code>), an OSC 9 or an OSC 777 sequence from any program.</p>
+  <div class="callout warn"><b>Not lighting up?</b> Notifications only reach sessions started <i>inside</i> panex. If the bottom of the sidebar says notifications are not enabled, panex couldn't write the settings file (is it valid JSON?). Fix it and click <b>Enable</b>.</div>
+</section>
+
+<section id="crew">
+  <h2>Crew mode</h2>
+  <p>Crew mode lets one agent start others in new panex tabs, wait for them, and gather the results. You don't type any commands: ask Claude Code, in a panex tab, something like <i>“try three approaches to this in parallel”</i>.</p>
+  <ol>
+    <li>Claude opens a new workspace for each helper, right below its own. With worktrees on, each helper gets its own git worktree so they don't overwrite each other.</li>
+    <li>The helpers run in tabs you can open, watch and type into. Opening them is silent: your view doesn't switch.</li>
+    <li>Claude waits for them. If one stops to ask something, Claude tells <i>you</i> rather than answering for you.</li>
+    <li>When they finish, Claude collects the work from git.</li>
+  </ol>
+  <h3>The two commands behind it</h3>
+  <pre><code># start a command in a new workspace (optionally in a new worktree)
+panex-cli open --worktree try-a -- claude "approach A"
+
+# block until those agents finish or need you
+panex-cli wait</code></pre>
+  <p><code>panex-cli help</code> has the full details. panex installs a small Claude Code skill (<code>~/.claude/skills/panex/SKILL.md</code>) that teaches Claude to use them; it does nothing outside panex.</p>
+  <div class="callout"><b>Safe by design.</b> Requests must carry a token that panex generates at every launch and hands only to shells it started. Anything outside panex is refused. <code>wait</code> costs nothing while waiting, and it relies on Claude Code's hooks, so it works for Claude Code only.</div>
+</section>
+
+<section id="restore">
+  <h2>Restore and resume</h2>
+  <p>Close panex, reboot, or kill it from Task Manager: it reopens where you were.</p>
+  <div class="tbl"><table>
+    <tr><th>Comes back</th><th>Does not</th></tr>
+    <tr><td>Workspaces, tabs, colors, order, groups</td><td>Programs that were running (a dev server, a build)</td></tr>
+    <tr><td>Each tab's shell and working directory</td><td>Anything in the alternate screen (full-screen programs)</td></tr>
+    <tr><td>Scrollback text (last 1000 lines)</td><td>The last few seconds before a crash (saved every ~4 s)</td></tr>
+    <tr><td>The Claude Code session of each tab that was still running one</td><td></td></tr>
+  </table></div>
+  <p>For Claude Code, panex remembers each running session's id. When you open that tab after a restart it runs <code>claude --resume &lt;id&gt;</code> for you and you land back in the conversation. Tabs where you had already quit Claude stay at the prompt. Turn it off in <b>Settings → Terminal</b>.</p>
+  <p>Restored tabs don't start their shell until you open them, so a restart doesn't launch every shell at once.</p>
+</section>
+
+<section id="git">
+  <h2>Git and Files panels</h2>
+  <p>A panel on the right, shared by two tabs. It is read-only: it never stages, commits, pushes or fetches.</p>
+  <h3>Git — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></h3>
+  <ol>
+    <li>Lists staged changes, changes and untracked files for the current tab's repo, plus the last 30 commits with unpushed ones marked.</li>
+    <li>Click a file or a commit to read its diff over the terminal. <kbd>Esc</kbd> closes it.</li>
+    <li>In the sidebar, each branch carries <code>↑</code> unpushed commits, <code>↓</code> commits waiting upstream (as of your last fetch) and <code>●</code> uncommitted changes. You can see at a glance which agent left work behind.</li>
+  </ol>
+  <h3>Files — <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></h3>
+  <ol>
+    <li>Shows the whole project as a folder tree, the way git sees it: tracked and new files, minus what <code>.gitignore</code> excludes. Outside a repo it scans the folder instead (hidden folders, <code>node_modules</code> and <code>target</code> skipped).</li>
+    <li>Changed files carry the same letters as the Git tab, and folders with changes inside get a dot, so you see which part of the project an agent touched before opening anything.</li>
+    <li>Click a file to read it: Markdown rendered, code highlighted with line numbers (over 300 KB it isn't colored), images and SVG shown. Other files, such as PDFs and spreadsheets, get <b>Quick Look</b> (macOS), <b>Open with default app</b> and <b>Show in Finder / Explorer</b>.</li>
+  </ol>
+  <div class="callout"><b>Costs nothing when unused.</b> No polling and no file watcher. panex runs <code>git status</code> once after a shell prompt, after Claude Code finishes a turn, or when you return to the window, and only for the tab you're looking at. Git also runs with <code>--no-optional-locks</code> so it never fights an agent for the index lock.</div>
+  <div class="callout"><b>Files can't run anything.</b> Raw HTML in a document is shown as text, images in Markdown aren't loaded, and links open in your browser. Reading is limited to the project: <code>..</code> and symlinks pointing outside are refused.</div>
+</section>
+
+<section id="worktrees">
+  <h2>Worktrees and groups</h2>
+  <p>A git worktree is a second checkout of the same repo in another folder, so an agent can work on a branch without disturbing yours.</p>
+  <h3>Start one</h3>
+  <ol>
+    <li>Right-click a workspace → <b>New workspace in a new worktree…</b> (or bind <code>newWorktree</code>).</li>
+    <li>Type a branch name; both the branch and start-point fields offer your local branches. An existing branch is checked out as is; otherwise it's created from the start point.</li>
+    <li>panex creates the worktree next to the repo (<code>&lt;repo&gt;-worktrees/&lt;branch&gt;</code>), copies the files listed in <code>worktree.copyFiles</code> (default <code>.env</code> and <code>.env.local</code>, never overwriting), opens a workspace named after the branch and runs <code>worktree.setupCommand</code> if you set one.</li>
+  </ol>
+  <p>Files git doesn't track, like <code>.env</code> and <code>node_modules</code>, don't appear in a new worktree by themselves, which is why those two settings exist.</p>
+  <h3>Remove one</h3>
+  <p>Right-click its workspace → <b>Close workspace and delete worktree…</b>. Before deleting, panex lists what you'd lose: uncommitted files, commits that no other branch or remote has, and agents still working. If any exist the button reads <b>Delete anyway</b> and focus stays on Cancel. You choose whether to delete the branch too; with unique commits it is kept by default. The main checkout can never be deleted this way.</p>
+  <p>Worktrees removed some other way (<code>git worktree remove</code>, <code>rm -rf</code>) drop out of the sidebar by themselves the next time panex gets focus or a shell returns to its prompt.</p>
+  <h3>Groups</h3>
+  <p>A repo's checkouts are grouped: the main folder's workspace on top with a fold arrow, its worktrees indented below and tagged <code>worktree</code>. Folded, the top row shows the most urgent status inside. Right-click to add a workspace to a group, move it out, fold, or dissolve a group. A group always has at least two members, and its members stay adjacent so <kbd>Ctrl</kbd>+number still matches the top-to-bottom order.</p>
+  <h3>With Claude Code's own worktrees</h3>
+  <p>When Claude Code opens a worktree (<code>claude --worktree</code>, <code>EnterWorktree</code>), panex creates it next to the repo and adds a workspace for it under the repo. The conversation stays in the tab where you started it. When Claude removes it, panex deletes it and closes that workspace. Turn this off in <b>Settings → Terminal</b>. Because the hooks are global, Claude Code outside panex behaves as it normally does.</p>
+</section>
+
+<section id="ssh">
+  <h2>SSH connections</h2>
+  <ol>
+    <li>Open the <b>⌄</b> menu next to New workspace → <b>SSH connection…</b>.</li>
+    <li>Pick a host from your <code>~/.ssh/config</code> (it follows <code>Include</code> and skips wildcards) or type <code>[user@]host[:port]</code>.</li>
+    <li>It opens in its own workspace; new tabs there connect to the same host.</li>
+  </ol>
+  <p>panex runs your system's <code>ssh</code>, so keys, config, <code>known_hosts</code> and your agent work as usual. Passwords are typed in the terminal and never stored. If the link drops it says so; press <kbd>Enter</kbd> to reconnect, and reopening panex reconnects automatically. SSH tabs don't remember a folder, since a remote path means nothing locally.</p>
+</section>
+
+<section id="shortcuts">
+  <h2>Shortcuts</h2>
+  <p>Open <b>Settings → Shortcuts</b>, click a shortcut and press the new keys. Bind two combinations to one action, use chords such as <kbd>Ctrl</kbd>+<kbd>K</kbd> <kbd>Ctrl</kbd>+<kbd>N</kbd>, or unbind a key so it reaches the terminal. A combination can have one owner: the previous one loses it, and you're told which.</p>
+  <img src="assets/shortcuts.png" width="780" height="440" loading="lazy" alt="The shortcuts page in Settings, grouped into workspaces and tabs, with each key drawn as a keycap" style="border:1px solid var(--line);border-radius:12px;margin:18px 0">
+  <h3>Defaults</h3>
+  <div class="tbl"><table>
+    <tr><th>Keys</th><th>Action</th></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td><td>New workspace (<code>newWorkspace</code>)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd></td><td>New tab (<code>newTab</code>)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td><td>Go to workspace 1–8, 9 = last</td></tr>
+    <tr><td><kbd>Alt</kbd>+<kbd>1</kbd>…<kbd>9</kbd></td><td>Go to tab 1–8, 9 = last</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>PgDn</kbd> / <kbd>PgUp</kbd></td><td>Next / previous workspace</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>PgUp</kbd> / <kbd>PgDn</kbd></td><td>Move workspace up / down (macOS: <kbd>⌥</kbd><kbd>⌘</kbd><kbd>↑</kbd> / <kbd>↓</kbd>)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous tab</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>Close tab (the last one closes its workspace)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> / <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>R</kbd></td><td>Rename workspace / tab</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>U</kbd></td><td>Jump to the tab that needs you</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>H</kbd></td><td>Show / hide the sidebar</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd></td><td>Git panel</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd></td><td>Project files</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> / <kbd>K</kbd></td><td>Search / clear scrollback</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd></td><td>Newline without sending, for Claude Code (macOS: <kbd>Shift</kbd>+<kbd>Enter</kbd>)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>=</kbd> / <kbd>-</kbd> / <kbd>0</kbd></td><td>Font size up / down / reset (or Ctrl+wheel)</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>,</kbd></td><td>Settings</td></tr>
+  </table></div>
+  <div class="callout"><b>A key doesn't reach your program?</b> panex handles its shortcuts first. Rebind or clear the panex one under Settings → Shortcuts.</div>
+</section>
+
+<section id="config">
+  <h2>Configuration</h2>
+  <p>The Settings panel (⚙ or <kbd>Ctrl</kbd>+<kbd>,</kbd>) has General, Appearance, Terminal, Shortcuts and Config file pages. It writes to one plain JSON file, <code>~/.config/panex/panex.json</code> (<code>%USERPROFILE%\.config\panex\panex.json</code> on Windows), which you can also edit by hand.</p>
+  <ul>
+    <li>Write only the keys you want to change; everything else uses defaults.</li>
+    <li><code>panex.schema.json</code> sits next to it, so editors like VS Code offer completion and descriptions.</li>
+    <li>Saving applies about 0.3 s later. If the file doesn't parse, panex keeps the last good settings and shows the error with a button to open the file.</li>
+    <li>If the panel covers something you want to read, drag it by its side rail.</li>
+  </ul>
+<pre><code>{
+  "$schema": "./panex.schema.json",
+  "schemaVersion": 2,
+  "app": { "opacity": 85, "windowEffect": "acrylic" },
+  "terminal": { "fontSize": 15, "defaultShell": "powershell" },
+  "shortcuts": {
+    "bindings": {
+      "newTab": [["ctrl+t"], ["ctrl+shift+t"]],
+      "renameTab": "f2",
+      "nextWorkspace": ["ctrl+k", "ctrl+n"],
+      "clearScrollback": null
+    }
+  }
+}</code></pre>
+  <p>In <code>bindings</code>: a string is one combination, an array of strings is a chord, an array of arrays lists alternatives, and <code>null</code> unbinds the action. The schema lists every action id.</p>
+</section>
+
+<section id="terminal">
+  <h2>Terminal tips</h2>
+  <ul>
+    <li><b>Search:</b> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> searches the scrollback.</li>
+    <li><b>Links:</b> Ctrl+click a URL to open it in your browser, or a path like <code>src/main.ts:120</code> to open the file, in VS Code or Cursor at that line if you choose one in Settings → Terminal.</li>
+    <li><b>Copy and paste:</b> Ctrl+C copies when text is selected and interrupts otherwise; Ctrl+V pastes. Dragging files in pastes their paths (quoted if they contain spaces).</li>
+    <li><b>Fonts:</b> pick any installed monospace font; Chinese and emoji fall back automatically, and emoji are in color.</li>
+    <li><b>Window:</b> adjustable opacity (text stays sharp, only the background fades), plus Mica or Acrylic backgrounds on Windows 11.</li>
+    <li><b>Interface language:</b> English or Traditional Chinese, following your system or set in Settings.</li>
+    <li><b>Safe close:</b> closing panex, a tab or a workspace while an agent is mid-task asks first (Settings → Terminal).</li>
+    <li><b>Dim and italic text:</b> Claude Code's dim hints are drawn in a fixed gray and italics are upright. This is on purpose: with the GPU renderer they otherwise got a black box behind them.</li>
+  </ul>
+</section>
+
+<section id="macos">
+  <h2>macOS permissions</h2>
+  <p>panex needs none itself, but programs in your tabs count as panex to macOS. When an agent sends keys with <code>osascript</code> or takes a screenshot with <code>screencapture</code>, it's panex that needs <b>Accessibility</b> or <b>Screen Recording</b>.</p>
+  <p><b>Settings → General → Permissions</b> shows which are allowed and opens the right System Settings page. It reads the state only when you open the page or return to the window, never in the background. Releases are signed with one certificate, so granted permissions survive updates.</p>
+</section>
+
+<section id="updates">
+  <h2>Updating</h2>
+  <p>When a newer version is out, a line appears at the bottom of the sidebar. Click <b>Update and restart</b>: panex downloads, verifies and installs it, then restarts. Restarting ends programs in your tabs (an agent mid-turn gets a confirmation first); workspaces, scrollback and Claude Code conversations come back. Check by hand in <b>Settings → General</b>, or turn the automatic check off there.</p>
+  <p>Still stuck? <a href="https://github.com/firstfu/panex/issues/new">Open an issue</a> with your OS version and the shell you were using.</p>
+</section>
+</article>
+</div>
+
+<footer><div class="wrap">
+  <span>© panex · MIT License</span>
+  <nav><a href="./">Home</a><a href="https://github.com/firstfu/panex/releases">Releases</a><a href="https://github.com/firstfu/panex/issues">Issues</a><a href="zh/guide.html">繁體中文</a></nav>
+</div></footer>
+<script src="site.js"></script>
+</body>
+</html>

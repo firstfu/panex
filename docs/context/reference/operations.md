@@ -86,7 +86,7 @@ cd .. && node tests/e2e/run.mjs [--keep]   # --keep 留下暫存資料夾供檢�
 安裝檔由 CI 建（`.github/workflows/release.yml`），本機不必建置：
 
 0. 先跑上方「單元測試」的兩組測試，全過才發版（CI 不跑測試）。另外 repo 要有四個 secrets，缺任何一個 CI 在檢查步驟就失敗：`TAURI_SIGNING_PRIVATE_KEY`／`_PASSWORD`（更新包簽章）、`MACOS_CERT_P12`（p12 的 base64）／`MACOS_CERT_PASSWORD`（macOS 簽章憑證「panex Release Signing」）。來源檔在 `~/.config/panex-signing/`，機制與風險見 `modules/updates.md`。
-1. 改版本號，六個檔：`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（`name = "panex"` 那段）、`package.json`，以及 README 與繁中版裡的安裝檔檔名（`.exe`、`.dmg` 各處）。提交前確認 `Cargo.toml` 的 `macos-private-api` 還在（見上方「建置」）。
+1. 改版本號，六個檔：`src-tauri/tauri.conf.json`、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock`（`name = "panex"` 那段）、`package.json`，以及 README 與繁中版裡的安裝檔檔名（`.exe`、`.dmg` 各處），還有 `website/index.html`、`website/zh/index.html` 安裝區的檔名（見 `modules/website.md`）。提交前確認 `Cargo.toml` 的 `macos-private-api` 還在（見上方「建置」）。
 2. commit、`git push origin main`，再 `git tag v<版本>` 並 `git push origin v<版本>`。
 3. tag 觸發 CI：先建草稿 release，再由 Windows、macOS 兩個 job 各自建安裝檔與更新包（`.sig`、`panex.app.tar.gz`）並上傳，最後 `manifest` job 產生 `latest.json`。macOS 在 build 時用 `--config` 把 `signingIdentity` 覆寫成憑證（本機建置仍是 ad-hoc `-`）。草稿這時的說明只是 `Notes pending.`。兩個平台平行跑，LTO＋沒有快取，約 8–15 分鐘；`gh run watch <run id> --exit-status` 可以等它結束。
 4. 兩個安裝檔都上傳後才發布：`gh release edit v<版本> --repo firstfu/panex --title "panex <版本>" --notes-file <notes.md> --draft=false --latest`。說明的格式照前一版（New／Changed／Install，英文）。
