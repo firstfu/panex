@@ -4,6 +4,22 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-25 — 介紹網站上線準備：`website/`（`ae6d22a`）
+
+**變更**
+- 新增雙語靜態網站 `website/`（英文＋`zh/` 繁中）：首頁（hero、demo、五個功能區塊、四張真截圖、與通用終端機的對照表、效能、隱私、安裝、FAQ）與使用指南（十三節，含快捷鍵表與設定檔範例）。`.github/workflows/pages.yml` 在 `website/**` 變動時部署到 GitHub Pages。
+- 標題、描述與 FAQ 的用字照 Google Suggest 實查（見 `modules/website.md`）；附 OG 圖（英文／繁中）、`sitemap.xml`、`robots.txt`、hreflang。
+- 結構借鏡競品官網（hero → 功能 → FAQ → 下載），但文案不出現競品名稱或品牌（`boundaries.md` 的規定）。對照表只跟通用終端機比，且只寫確定的列；分割窗格明寫「not yet」。
+- 文件：新增 `reference/modules/website.md`、根 `CLAUDE.md` 索引一列、`operations.md` 發版「改版本號」多一處（網站安裝區的檔名）、兩份 README 頂部加網站連結。
+
+**為什麼**
+- 使用者要一個參考競品做法、好看且詳細介紹功能使用的網站。純靜態、不引入建置工具，是因為內容只有四頁，部署與維護成本要最低。
+
+**下一步**
+- 到 repo 的 Settings → Pages 把 Source 設成 GitHub Actions（若 push 後 workflow 沒自動啟用 Pages）。
+- 上線後在 Search Console 提交 `sitemap.xml`，過幾週用 GSC 看「claude code」相關查詢的曝光。
+- 每次發版要同步改網站安裝區的版本檔名（`grep -rn "panex_<舊版本>" website`）。
+
 ## 2026-10-25 — README 與素材更新：新 hero／快捷鍵截圖、27 秒 demo 影片（未 commit）
 
 **變更**
