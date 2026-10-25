@@ -82,7 +82,9 @@ h3 { font-size: 20px; margin: 0 0 8px; letter-spacing: -.01em; }
 .feat-txt ul { color: var(--muted); padding-left: 20px; margin: 10px 0 0; }
 .feat-txt li { margin: 5px 0; }
 .more { font-weight: 600; font-size: 15px; display: inline-block; margin-top: 6px; }
-@media (max-width: 860px) { .feat { grid-template-columns: 1fr; gap: 24px; } .feat:nth-child(odd) .feat-txt { order: 0; } }
+@media (max-width: 860px) { .feat { grid-template-columns: minmax(0, 1fr); gap: 24px; } .feat:nth-child(odd) .feat-txt { order: 0; } }
+.feat > * { min-width: 0; }
+.mock { overflow-x: auto; }
 
 /* mini UI mockups (pure CSS, no images) */
 .mock { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; font: 13px/1.5 var(--mono); box-shadow: 0 20px 50px -30px rgba(0,0,0,.5); }
@@ -154,7 +156,9 @@ td:first-child { white-space: nowrap; } td { color: var(--muted); }
 .tbl { overflow-x: auto; }
 .status { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .status i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-@media (max-width: 900px) { .doc { grid-template-columns: 1fr; gap: 0; } .toc { display: none; } }
+@media (max-width: 900px) { .doc { grid-template-columns: minmax(0, 1fr); gap: 0; } .toc { display: none; } }
+.doc article { min-width: 0; }
+.doc kbd { white-space: normal; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 
 /* screenshot gallery + comparison table (home) */
@@ -163,9 +167,11 @@ td:first-child { white-space: nowrap; } td { color: var(--muted); }
 .shots img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 50px -30px rgba(0,0,0,.5); }
 .shots figcaption { color: var(--muted); font-size: 14.5px; margin-top: 10px; }
 .shots figcaption b { color: var(--text); }
-@media (max-width: 760px) { .shots { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .shots { grid-template-columns: minmax(0, 1fr); } }
 .cmp { max-width: 860px; margin: 32px auto 0; }
 .cmp th:not(:first-child), .cmp td:not(:first-child) { text-align: center; }
 .cmp td:first-child { white-space: normal; color: var(--text); }
 .cmp .yes { color: var(--green); font-weight: 700; } .cmp .no { color: var(--muted); } .cmp .soon { color: var(--orange); font-size: 13.5px; }
 .cmp-note { color: var(--muted); font-size: 14px; max-width: 860px; margin: 14px auto 0; }
+
+:not(pre) > code { overflow-wrap: anywhere; }
