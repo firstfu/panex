@@ -37,7 +37,7 @@ let snapshotTimer: number | undefined;
 
 function termTheme() {
   // Fully transparent: #terms paints the background so opacity applies once.
-  return { background: "#00000000", foreground: "#e4e4e7", cursor: "#e4e4e7", selectionBackground: "#3f3f4699" };
+  return { background: "#00000000", foreground: "#e4e4e7", cursor: "#e4e4e7", selectionBackground: "#6366f180" };
 }
 
 export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
@@ -50,6 +50,8 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
     fontFamily: termFontFamily(S.settings.fontFamily),
     // Squeezes one-cell characters drawn wider than a cell (⚠ as an emoji) back into their cell.
     rescaleOverlappingGlyphs: true,
+    // 程式開了滑鼠回報（Claude Code、tmux、vim）時，macOS 上要按住 Option 才能選取；預設關著，會變成完全選不了。
+    macOptionClickForcesSelection: true,
     theme: termTheme(),
     windowsPty: isWindows ? { backend: "conpty", buildNumber: winBuild } : undefined,
   });

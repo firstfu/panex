@@ -231,6 +231,12 @@ panex 會比終端機先處理自己的快捷鍵。例如 Claude Code 用 Ctrl+T
 </details>
 
 <details>
+<summary><b>跑 Claude Code、tmux 或 vim 時選不了字、複製不了</b></summary>
+
+這些程式會開啟滑鼠回報，點擊和拖曳會送給程式，而不是用來選取。macOS 上拖曳時按住 `Option` 就能選字，再用 `⌘C` 複製；Windows 上按住 `Shift`。
+</details>
+
+<details>
 <summary><b>Claude Code 的淡色提示是灰色、斜體變成直體</b></summary>
 
 這是刻意的。用 GPU 渲染時，淡色（dim）和斜體文字後面會多出一塊黑底，所以 panex 把淡色字改畫成固定的灰色、並丟掉斜體。代價是疊在彩色字上的淡色字會變灰、斜體看起來是直的。

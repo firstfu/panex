@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-25 — macOS 上程式開了滑鼠回報就完全選不了字：打開 `macOptionClickForcesSelection`
+
+**變更**
+- `src/terminal.ts` 建立 `Terminal` 時加 `macOptionClickForcesSelection: true`。
+- 原因：Claude Code、tmux、vim 等程式會開滑鼠回報，此時 xterm 把點擊與拖曳轉給程式，不做選取。xterm 的強制選取規則是「macOS 只認 Option，且要這個選項為 true；其他平台認 Shift」，預設 false，所以 Mac 上沒有任何按鍵能選字（Shift 在 Mac 上也無效）。
+- 測試（隔離測試實例＋Quartz 真實滑鼠事件，`CGEventSetFlags` 帶 Option）：shell 裡一般拖曳選取、⌘C 正常；用 `printf '\e[?1000h\e[?1006h'` 開滑鼠回報後，舊版 Option 拖曳複製到 `[]`，新版複製到被圈的字。
+- 選取底色 `#3f3f4699` 在深色背景上對比很低，幾乎看不出來，可能讓人以為「圈不到」；改成 `#6366f180`，目視確認清楚可見。
+- 兩份 README 的 FAQ 補「跑 Claude Code／tmux／vim 時選不了字」（macOS 按 Option、Windows 按 Shift）。
+
+**為什麼**
+- 使用者回報終端機無法點擊、圈選、複製。
+
+**下一步**
+- 使用者在自己的 App 確認；下次發版隨附。
+
 ## 2026-10-25 — 網站上線後修正手機版橫向溢出（`8face4f`）
 
 **變更**

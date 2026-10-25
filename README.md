@@ -231,6 +231,12 @@ panex handles its shortcuts before the terminal sees them. For example, Claude C
 </details>
 
 <details>
+<summary><b>I can't select or copy text while Claude Code, tmux or vim is running</b></summary>
+
+Those programs turn on mouse reporting, so clicks and drags go to the program instead of selecting. On macOS hold `Option` while dragging to select, then copy with `⌘C`. On Windows hold `Shift`.
+</details>
+
+<details>
 <summary><b>Claude Code's dim hints are gray and its italics are upright</b></summary>
 
 On purpose. With the GPU renderer, dim and italic text got a black box behind it, so panex draws dim text in a fixed gray and drops italics. The cost: dim text over colored text turns gray, and italics look upright.
