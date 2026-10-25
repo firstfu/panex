@@ -4,6 +4,15 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-25 — 發布 0.7.4（`b1b189c`，tag `v0.7.4`）
+
+**變更**
+- 版本號改到 0.7.4（`tauri.conf.json`、`Cargo.toml`、`Cargo.lock`、`package.json`、`package-lock.json`、兩份 README、網站兩頁）；內容是 `dacd990`（Option 拖曳選字、選取底色調亮、FAQ）。
+- 發版前兩組測試全過（Rust 27＋3、前端 15）；push 前掃描只命中公開 repo 網址。CI 兩平台成功，兩個安裝檔與 `latest.json` 的 `releases/latest/download` 都回 302 指向 v0.7.4。
+
+**下一步**
+- 使用者在自己的 App 更新後確認：開滑鼠回報的程式裡按住 Option 拖曳能選字。
+
 ## 2026-10-25 — macOS 上程式開了滑鼠回報就完全選不了字：打開 `macOptionClickForcesSelection`
 
 **變更**
