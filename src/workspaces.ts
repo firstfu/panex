@@ -14,6 +14,7 @@ import { closeSearch } from "./search";
 import { scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { setCollapsed, tidyGroups } from "./groups";
+import { canHide, isHidden, setHidden, visibleOrder } from "./hidden";
 
 /** Shows a tab (switching workspace if needed). Only the visible tab keeps a WebGL context. */
 export function showTab(id: string) {
@@ -32,6 +33,7 @@ export function showTab(id: string) {
   S.visibleTabId = id;
   S.activeWsId = ws.id;
   if (ws.group) setCollapsed(ws.group, false);
+  if (isHidden(ws.id)) setHidden([ws.id], false); // showing a workspace means wanting to see it
   ws.activeTab = id;
   tab.el.hidden = false;
   if (!tab.opened) {
@@ -131,9 +133,25 @@ export const askCloseTab = (id: string) => askCloseTabs([id]);
 export const askCloseWorkspaces = (ids: string[]) => askCloseTabs(ids.flatMap((id) => workspaces.get(id)?.tabs ?? []));
 
 export function cycleWorkspace(dir: number) {
-  if (!S.activeWsId || wsOrder.length < 2) return;
-  const i = wsOrder.indexOf(S.activeWsId);
-  showWorkspace(wsOrder[(i + dir + wsOrder.length) % wsOrder.length]);
+  const order = visibleOrder();
+  if (!S.activeWsId || order.length < 2) return;
+  const i = order.indexOf(S.activeWsId);
+  showWorkspace(order[(i + dir + order.length) % order.length]);
+}
+
+/**
+ * Takes workspaces off the sidebar list. When the one on screen goes, the nearest workspace that
+ * stays takes its place first (its terminal keeps running either way). The last visible one can't be hidden.
+ */
+export function hideWorkspaces(ids: string[]) {
+  if (!canHide(ids)) return;
+  if (S.activeWsId && ids.includes(S.activeWsId)) {
+    const order = visibleOrder();
+    const i = order.indexOf(S.activeWsId);
+    const next = order.slice(i + 1).find((id) => !ids.includes(id)) ?? order.slice(0, i).reverse().find((id) => !ids.includes(id));
+    if (next) showWorkspace(next);
+  }
+  setHidden(ids, true);
 }
 
 export function cycleTab(dir: number) {

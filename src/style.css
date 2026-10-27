@@ -170,6 +170,21 @@ body.show-nums .t-num { opacity: 1; }
 .tab:hover .t-close { visibility: visible; }
 .t-close:hover { background: #3f3f46; color: var(--fg); }
 
+/* Hidden workspaces: a fold row under the list, opening to one slim row per workspace. */
+#hidden-row { flex: none; max-height: 30%; overflow-y: auto; padding: 4px 6px; border-top: 1px solid var(--line); }
+#hidden-row[hidden] { display: none; }
+.hid-head, .hid-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 2px; border-radius: 6px; cursor: pointer;
+  font-size: 11.5px; color: var(--dim);
+}
+.hid-head { font-weight: 600; }
+.hid-item { padding-left: 20px; }
+.hid-head:hover, .hid-item:hover { background: var(--side-hover); color: var(--fg); }
+.hid-item.active { background: var(--side-active); color: var(--fg); }
+.hid-head.st-attention, .hid-item.st-attention { background: rgba(59, 130, 246, 0.14); }
+.hid-head .name, .hid-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hid-head .s-ico, .hid-item .s-ico { margin-left: auto; }
+
 #new-row { display: flex; gap: 4px; padding: 6px; border-top: 1px solid var(--line); }
 button { font: inherit; }
 #new-row button, #shell-menu button, #hooks-row button, #update-row button {

@@ -5,11 +5,12 @@ import { type Tab, type Workspace } from "./types";
 import { $, COLORS, esc } from "./util";
 import { tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { keyLabel } from "./config";
-import { askCloseTab, askCloseTabs, askCloseWorkspaces, moveTab, newTab, setColor, showWorkspace } from "./workspaces";
+import { askCloseTab, askCloseTabs, askCloseWorkspaces, hideWorkspaces, moveTab, newTab, setColor, showWorkspace } from "./workspaces";
 import { canMove, groupLead, groupMembers, groupName, inRepo, isCollapsed, joinGroup, leaveGroup, moveBy, moveToTop, repoName, setCollapsed, ungroup } from "./groups";
 import { openWorktreeDialog } from "./worktree-dialog";
 import { isWorktreeWs, openWorktreeRemove } from "./worktree-remove";
 import { startRename } from "./rename";
+import { canHide, isHidden, setHidden } from "./hidden";
 
 export const ctxEl = $("ctx");
 
@@ -33,6 +34,9 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveBy(ws.id, 1), disabled: !canMove(ws.id, 1) },
     { label: tr("移到最上面"), run: () => moveToTop(ws.id), disabled: !canMove(ws.id, -1) },
     "-",
+    isHidden(ws.id)
+      ? { label: tr("取消隱藏"), run: () => setHidden([ws.id], false) }
+      : { label: tr("隱藏工作區"), run: () => hideWorkspaces([ws.id]), disabled: !canHide([ws.id]) },
     { label: tr("關閉工作區"), keys: keyLabel("closeWorkspace"), run: () => askCloseWorkspaces([ws.id]) },
     ...(isWorktreeWs(ws) ? [{ label: tr("關閉工作區並刪除 worktree…"), run: () => openWorktreeRemove(ws) }] : []),
     { label: tr("關閉其他工作區"), run: () => askCloseWorkspaces(others), disabled: !others.length },
@@ -83,6 +87,7 @@ export function groupMenu(group: string): MenuItem[] {
     { label: tr("下移"), run: () => moveBy(first, 1, true), disabled: !canMove(first, 1, true) },
     { label: tr("移到最上面"), run: () => moveToTop(first, true), disabled: !canMove(first, -1, true) },
     "-",
+    { label: tr("隱藏群組"), run: () => hideWorkspaces(members), disabled: !canHide(members) },
     { label: tr("解散群組"), run: () => ungroup(group) },
     { label: tr("關閉群組內的工作區"), run: () => askCloseWorkspaces(members) },
   ];

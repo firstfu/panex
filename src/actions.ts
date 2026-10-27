@@ -3,12 +3,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { type LoadedConfig, type Tab } from "./types";
 import { DEFAULTS } from "./settings";
-import { S, activeTab, activeWs, wsOrder } from "./state";
+import { S, activeTab, activeWs } from "./state";
 import { applyConfig, setFontSize, showNotice, updateSettings } from "./config";
 import { onInput } from "./terminal";
 import { askCloseTab, askCloseWorkspaces, cycleTab, cycleWorkspace, jumpToUnread, moveTab, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
 import { openWorktreeDialog } from "./worktree-dialog";
 import { moveBy } from "./groups";
+import { visibleOrder } from "./hidden";
 import { openSshDialog } from "./ssh-dialog";
 import { togglePanel } from "./git-panel";
 import { openSearch } from "./search";
@@ -41,7 +42,7 @@ export function runAction(id: string, digit = 0) {
     case "newSsh": return openSshDialog();
     case "closeWorkspace": return S.activeWsId && askCloseWorkspaces([S.activeWsId]);
     case "renameWorkspace": return S.activeWsId && startRename("ws", S.activeWsId);
-    case "selectWorkspaceByNumber": { const w = nth(wsOrder, digit); return w && showWorkspace(w); }
+    case "selectWorkspaceByNumber": { const w = nth(visibleOrder(), digit); return w && showWorkspace(w); }
     case "nextWorkspace": return cycleWorkspace(1);
     case "prevWorkspace": return cycleWorkspace(-1);
     case "moveWorkspaceUp": return S.activeWsId && moveBy(S.activeWsId, -1);

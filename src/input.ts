@@ -14,7 +14,7 @@ import { wtEl } from "./worktree-dialog";
 import { closeGitView, gitViewEl } from "./git-panel";
 import { closeSearch, searchEl } from "./search";
 import { startRename } from "./rename";
-import { scheduleRender, shellMenuEl, tabbarEl, wsListEl } from "./render";
+import { hiddenEl, scheduleRender, shellMenuEl, tabbarEl, toggleHiddenList, wsListEl } from "./render";
 import { closeAskEl } from "./close-ask";
 import { wtRmEl } from "./worktree-remove";
 import { ctxEl, groupMenu, hideCtx, showCtx, tabMenu, wsMenu } from "./context-menu";
@@ -129,6 +129,14 @@ function isDoubleClick(id: string) {
   lastClick = dbl ? { id: "", at: 0 } : { id, at: now };
   return dbl;
 }
+
+// The "已隱藏" row: the header folds the list open, a workspace in it comes back to the list.
+hiddenEl.addEventListener("click", (e) => {
+  const target = e.target as HTMLElement;
+  if (target.closest("[data-hidden-toggle]")) return toggleHiddenList();
+  const id = target.closest<HTMLElement>("[data-ws]")?.dataset.ws;
+  if (id) showWorkspace(id); // showing it also takes it off the hidden list
+});
 
 wsListEl.addEventListener("click", (e) => {
   const target = e.target as HTMLElement;

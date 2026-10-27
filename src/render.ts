@@ -5,14 +5,21 @@ import { invoke } from "@tauri-apps/api/core";
 import { t as tr } from "./i18n";
 import { type Status, type Tab } from "./types";
 import { $, COLORS, esc, fmtDuration } from "./util";
-import { S, activeWs, loudest, shellTag, tabTitle, tabs, workspaces, wsActiveTab, wsOrder, wsStatus, wsTitle } from "./state";
+import { S, activeWs, loudest, shellTag, tabTitle, tabs, workspaces, wsActiveTab, wsStatus, wsTitle } from "./state";
 import { digitHint, keyLabel, withKey } from "./config";
 import { newWorkspace } from "./workspaces";
 import { openSshDialog } from "./ssh-dialog";
 import { gitBadges } from "./git-panel";
 import { groupLead, groupName, isCollapsed, repoName, units } from "./groups";
+import { hiddenOrder, isHidden, visibleOrder } from "./hidden";
 
 export const wsListEl = $("tabs");
+export const hiddenEl = $("hidden-row");
+let hiddenOpen = false;
+export function toggleHiddenList() {
+  hiddenOpen = !hiddenOpen;
+  scheduleRender();
+}
 export const tabbarEl = $("tabbar");
 export const shellMenuEl = $("shell-menu");
 const hooksEl = $("hooks-row");
@@ -37,7 +44,37 @@ export function render() {
   // Re-rendering would destroy the rename field; render again when it closes.
   if (S.renaming && document.querySelector(".rename-input")) return;
   renderSidebar();
+  renderHidden();
   renderTabbar();
+}
+
+/** The "已隱藏" row under the list: a count (with the loudest status inside), opening to the hidden workspaces. */
+function renderHidden() {
+  const ids = hiddenOrder();
+  hiddenEl.hidden = !ids.length;
+  if (!ids.length) return hiddenEl.replaceChildren();
+  const status = loudest(ids);
+  const head = document.createElement("div");
+  head.className = `hid-head st-${status}`;
+  head.dataset.hiddenToggle = "";
+  head.innerHTML =
+    `<span class="grp-caret${hiddenOpen ? "" : " folded"}">${CARET}</span><span class="name">${esc(tr("已隱藏"))}</span>` +
+    `<span class="t-count">${ids.length}</span>` + (status !== "idle" ? `<span class="s-ico ${status}"></span>` : "");
+  hiddenEl.replaceChildren(
+    head,
+    ...(hiddenOpen
+      ? ids.map((id) => {
+          const ws = workspaces.get(id)!;
+          const { status: st } = wsStatus(ws);
+          const row = document.createElement("div");
+          row.className = `hid-item st-${st}${id === S.activeWsId ? " active" : ""}`;
+          row.dataset.ws = id;
+          row.title = tr("點一下顯示這個工作區");
+          row.innerHTML = `<span class="name">${esc(wsTitle(ws))}</span>${st !== "idle" ? `<span class="s-ico ${st}"></span>` : ""}`;
+          return row;
+        })
+      : []),
+  );
 }
 
 // Groups (one repo's checkouts) render as a box: the main folder's workspace on top with a fold
@@ -45,7 +82,9 @@ export function render() {
 // naming the repo. The rest render as plain rows.
 function renderSidebar() {
   wsListEl.replaceChildren(
-    ...units().map((run) => {
+    ...units().flatMap((all) => {
+      const run = all.filter((id) => !isHidden(id));
+      if (!run.length) return [];
       const group = workspaces.get(run[0])!.group;
       if (!group) return wsRow(run[0]);
       const box = document.createElement("div");
@@ -84,7 +123,8 @@ function renderSidebar() {
  *   底色取組內最緊急的狀態、組內任何一個是目前的工作區就標成作用中，並顯示組內工作區數量
  */
 function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
-  const i = wsOrder.indexOf(wid);
+  const order = visibleOrder();
+  const i = order.indexOf(wid);
   const ws = workspaces.get(wid)!;
   const cur = wsActiveTab(ws);
   const { status, tab: st } = wsStatus(ws);
@@ -94,7 +134,7 @@ function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
   const d = document.createElement("div");
   d.className = `tab ws st-${shown}${active ? " active" : ""}${lead ? " lead" : ""}`;
   d.dataset.ws = wid;
-  const num = i < 8 ? i + 1 : i === wsOrder.length - 1 ? 9 : 0;
+  const num = i < 8 ? i + 1 : i === order.length - 1 ? 9 : 0;
   const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
   const caret = lead ? `<span class="grp-caret${lead.folded ? " folded" : ""}" data-caret title="${esc(tr(lead.folded ? "展開" : "收合"))}">${CARET}</span>` : "";
   const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
