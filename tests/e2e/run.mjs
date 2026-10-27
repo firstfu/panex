@@ -189,15 +189,12 @@ async function main() {
       const rows = () => evalJs(`return [...document.querySelectorAll("#files-body .f-row")].map((e) => (e.dataset.dir !== undefined ? "d:" + e.dataset.dir : e.dataset.path) + (e.querySelector(".f-dot") ? "•" : "") + (e.querySelector(".g-st")?.textContent ?? ""))`);
       // The panel's open state lives in WebKit's localStorage, which outlives HOME: open it only if closed.
       evalJs(`if (document.querySelector("#git").hidden) document.querySelector("#git-toggle").click(); document.querySelector('.g-tab[data-mode="files"]').click(); return true;`);
-      // Folders first; both new folders carry the dot once git status is in.
+      // Folders first. Folders with changes carry the dot and open by themselves once git status is in.
       let last;
-      const top = await waitFor("the tree", () => {
+      await waitFor("the tree", () => {
         const r = (last = rows());
-        return r.join() === "d:assets•,d:docs•,d:src•,README.md" && r;
+        return r.join() === "d:assets•,assets/dot.pngU,assets/logo.svgU,assets/spec.pdfU,d:docs•,docs/guide.mdU,d:src•,src/app.tsU,README.md";
       }, 10000).catch((e) => { throw new Error(`${e.message}: ${JSON.stringify(last)} ${evalJs('return document.querySelector("#files-body").textContent')}`); });
-      evalJs(`document.querySelector('#files-body .f-dir[data-dir="docs"]').click(); return true;`);
-      const opened = await waitFor("docs expanded", () => rows().includes("docs/guide.mdU") && rows(), 5000);
-      if (opened.join() !== "d:assets•,d:docs•,docs/guide.mdU,d:src•,README.md") throw new Error(JSON.stringify({ top, opened }));
       evalJs(`document.querySelector('#files-body .f-file[data-path="docs/guide.md"]').click(); return true;`);
       const view = await waitFor("the rendered document", () =>
         evalJs(`const md = document.querySelector("#gv-body .md"); return md && { table: !!md.querySelector("table"), img: !!md.querySelector("img"),
@@ -205,14 +202,10 @@ async function main() {
       if (!view.table || view.img || view.pwned || !view.text.includes("<img src=x") || !view.id) throw new Error(JSON.stringify(view));
       evalJs(`[...document.querySelectorAll("#gv-body .md a")].find((a) => a.textContent === "readme").click(); return true;`);
       await waitFor("the linked README", () => evalJs(`return document.querySelector("#gv-title").textContent === "README.md" && document.querySelector("#gv-body .md")?.textContent.includes("e2e")`), 5000);
-      evalJs(`document.querySelector('#files-body .f-dir[data-dir="src"]').click(); return true;`);
-      await waitFor("src expanded", () => rows().includes("src/app.tsU"), 5000);
       evalJs(`document.querySelector('#files-body .f-file[data-path="src/app.ts"]').click(); return true;`);
       const code = await waitFor("the code view", () =>
         evalJs(`const c = document.querySelector("#gv-body .f-code"); return c && { ln: c.querySelector(".f-ln").textContent, kw: !!c.querySelector(".hljs-keyword"), text: c.querySelector(".f-src").textContent }`), 10000);
       if (code.ln !== "1\n2" || !code.kw || !code.text.startsWith("const answer = 42;")) throw new Error(JSON.stringify(code));
-      evalJs(`document.querySelector('#files-body .f-dir[data-dir="assets"]').click(); return true;`);
-      await waitFor("assets expanded", () => rows().includes("assets/dot.pngU"), 5000);
       const open = (p) => evalJs(`document.querySelector('#files-body .f-file[data-path="${p}"]').click(); return true;`);
       open("assets/dot.png");
       const png = await waitFor("the image", () => evalJs(`const i = document.querySelector("#gv-body .f-stage img"); return i?.complete && i.naturalWidth && { w: i.naturalWidth, dim: document.querySelector(".f-dim").textContent }`), 5000);

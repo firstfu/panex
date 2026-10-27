@@ -12,12 +12,15 @@
 - 前端 `IS_WIN` 閘門改成 `CAN_MANAGE = IS_WIN || IS_MAC`（休眠、資源面板、右鍵選單）。
 
 **驗證**
-- `cargo test --lib` 36 項全過，含一個真程序測試：起 `sh` 底下有一個用 `setpgrp` 脫離原 group 的 `sleep`，`terminate` 後整棵消失。前端 tsc、`npm test` 16 項過。
-- `--features e2e` 端對端新增一項（`tests/e2e/run.mjs` 的 hibernate）：真 App、真 zsh 分頁裡跑一個叫 `claude` 的程序（`sleep` 的 symlink）加前景 `sleep`，`pty_hibernate(onlyAgent)` 拒絕且不殺；Ctrl+C 後只剩 claude 則成功、程序全消失。該項通過；整套 13 過 1 敗，敗的「files tab」在未改動的基準也一樣敗（既有問題，未查）。另有一次「關閉工作區並刪除 worktree」第一次跑敗、重跑兩次都過，疑為偶發。
-- **沒用**真的 Claude Code 驗證；Windows 端因規則抽出重構，只能靠 Windows CI 編譯確認。
+- `cargo test --lib` 37 項、前端 tsc、`npm test` 16 項過；e2e 整套 14 過 0 敗（新增 hibernate 一項：假 `claude` + 使用者程式時拒絕且不殺，只剩 claude 時休眠、程序全消失）。
+- **真的 Claude Code 驗收**（測試實例、真 HOME 讓 claude 登入、使用者的 hooks 經 `PANEX_PIPE` 打到測試實例；腳本不放進 repo）：claude 跑了 Bash 工具後閒置，切到別的分頁 62 秒後（`hibernateAfterMinutes=1`）自動休眠、`ps` 無 claude 殘留；切回來 `claude --resume <同一個 session>` 接回；關分頁時 claude 底下 9 個程序（MCP server、caffeinate、npm/node）全部消失。資源面板的程序數（11）與記憶體和 `ps` 同一棵樹逐項核對一致。
+- 驗收中發現並修掉兩個漏掉的 Mac 缺口：設定頁「閒置分頁自動休眠」那列被 `win-only` 藏掉（Mac 沒辦法改分鐘數）；資源面板在 Mac 沒有快捷鍵（現為 `⌘⇧M`）。
+- 「files tab」e2e 先前敗是測試過時：`3436072` 起有變更的資料夾會自動展開，測試仍預期收合；已改測試。
+- Windows 端：此機器無法整包交叉編譯（`ring` 要 MSVC 標頭），改把 `job.rs`＋`agent_rule.rs` 單獨放進只依賴 `windows-sys` 的小 crate，`cargo check --target x86_64-pc-windows-msvc --tests` 通過、無警告；完整 Windows 建置與執行仍待 CI／Windows 機器。
 
 **下一步**
-- 請在 Mac 用測試實例實測：分頁起真 claude 閒置後休眠、切回來接回 session；背景任務不會被休眠；關分頁後 `ps` 無殘留。
+- 仍未驗：Windows 實機行為；claude 有執行中的背景任務時不休眠（單元測試與假程序測過，真 claude 沒測）。
+- 自己 `kill` 測試實例或 panex 當掉時，分頁程式會殘留（Mac 無 kill-on-close，驗收時看到 claude 留在原處）。
 - 盲點：Mac 的 claude 若不是以 `claude` 為執行檔名（例如 npm 安裝顯示成 `node`）會被判成「不只 claude」而不自動休眠；panex 當掉無保護（沒有 kill-on-close）。
 
 ## 2026-10-27 — 發布 0.7.9（tag `v0.7.9`）

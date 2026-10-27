@@ -19,7 +19,7 @@ export interface Settings {
   language: LangPref;
   autoUpdate: boolean; // look for a newer panex at launch and when the window regains focus (never a timer)
   resumeSession: boolean;
-  hibernateMinutes: number; // a hidden tab whose Claude Code has been idle this long is hibernated (0 = never; Windows only)
+  hibernateMinutes: number; // a hidden tab whose Claude Code has been idle this long is hibernated (0 = never; Windows and macOS)
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
   worktreeViaPanex: boolean; // Claude Code's worktrees go through panex (its WorktreeCreate hook; hooks.rs reads it too)
