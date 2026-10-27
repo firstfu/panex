@@ -14,6 +14,7 @@
 - **`cargo tauri build` 會改寫 `src-tauri/Cargo.toml`**：Windows 上 `tauri.conf.json` 沒開 macOS private API，CLI 會把 `[dependencies]` 的 `tauri = { …, features = ["macos-private-api"] }` 自動改成 `features = []`。建置完用 `git diff src-tauri/Cargo.toml` 檢查並改回，不要連同功能一起 commit。反過來，直接 `cargo check` 會因為 feature 和設定檔對不上而失敗（`The tauri dependency features … does not match the allowlist`），Rust 端建置走 `cargo tauri build`；單元測試的繞法見下方「單元測試」。
 - **PowerShell 5.1 會吃掉傳給原生程式的 `--`**：`cargo tauri build … -- --profile test-build` 在 PowerShell 裡跑，`--profile` 會被當成 tauri-cli 自己的參數，結果 panic 在 `Option::unwrap()`（2026-10-22 踩過）。這條指令一律用 Bash 跑。
 - **另一個程序正在 `rustup update` 時**，工具鏈會裝到一半（`rustc.exe` 暫時不存在），`cargo` 報 `binary … is not applicable to the toolchain`、tauri-cli 在讀 `rustc -vV` 時 panic。等它跑完再建，不要去砍那個程序。
+- **在 Mac 上驗證 Windows-only 的 Rust 改動**：整包 `cargo check --target x86_64-pc-windows-msvc` 會在 `ring` 的 C 編譯失敗（找不到 MSVC 的 `assert.h`），做不到。改把要查的檔（例如 `job.rs`＋`agent_rule.rs`）複製進一個只依賴 `windows-sys`（features 照 `src-tauri/Cargo.toml`）的 scratch crate，`lib.rs` 只宣告那幾個 `mod`，先 `rustup target add x86_64-pc-windows-msvc`，再 `cargo check --target x86_64-pc-windows-msvc --tests`。只能證明那幾個檔能編譯，不代表整包或執行行為沒問題；檔案若 `use crate::` 其他模組就得一併複製。
 
 ## 單元測試
 
@@ -58,6 +59,7 @@ cd .. && node tests/e2e/run.mjs [--keep]   # --keep 留下暫存資料夾供檢�
 - 本機沒有 `cargo tauri`：直接 `cargo build`，加 `tauri/custom-protocol` 把 `dist/` 嵌進執行檔（不加會去連 dev server），`TAURI_CONFIG` 換成測試 identifier。
 - 機制：`panex-cli e2e` 走既有控制通道（`PANEX_PIPE_NAME`）→ `src-tauri/src/e2e.rs` 用 `webview.eval` 執行 → 結果經 `ctl_reply` 傳回（共用 `control::ask_frontend`）。三道鎖：feature 預設關、要帶啟動時設的 `PANEX_E2E_TOKEN`、identifier 是 `dev.panex.terminal` 一律拒絕。
 - 隔離：`run.mjs` 把 `HOME` 指到暫存資料夾，app data（含合成的 `session.json`）、`~/.claude`、shell rc 都落在那裡；剪貼簿改成在視窗裡攔 `navigator.clipboard.writeText` 記錄，不碰系統剪貼簿。小隊模式用假 `claude` 腳本（commit 後自己送 Stop 給 `panex-cli notify`）。
+- **用真的 Claude Code 驗收（休眠、記憶體這類要看真實程序樹的功能）**：假 `claude` 腳本看不出真 MCP server、tool shell 的行為，要用真的跑。另寫一支腳本（不放進 repo）：`HOME` 維持真的（claude 才有登入，使用者 `~/.claude/settings.json` 裡的 panex hooks 會因分頁環境的 `PANEX_PIPE`／`PANEX_TOKEN` 打到測試實例，不是正式版）；`XDG_CONFIG_HOME` 指 scratch、裡面 `panex/panex.json` 設 `{"agent":{"hibernateAfterMinutes":1}}` 加速；`session.json` 合成兩個分頁。HOME 是真的，測試實例的 app data 就落在真的 `~/Library/Application Support/dev.panex.terminal.test`（舊測試殘留可能還在），開測前先 `rename` 備份、結束後還原，**不要碰 `dev.panex.terminal`（使用者正式版）**。真 claude 的提示詞要放在 `--allowedTools` 等 variadic 旗標**前面**，否則提示詞被當成工具名吞掉、claude 一直閒著。程序樹用 `ps -axo pid=,ppid=,rss=,command=` 從分頁 shell 沿 ppid 往下建，跟資源面板的程序數、記憶體對照；找 claude 要用 `command` 開頭（`claude `）比對，單用 `/claude/` 會誤中路徑含 `.claude` 的 tool shell。結束後 `pkill` 測試用的 claude，因為 Mac 沒有 kill-on-close，砍掉測試實例不會帶走它們。2026-10-27 靠這個抓到兩個自動化 e2e 沒測到的缺口（設定列被 `win-only` 藏掉、資源面板沒有 Mac 快捷鍵）。
 - 雷：
   - **CSP 擋 `new Function`／`eval`**：視窗內動態編譯 JS 會丟錯（WebKit 的 stack 還不帶訊息，只看到 `AsyncFunction@[native code]`）。原生的 `webview.eval` 不受 CSP 限制，所以 JS 本體直接嵌進注入的腳本。
   - **送進去的 JS 有語法錯誤 → 整段不執行，60 秒後才逾時**，不會回錯誤訊息。看到 `panex did not answer` 先查語法。
