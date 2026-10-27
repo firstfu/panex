@@ -4,6 +4,18 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — 發布 0.7.9（tag `v0.7.9`）
+
+**變更**
+- 版本號改到 0.7.9（同 0.7.8 那九個檔）；內容是 `89766e8`（閒置 tool shell 不擋休眠）與 `4282f6f`（預設 15 分鐘）。發版前前端 16 項、Rust 34＋3 項全過（先前兩個 worktree 測試已修好）。CI 全綠，release 已發布，兩個安裝檔與 `latest.json` 的 latest 轉址都指向 v0.7.9。
+
+**驗證**
+- 測試實例（假 claude／bash 程序樹，呼叫 `pty_hibernate(onlyAgent=true)`）：閒置 bash 的分頁休眠成功；bash 底下有執行中子程序、裸 shell 都拒絕。沒用真的 Claude Code 驗證。
+
+**下一步**
+- 驗收時 `Ctrl+1` 切不到第一個工作區（`Ctrl+2`、`Ctrl+3` 正常），沒查是測試腳本問題還是快捷鍵 bug。
+- 後續候選：記憶體壓力觸發休眠、每分頁選 MCP 組合；休眠機制尚未寫進 `reference/overview.md`。
+
 ## 2026-10-27 — 自動休眠放寬：claude 底下閒置的 bash／powershell 不再擋休眠（`89766e8`）
 
 **變更**
