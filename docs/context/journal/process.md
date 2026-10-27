@@ -4,6 +4,24 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — Windows 每個分頁的 shell 放進 Job Object，關分頁連同 MCP 子程序一起收掉
+
+**變更**
+- 新增 `src-tauri/src/job.rs`：`Job::assign` 建 Job Object（`KILL_ON_JOB_CLOSE | BREAKAWAY_OK`），把 shell 指派進去；`Drop` 關 handle。`Cargo.toml` 的 `windows-sys` 補 `Win32_Security`、`Win32_System_JobObjects`。
+- `pty.rs`：`Pane` 多一個 `#[cfg(windows)] job: Option<Job>`（建不起來只 `eprintln!`，分頁照開）；`tab_close` 先 `TerminateJobObject` 再 kill shell。shell 自己 exit、panex 當掉或結束時，job handle 被關閉，觸發 kill-on-close。`kill_all` 的 `mem::forget` 沒改。
+- 行為改變：從分頁開的 GUI 程式（`code .`、`start notepad`）會隨分頁關閉，也會在 panex 結束、更新重開時一起被關。
+
+**為什麼**
+- 使用者的 panex 開 10 個 Claude Code 分頁吃到 13 GB，查到 Claude Code 在 Windows 收不乾淨 MCP 子程序（anthropics/claude-code#1935、#90362）。這些子程序有自己的 console，不會隨 pseudoconsole 結束，只有終端機這層兜得住。cmux、orca 都沒做這件事。
+
+**驗證**
+- 測試實例在分頁跑 `start "" /min node -e …`（模擬有自己 console 的 MCP）和 `start /b ping …`，測 `tab_close`、shell `exit`、`Stop-Process -Force` 三種情況，全部清乾淨；重開後 session 還原正常。對照組把指派 job 拿掉，三種情況都殘留 node 和 conhost。
+- Rust 單元測試 25 過 2 敗，失敗的是既有的兩個 git worktree 測試（`\\?\` 前綴）。
+
+**下一步**
+- P1：每個分頁顯示記憶體與 process 數（可用 job 的 `JobObjectBasicAccountingInformation`、`JobObjectBasicProcessIdList`）。
+- macOS 對應做法（process group）待補。
+
 ## 2026-10-27 — 側欄可隱藏單一工作區，發布 0.7.5（tag `v0.7.5`）
 
 **變更**

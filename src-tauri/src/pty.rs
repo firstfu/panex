@@ -18,6 +18,9 @@ pub struct Pane {
     writer: Box<dyn Write + Send>,
     master: Box<dyn MasterPty + Send>,
     killer: Box<dyn ChildKiller + Send + Sync>,
+    /// None if the job could not be set up; the tab still works, it just isn't contained.
+    #[cfg(windows)]
+    job: Option<crate::job::Job>,
     /// Swappable so a reloaded webview can re-attach to a shell that is still running.
     out: Arc<Mutex<Channel<InvokeResponseBody>>>,
 }
@@ -106,9 +109,23 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let killer = child.clone_killer();
+    #[cfg(windows)]
+    let job = child.as_raw_handle().and_then(|h| {
+        crate::job::Job::assign(h).map_err(|e| eprintln!("panex: tab {id} not in a job: {e}")).ok()
+    });
 
     let out = Arc::new(Mutex::new(on_data));
-    state.ptys.lock().unwrap().insert(id.clone(), Pane { writer, master: pair.master, killer, out: out.clone() });
+    state.ptys.lock().unwrap().insert(
+        id.clone(),
+        Pane {
+            writer,
+            master: pair.master,
+            killer,
+            #[cfg(windows)]
+            job,
+            out: out.clone(),
+        },
+    );
 
     std::thread::spawn(move || {
         let mut buf = vec![0u8; 64 * 1024];
@@ -167,6 +184,10 @@ pub fn tab_close(state: State<AppState>, id: String) {
         let _ = std::fs::remove_file(p);
     }
     if let Some(pane) = state.ptys.lock().unwrap().get_mut(&id) {
+        #[cfg(windows)]
+        if let Some(job) = &pane.job {
+            job.terminate();
+        }
         let _ = pane.killer.kill();
     }
 }
@@ -178,7 +199,8 @@ pub fn kill_all(state: &AppState) {
         let _ = pane.killer.kill();
     }
     // Closing a pseudoconsole can block while it drains; the process is exiting anyway,
-    // so let the OS reclaim the handles instead of dropping them here.
+    // so let the OS reclaim the handles instead of dropping them here. That includes the
+    // job handles, whose closing then kills whatever is left in each tab.
     for (_, pane) in map.drain() {
         std::mem::forget(pane);
     }

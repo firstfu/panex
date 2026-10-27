@@ -10,6 +10,8 @@ mod e2e;
 mod fonts;
 mod git;
 mod hooks;
+#[cfg(windows)]
+mod job;
 mod links;
 mod notify;
 mod perms;
