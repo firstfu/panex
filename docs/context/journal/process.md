@@ -9,6 +9,7 @@
 **變更**
 - 版本號改到 0.7.6（同 0.7.5 那九個檔）；內容是 `d8161e0`（Windows 分頁放進 Job Object）、`3949f22`（資源使用面板）、`d3e7acc`（overview 補 Job Object 說明）。
 - 發版前前端測試 15 項全過；Rust 27 項中 2 項失敗，仍是 0.7.5 時已知的兩個 git worktree 測試（`\?\` 前綴），未處理。
+- CI 兩平台（Windows、macOS）建置成功，`gh release edit --draft=false --latest` 發布；兩個安裝檔與 `latest.json` 的 `releases/latest/download` 皆回 302 指向 v0.7.6，網站部署成功。
 
 **下一步**
 - 使用者更新後確認：關分頁時 claude 與 MCP 一起消失、`Ctrl+Shift+M` 看得到各分頁記憶體。
