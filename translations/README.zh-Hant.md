@@ -15,7 +15,7 @@
 
 [English](../README.md) · 繁體中文
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 Windows 版（panex_0.7.8_x64-setup.exe）</b></a> · <a href="https://github.com/firstfu/panex/releases/latest"><b>macOS 版（panex_0.7.8_aarch64.dmg）</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>下載 Windows 版（panex_0.7.9_x64-setup.exe）</b></a> · <a href="https://github.com/firstfu/panex/releases/latest"><b>macOS 版（panex_0.7.9_aarch64.dmg）</b></a>
 
 <img src="../assets/hero.png" width="860" alt="panex：側欄三個工作區，一個在等待權限（藍色）、一個已完成（綠色），另一個工作區有兩個分頁">
 
@@ -119,7 +119,7 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 ### Windows
 
-1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.7.8_x64-setup.exe`。
+1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.7.9_x64-setup.exe`。
 2. 執行它。因為安裝檔沒有程式碼簽章，第一次 Windows SmartScreen 會跳出警告：按 **其他資訊**，再按 **仍要執行**。
 3. panex 只安裝給目前使用者（不需要系統管理員權限），並在開始選單加入捷徑。
 
@@ -127,7 +127,7 @@ panex 啟動時會自己設定好 [Claude Code hooks](#claude-code-通知)，不
 
 ### macOS（Apple Silicon）
 
-1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.7.8_aarch64.dmg`，打開後把 **panex** 拖進「應用程式」。
+1. 從 [Releases](https://github.com/firstfu/panex/releases/latest) 下載 `panex_0.7.9_aarch64.dmg`，打開後把 **panex** 拖進「應用程式」。
 2. App 沒有經過 Apple 公證，第一次開啟會被擋：先開一次，再到 **系統設定 → 隱私權與安全性** 按 **強制打開**。如果顯示「已損毀」，在終端機執行 `xattr -cr /Applications/panex.app` 後再開。
 
 分頁會啟動你的登入 shell（`$SHELL`，通常是 zsh）。預設快捷鍵用 ⌘：⌘T 新分頁、⌘W 關分頁、⌘N 新工作區、⌘1–9／⌥1–9 跳轉、⌘↑↓ 切工作區、⌘←→ 切分頁、⌘⇧G Git 面板、⌘⇧E 檔案、⌘B 側欄、⌘, 設定。
