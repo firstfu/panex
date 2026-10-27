@@ -144,8 +144,15 @@ fn only_agent_in(pids: &[u32], procs: &HashMap<u32, (u32, String)>, shell: u32) 
         if procs.get(&top).map(|(_, e)| e.as_str()) != Some("claude.exe") {
             return false;
         }
+        // A tool shell with nothing running under it is a leftover of a finished command;
+        // one with a child is a background task (`sleep`, a dev server) that would be lost.
         if pid != top && matches!(exe.as_str(), "bash.exe" | "sh.exe" | "powershell.exe" | "pwsh.exe") {
-            return false;
+            let busy = pids
+                .iter()
+                .any(|c| procs.get(c).is_some_and(|(p, e)| *p == pid && e != "conhost.exe"));
+            if busy {
+                return false;
+            }
         }
         agent |= pid == top;
     }
@@ -218,9 +225,26 @@ mod tests {
     }
 
     #[test]
-    fn a_tool_shell_inside_claude_is_not() {
-        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (11, 10, "bash.exe")]));
-        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (11, 10, "cmd.exe"), (12, 11, "pwsh.exe")]));
+    fn a_tool_shell_with_a_running_child_is_not() {
+        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (11, 10, "bash.exe"), (12, 11, "sleep.exe")]));
+        assert!(!check(&[
+            (1, 0, "cmd.exe"),
+            (10, 1, "claude.exe"),
+            (11, 10, "cmd.exe"),
+            (12, 11, "pwsh.exe"),
+            (13, 12, "node.exe"),
+        ]));
+    }
+
+    #[test]
+    fn an_idle_tool_shell_inside_claude_is_fine() {
+        assert!(check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (11, 10, "bash.exe")]));
+        assert!(check(&[
+            (1, 0, "cmd.exe"),
+            (10, 1, "claude.exe"),
+            (11, 10, "bash.exe"),
+            (12, 11, "conhost.exe"),
+        ]));
     }
 
     #[test]
