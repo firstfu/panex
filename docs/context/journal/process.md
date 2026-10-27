@@ -4,6 +4,22 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — macOS 也有分頁休眠、資源面板、關分頁收整棵程序樹
+
+**變更**
+- 新增 `job_unix.rs`（`#[path]` 掛成 `crate::job`，與 Windows 的 `Job` 同介面）：`ps -axo pid=,ppid=,rss=,comm=` 取程序表，從 shell pid 往下找子孫，`terminate` 逐一 SIGKILL 並重掃至多 4 輪（防收尾時又 fork）。`pty.rs` 去掉 `pty_usage`／`tab_close`／`pty_hibernate` 的 `cfg(windows)`。
+- 「只剩 claude 才自動休眠」規則抽成 `agent_rule.rs`，Windows／Mac 各給一組執行檔名；原測試搬過去。
+- 前端 `IS_WIN` 閘門改成 `CAN_MANAGE = IS_WIN || IS_MAC`（休眠、資源面板、右鍵選單）。
+
+**驗證**
+- `cargo test --lib` 36 項全過，含一個真程序測試：起 `sh` 底下有一個用 `setpgrp` 脫離原 group 的 `sleep`，`terminate` 後整棵消失。前端 tsc、`npm test` 16 項過。
+- `--features e2e` 端對端新增一項（`tests/e2e/run.mjs` 的 hibernate）：真 App、真 zsh 分頁裡跑一個叫 `claude` 的程序（`sleep` 的 symlink）加前景 `sleep`，`pty_hibernate(onlyAgent)` 拒絕且不殺；Ctrl+C 後只剩 claude 則成功、程序全消失。該項通過；整套 13 過 1 敗，敗的「files tab」在未改動的基準也一樣敗（既有問題，未查）。另有一次「關閉工作區並刪除 worktree」第一次跑敗、重跑兩次都過，疑為偶發。
+- **沒用**真的 Claude Code 驗證；Windows 端因規則抽出重構，只能靠 Windows CI 編譯確認。
+
+**下一步**
+- 請在 Mac 用測試實例實測：分頁起真 claude 閒置後休眠、切回來接回 session；背景任務不會被休眠；關分頁後 `ps` 無殘留。
+- 盲點：Mac 的 claude 若不是以 `claude` 為執行檔名（例如 npm 安裝顯示成 `node`）會被判成「不只 claude」而不自動休眠；panex 當掉無保護（沒有 kill-on-close）。
+
 ## 2026-10-27 — 發布 0.7.9（tag `v0.7.9`）
 
 **變更**

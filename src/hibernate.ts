@@ -1,4 +1,4 @@
-// Hibernating tabs (Windows only): ending a hidden tab's shell, Claude Code and MCP servers to
+// Hibernating tabs (Windows and macOS): ending a hidden tab's shell, Claude Code and MCP servers to
 // give their memory back, while the tab and its scrollback stay. Viewing the tab again starts
 // the shell in the same folder and `claude --resume`s the session (spawn → autoResume).
 // Automatic hibernation is a one-shot timer per tab, armed only while the tab is out of sight
@@ -10,11 +10,11 @@ import { type Tab } from "./types";
 import { S, tabs } from "./state";
 import { spawn } from "./terminal";
 import { scheduleRender } from "./render";
-import { IS_WIN } from "./platform";
+import { CAN_MANAGE } from "./platform";
 
 /** Whether the tab can be hibernated by hand right now: hidden, with a local shell running. */
 export function canHibernate(tab: Tab) {
-  return IS_WIN && tab.running && !tab.hibernated && !tab.ssh && tab.id !== S.visibleTabId;
+  return CAN_MANAGE && tab.running && !tab.hibernated && !tab.ssh && tab.id !== S.visibleTabId;
 }
 
 /** Whether the tab's agent is idle enough to hibernate without asking: not mid-turn and not

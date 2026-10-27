@@ -2651,6 +2651,7 @@ version = "0.7.9"
 dependencies = [
  "base64 0.22.1",
  "fontdb",
+ "libc",
  "notify",
  "portable-pty",
  "serde",

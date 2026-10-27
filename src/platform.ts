@@ -2,5 +2,7 @@
 // where ⌘ does what Ctrl does on Windows and Ctrl stays with the terminal.
 
 export const IS_MAC = /Mac/.test(navigator.userAgent);
-/** Only Windows tabs run in a Job Object, so per-tab memory is only known there. */
 export const IS_WIN = /Windows/.test(navigator.userAgent);
+/** Tabs whose whole process tree the backend can measure and end (Job Object on Windows,
+ *  descendant walk on macOS): per-tab memory, hibernation. Not offered elsewhere. */
+export const CAN_MANAGE = IS_WIN || IS_MAC;

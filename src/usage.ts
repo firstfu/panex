@@ -1,6 +1,7 @@
-// "Resources": memory and process count per running tab, read from each tab's Job Object
-// (Windows only). Nothing is polled: the dialog reads once when opened or refreshed, and
-// the sidebar reads a workspace's tabs when the pointer moves onto its row.
+// "Resources": memory and process count per running tab, read from each tab's process tree
+// (Job Object on Windows, descendants of the shell on macOS). Nothing is polled: the dialog
+// reads once when opened or refreshed, and the sidebar reads a workspace's tabs when the
+// pointer moves onto its row.
 
 import { invoke } from "@tauri-apps/api/core";
 import { t as tr } from "./i18n";
@@ -8,7 +9,7 @@ import { $, esc } from "./util";
 import { activeTab, tabs, tabTitle, workspaces, wsOrder, wsTitle } from "./state";
 import { showTab } from "./workspaces";
 import { hideCtx } from "./context-menu";
-import { IS_WIN } from "./platform";
+import { CAN_MANAGE } from "./platform";
 import { canHibernate, hibernate } from "./hibernate";
 
 type Usage = { id: string; bytes: number; procs: number };
@@ -24,7 +25,7 @@ export function fmtBytes(n: number) {
 const read = () => invoke<Usage[]>("pty_usage").catch(() => [] as Usage[]);
 
 export function openUsage() {
-  if (!IS_WIN) return;
+  if (!CAN_MANAGE) return;
   hideCtx();
   usageEl.hidden = false;
   refresh();
@@ -82,7 +83,7 @@ listEl.addEventListener("click", async (e) => {
 // The sidebar re-renders often, so remember the element, not just the id.
 let hovered: HTMLElement | null = null;
 $("tabs").addEventListener("mouseover", (e) => {
-  if (!IS_WIN) return;
+  if (!CAN_MANAGE) return;
   const row = (e.target as HTMLElement).closest<HTMLElement>("[data-ws]");
   if (!row || row === hovered) return;
   hovered = row;

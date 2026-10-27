@@ -19,10 +19,8 @@ pub struct Pane {
     master: Box<dyn MasterPty + Send>,
     killer: Box<dyn ChildKiller + Send + Sync>,
     /// None if the job could not be set up; the tab still works, it just isn't contained.
-    #[cfg(windows)]
     job: Option<crate::job::Job>,
     /// The shell's pid, the root of the tree `pty_hibernate` inspects.
-    #[cfg(windows)]
     pid: Option<u32>,
     /// Swappable so a reloaded webview can re-attach to a shell that is still running.
     out: Arc<Mutex<Channel<InvokeResponseBody>>>,
@@ -112,12 +110,13 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let killer = child.clone_killer();
-    #[cfg(windows)]
     let pid = child.process_id();
     #[cfg(windows)]
     let job = child.as_raw_handle().and_then(|h| {
         crate::job::Job::assign(h).map_err(|e| eprintln!("panex: tab {id} not in a job: {e}")).ok()
     });
+    #[cfg(unix)]
+    let job = pid.map(crate::job::Job::assign);
 
     let out = Arc::new(Mutex::new(on_data));
     let mine = out.clone();
@@ -127,9 +126,7 @@ pub fn pty_spawn(
             writer,
             master: pair.master,
             killer,
-            #[cfg(windows)]
             job,
-            #[cfg(windows)]
             pid,
             out: out.clone(),
         },
@@ -198,22 +195,14 @@ pub struct Usage {
 }
 
 /// Memory and process count of each running tab, read on demand (the resources dialog,
-/// hovering a workspace). Empty off Windows, where tabs have no job to ask.
+/// hovering a workspace).
 #[tauri::command]
 pub fn pty_usage(state: State<AppState>) -> Vec<Usage> {
-    #[cfg(windows)]
-    {
-        let map = state.ptys.lock().unwrap();
-        map.iter()
-            .filter_map(|(id, p)| p.job.as_ref().map(|j| (id, j.usage())))
-            .map(|(id, (bytes, procs))| Usage { id: id.clone(), bytes, procs })
-            .collect()
-    }
-    #[cfg(not(windows))]
-    {
-        let _ = state;
-        Vec::new()
-    }
+    let map = state.ptys.lock().unwrap();
+    map.iter()
+        .filter_map(|(id, p)| p.job.as_ref().map(|j| (id, j.usage())))
+        .map(|(id, (bytes, procs))| Usage { id: id.clone(), bytes, procs })
+        .collect()
 }
 
 /// Closes a tab for good: deletes its scrollback and kills its shell. The frontend saves
@@ -227,7 +216,6 @@ pub fn tab_close(state: State<AppState>, id: String) {
         let _ = std::fs::remove_file(p);
     }
     if let Some(pane) = state.ptys.lock().unwrap().get_mut(&id) {
-        #[cfg(windows)]
         if let Some(job) = &pane.job {
             job.terminate();
         }
@@ -241,30 +229,21 @@ pub fn tab_close(state: State<AppState>, id: String) {
 /// Claude Code the frontend can `--resume` (see `Job::only_agent`).
 #[tauri::command]
 pub fn pty_hibernate(state: State<AppState>, id: String, only_agent: bool) -> Result<bool, String> {
-    #[cfg(windows)]
-    {
-        let mut map = state.ptys.lock().unwrap();
-        let Some(pane) = map.get(&id) else { return Ok(false) };
-        let Some(job) = &pane.job else { return Err("tab not in a job".into()) };
-        if only_agent && !pane.pid.is_some_and(|pid| job.only_agent(pid)) {
-            return Ok(false);
-        }
-        let mut pane = map.remove(&id).unwrap();
-        drop(map);
-        if let Some(job) = &pane.job {
-            job.terminate();
-        }
-        let _ = pane.killer.kill();
-        // Closing the pseudoconsole can block while it drains; keep that off the IPC thread.
-        std::thread::spawn(move || drop(pane));
-        Ok(true)
+    let mut map = state.ptys.lock().unwrap();
+    let Some(pane) = map.get(&id) else { return Ok(false) };
+    let Some(job) = &pane.job else { return Err("tab not in a job".into()) };
+    if only_agent && !pane.pid.is_some_and(|pid| job.only_agent(pid)) {
+        return Ok(false);
     }
-    #[cfg(not(windows))]
-    {
-        // Killing the shell would leave claude and its MCP servers running: nothing freed.
-        let _ = (state, id, only_agent);
-        Err("not supported on this platform".into())
+    let mut pane = map.remove(&id).unwrap();
+    drop(map);
+    if let Some(job) = &pane.job {
+        job.terminate();
     }
+    let _ = pane.killer.kill();
+    // Closing the pseudoconsole can block while it drains; keep that off the IPC thread.
+    std::thread::spawn(move || drop(pane));
+    Ok(true)
 }
 
 /// Called once on app exit. The session is left untouched so the next launch restores it.

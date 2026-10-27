@@ -394,6 +394,27 @@ echo $? > "${tmp}/remove.code"
       evalJs(`window.__e2e.key("c", "KeyC", 67, { ctrlKey: true }); return true;`);
     });
 
+    await check("hibernate: ends the tab's whole tree, but only auto-hibernates when nothing but claude is in it", async () => {
+      // A symlink to sleep named claude shows up in ps as `claude`, like the real thing.
+      const bin = join(tmp, "fakebin");
+      mkdirSync(bin, { recursive: true });
+      if (!existsSync(join(bin, "claude"))) sh("ln", ["-s", "/bin/sleep", join(bin, "claude")]);
+      const paneFile = join(tmp, "hib-pane.txt");
+      const alive = (arg) => { try { return !!sh("pgrep", ["-f", arg]).trim(); } catch { return false; } };
+      const hib = (id, only) => evalJs(`return await window.__TAURI_INTERNALS__.invoke("pty_hibernate", { id: ${JSON.stringify(id)}, onlyAgent: ${only} })`);
+      evalJs(`window.__e2e.run(${JSON.stringify(`echo $PANEX_PANE_ID > '${paneFile}'; '${bin}/claude' 3142 & sleep 3141`)}); return true;`);
+      const pane = await waitFor("the pane id", () => existsSync(paneFile) && readFileSync(paneFile, "utf8").trim(), 5000);
+      await waitFor("both programs", () => alive("claude 3142") && alive("sleep 3141"), 5000);
+      // claude plus a foreground program of the user's: refused, nothing killed.
+      if (hib(pane, true) !== false) throw new Error("auto-hibernated a tab with a user program in it");
+      if (!alive("claude 3142")) throw new Error("the refused hibernate still killed claude");
+      // Ctrl+C ends the foreground sleep; claude alone is left, which may go.
+      evalJs(`window.__e2e.key("c", "KeyC", 67, { ctrlKey: true }); return true;`);
+      await waitFor("sleep to end", () => !alive("sleep 3141"), 5000);
+      if (hib(pane, true) !== true) throw new Error("did not hibernate a tab with only claude in it");
+      await waitFor("claude to be gone", () => !alive("claude 3142"), 5000);
+    });
+
     await check("eval is refused without the token", () => {
       let out;
       try {

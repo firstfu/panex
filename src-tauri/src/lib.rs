@@ -2,6 +2,7 @@
 //! config, installs the Claude Code hooks and starts the notification / control pipe at launch, and
 //! flushes state on exit. Each concern lives in its own module below.
 
+mod agent_rule;
 mod config;
 mod control;
 mod files;
@@ -11,6 +12,9 @@ mod fonts;
 mod git;
 mod hooks;
 #[cfg(windows)]
+mod job;
+#[cfg(unix)]
+#[path = "job_unix.rs"]
 mod job;
 mod links;
 mod notify;
