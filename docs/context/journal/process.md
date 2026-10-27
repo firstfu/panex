@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — 「資源使用」面板：每個分頁的記憶體與程序數（Windows）
+
+**變更**
+- `job.rs` 加 `Job::usage()`：用 `JobObjectBasicProcessIdList` 列出 job 裡的程序，逐一 `K32GetProcessMemoryInfo` 加總 `PrivateUsage`。`pty.rs` 新指令 `pty_usage` 回傳 `[{id, bytes, procs}]`，非 Windows 回空陣列。`windows-sys` 補 `Win32_System_ProcessStatus`、`Win32_System_Threading`。
+- 新增 `src/usage.ts`：「資源使用」對話框（`showUsage`，預設 `Ctrl+Shift+M`、mac 不綁；工作區右鍵選單也有），依記憶體排序列出執行中的分頁、附合計，點一列切到該分頁；滑鼠移到側欄工作區時查一次，把「記憶體 N・M 個程序」放進該列的 tooltip。`platform.ts` 加 `IS_WIN`，只在 Windows 出現。
+- 使用者定案：不在側欄常駐數字（那要輪詢，違反閒置零成本），只在開對話框、按重新整理、滑鼠移入時讀。
+
+**驗證**
+- 測試實例兩個工作區，一個分頁跑佔 300 MB 的 node：`pty_usage` 回 331 MB／3 程序與 5 MB／1 程序，跟 `Get-Process` 加總同一棵程序樹一致；`Ctrl+Shift+M` 開出的表與兩個工作區的 tooltip 數字相同。前端測試 15 項全過。
+
+**下一步**
+- 使用者裝新版後實際看哪些分頁最肥，再決定要不要做 P2（每個分頁選 MCP 組合）。
+
 ## 2026-10-27 — Windows 每個分頁的 shell 放進 Job Object，關分頁連同 MCP 子程序一起收掉
 
 **變更**

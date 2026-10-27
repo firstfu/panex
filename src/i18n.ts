@@ -330,6 +330,17 @@ const EN: Record<string, string> = {
   "未追蹤": "Untracked",
   "未追蹤的資料夾": "Untracked folder",
   "空檔案": "Empty file",
+  "資源使用": "Resource usage",
+  "資源使用…": "Resource usage…",
+  "資源使用（每個分頁的記憶體）": "Resource usage (memory per tab)",
+  "每個分頁連同它開的所有程式（claude、MCP server…）加總；記憶體是各程式的私有記憶體。點一列切到該分頁。":
+    "Each tab together with everything it started (claude, MCP servers…); memory is the sum of their private memory. Click a row to switch to that tab.",
+  "工作區 / 分頁": "Workspace / tab",
+  "記憶體": "Memory",
+  "程序": "Processes",
+  "合計": "Total",
+  "沒有執行中的分頁": "No running tabs",
+  "記憶體 {m}・{n} 個程序": "Memory {m} · {n} processes",
 };
 
 let lang: Lang = "zh-Hant";

@@ -11,6 +11,7 @@ import { openWorktreeDialog } from "./worktree-dialog";
 import { moveBy } from "./groups";
 import { visibleOrder } from "./hidden";
 import { openSshDialog } from "./ssh-dialog";
+import { openUsage } from "./usage";
 import { togglePanel } from "./git-panel";
 import { openSearch } from "./search";
 import { startRename } from "./rename";
@@ -59,6 +60,7 @@ export function runAction(id: string, digit = 0) {
     case "toggleSidebar": return updateSettings({ sidebarHidden: !S.settings.sidebarHidden });
     case "toggleGitPanel": return togglePanel("git");
     case "toggleFilesPanel": return togglePanel("files");
+    case "showUsage": return openUsage();
     case "clearScrollback": return tab?.term.clear();
     case "find": return openSearch();
     case "copy": return copySelection(tab);

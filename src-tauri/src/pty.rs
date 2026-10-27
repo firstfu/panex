@@ -173,6 +173,32 @@ pub fn pty_resize(state: State<AppState>, id: String, cols: u16, rows: u16) -> R
         .map_err(|e| e.to_string())
 }
 
+#[derive(Serialize)]
+pub struct Usage {
+    id: String,
+    bytes: u64,
+    procs: u32,
+}
+
+/// Memory and process count of each running tab, read on demand (the resources dialog,
+/// hovering a workspace). Empty off Windows, where tabs have no job to ask.
+#[tauri::command]
+pub fn pty_usage(state: State<AppState>) -> Vec<Usage> {
+    #[cfg(windows)]
+    {
+        let map = state.ptys.lock().unwrap();
+        map.iter()
+            .filter_map(|(id, p)| p.job.as_ref().map(|j| (id, j.usage())))
+            .map(|(id, (bytes, procs))| Usage { id: id.clone(), bytes, procs })
+            .collect()
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = state;
+        Vec::new()
+    }
+}
+
 /// Closes a tab for good: deletes its scrollback and kills its shell. The frontend saves
 /// the layout without the tab first, so a late snapshot can't bring the file back.
 #[tauri::command]

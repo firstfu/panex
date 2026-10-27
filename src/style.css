@@ -713,7 +713,7 @@ body.no-hints .t-num { display: none; }
 #notice button { border: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.1); color: inherit; padding: 3px 8px; cursor: pointer; }
 
 /* New-worktree dialog */
-#wt, #ssh, #close-ask, #wt-rm { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
+#wt, #ssh, #close-ask, #wt-rm, #usage { color-scheme: dark; --s-panel: #1a1a1f; --s-line: #2c2c34; --s-field: #121216; --s-text: #e6e6ea; --s-muted: #8d8d97; --s-accent: #3b82f6;
   font-family: "Segoe UI Variable Text", "Segoe UI", "Microsoft JhengHei UI", "Microsoft JhengHei", system-ui, sans-serif; }
 .wt-panel {
   display: flex; flex-direction: column; gap: 12px; width: min(420px, calc(100vw - 32px)); padding: 20px 22px;
@@ -734,6 +734,15 @@ body.no-hints .t-num { display: none; }
 .wt-actions .primary.danger:hover { background: #c81e1e; }
 .ask-text { margin: 0; font-size: 13px; line-height: 1.6; color: var(--s-text); }
 .ask-text.muted { font-size: 12.5px; color: var(--s-muted); }
+.usage-panel { width: min(560px, calc(100vw - 32px)); }
+#usage-list { width: 100%; border-collapse: collapse; font-size: 13px; }
+#usage-list th { text-align: left; font-weight: 500; color: var(--s-muted); padding: 0 8px 6px; border-bottom: 1px solid var(--s-line); }
+#usage-list td { padding: 5px 8px; font-variant-numeric: tabular-nums; }
+#usage-list th:not(:first-child), #usage-list td:not(:first-child) { text-align: right; white-space: nowrap; }
+#usage-list tbody tr { cursor: pointer; }
+#usage-list tbody tr:hover { background: rgba(255, 255, 255, 0.05); }
+#usage-list .u-name { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#usage-list tfoot td { border-top: 1px solid var(--s-line); font-weight: 600; }
 .wt-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .wt-actions button { font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
 .wt-actions .primary { border: 0; background: var(--s-accent); color: #fff; }

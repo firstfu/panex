@@ -11,6 +11,8 @@ import { openWorktreeDialog } from "./worktree-dialog";
 import { isWorktreeWs, openWorktreeRemove } from "./worktree-remove";
 import { startRename } from "./rename";
 import { canHide, isHidden, setHidden } from "./hidden";
+import { openUsage } from "./usage";
+import { IS_WIN } from "./platform";
 
 export const ctxEl = $("ctx");
 
@@ -29,6 +31,7 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     { label: tr("用新 worktree 開新工作區…"), keys: keyLabel("newWorktree"), run: () => (showWorkspace(ws.id), openWorktreeDialog()) },
     ...groupItems(ws),
     copyPathItem(cwd),
+    ...(IS_WIN ? [{ label: tr("資源使用…"), keys: keyLabel("showUsage"), run: openUsage }] : []),
     "-",
     { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveBy(ws.id, -1), disabled: !canMove(ws.id, -1) },
     { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveBy(ws.id, 1), disabled: !canMove(ws.id, 1) },

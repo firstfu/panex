@@ -46,6 +46,7 @@ export const ACTIONS: ActionDef[] = [
   { id: "toggleSidebar", group: "檢視", label: "顯示 / 隱藏側欄", default: "ctrl+alt+h", mac: "meta+b" },
   { id: "toggleGitPanel", group: "檢視", label: "顯示 / 隱藏 Git 面板", default: "ctrl+shift+g", mac: "meta+shift+g" },
   { id: "toggleFilesPanel", group: "檢視", label: "顯示 / 隱藏專案檔案", default: "ctrl+shift+e", mac: "meta+shift+e" },
+  { id: "showUsage", group: "檢視", label: "資源使用（每個分頁的記憶體）", default: "ctrl+shift+m", mac: null },
   { id: "find", group: "編輯", label: "搜尋捲動歷史", default: "ctrl+shift+f", mac: "meta+f" },
   { id: "clearScrollback", group: "編輯", label: "清除捲動歷史", default: "ctrl+shift+k", mac: "meta+k" },
   { id: "copy", group: "編輯", label: "複製選取文字", default: "ctrl+shift+c", mac: "meta+c" },
