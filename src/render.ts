@@ -141,10 +141,13 @@ function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
   const count = whole
     ? `<span class="t-count" title="${esc(tr("{n} 個工作區", { n: whole.length }))}">${whole.length}</span>`
     : ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
+  // Asleep only when every tab is: one awake tab still holds its memory.
+  const asleep = !whole && ws.tabs.every((id) => tabs.get(id)?.hibernated);
+  const sleep = asleep ? `<span class="t-sleep" title="${esc(tr("已休眠：切回來時自動接回"))}">zZ</span>` : "";
   const title =
     S.renaming?.kind === "ws" && S.renaming.id === wid
       ? renameInput
-      : `${caret}${dot}<span class="name">${esc(wsTitle(ws))}</span>${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
+      : `${caret}${dot}<span class="name">${esc(wsTitle(ws))}</span>${sleep}${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
   d.innerHTML =
     `<div class="t-title">${title}</div>` +
     (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +
@@ -200,9 +203,11 @@ function renderTabbar() {
   const items = ws.tabs.map((tid, i) => {
     const t = tabs.get(tid)!;
     const d = document.createElement("div");
-    d.className = `htab st-${t.status}${tid === S.visibleTabId ? " active" : ""}`;
+    d.className = `htab st-${t.status}${tid === S.visibleTabId ? " active" : ""}${t.hibernated ? " sleeping" : ""}`;
     d.dataset.tab = tid;
     if (t.note) d.title = t.note;
+    if (t.hibernated) d.title = (t.note ? `${t.note}
+` : "") + tr("已休眠：切回來時自動接回");
     const num = i < 8 ? i + 1 : i === ws.tabs.length - 1 ? 9 : 0;
     const hint = num ? digitHint("selectTabByNumber", num) : "";
     d.innerHTML =

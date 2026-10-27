@@ -15,6 +15,7 @@ import { scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { setCollapsed, tidyGroups } from "./groups";
 import { canHide, isHidden, setHidden, visibleOrder } from "./hidden";
+import { armHibernate, cancelHibernate } from "./hibernate";
 
 /** Shows a tab (switching workspace if needed). Only the visible tab keeps a WebGL context. */
 export function showTab(id: string) {
@@ -29,6 +30,8 @@ export function showTab(id: string) {
       prev.webgl?.dispose();
       prev.webgl = undefined;
     }
+    S.visibleTabId = id; // before arming: a tab counts as hidden once another one is visible
+    if (prev) armHibernate(prev);
   }
   S.visibleTabId = id;
   S.activeWsId = ws.id;
@@ -36,6 +39,7 @@ export function showTab(id: string) {
   if (isHidden(ws.id)) setHidden([ws.id], false); // showing a workspace means wanting to see it
   ws.activeTab = id;
   tab.el.hidden = false;
+  cancelHibernate(tab);
   if (!tab.opened) {
     tab.term.open(tab.el);
     tab.opened = true;

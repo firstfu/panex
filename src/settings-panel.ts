@@ -8,13 +8,14 @@ import { ACTIONS, GROUPS, digitFamily, eventCombo, formatBinding, formatCombo, r
 import { type LoadedConfig } from "./types";
 import { DEFAULTS, FONT_CUSTOM, GENERIC_FONTS, cssFont, fontNames, termFontFamily, type Settings } from "./settings";
 import { $, esc } from "./util";
-import { S, activeTab } from "./state";
+import { S, activeTab, tabs } from "./state";
 import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, writeConfig, writeSettingNow } from "./config";
 import { scheduleRender } from "./render";
 import { hideCtx } from "./context-menu";
 import { checkForUpdate, showManualResult } from "./update";
 import { openLink } from "./links";
 import { IS_MAC } from "./platform";
+import { armHibernate, cancelHibernate } from "./hibernate";
 import appIcon from "../src-tauri/icons/128x128@2x.png";
 
 export const settingsEl = $("settings");
@@ -174,6 +175,7 @@ export function fillSettings() {
   $<HTMLInputElement>("s-confirm-close").checked = S.settings.confirmClose;
   $<HTMLInputElement>("s-worktree-panex").checked = S.settings.worktreeViaPanex;
   $<HTMLInputElement>("s-scrollback").value = String(S.settings.scrollback);
+  $<HTMLInputElement>("s-hibernate").value = String(S.settings.hibernateMinutes);
   $<HTMLInputElement>("s-win-w").value = String(S.settings.windowWidth);
   $<HTMLInputElement>("s-win-h").value = String(S.settings.windowHeight);
   $("cfg-path").textContent = S.configPath;
@@ -436,6 +438,17 @@ $<HTMLInputElement>("s-hints").onchange = (e) => updateSettings({ modifierHints:
 $<HTMLInputElement>("s-scrollback").onchange = (e) => {
   const v = Math.min(100000, Math.max(500, Math.round(+(e.target as HTMLInputElement).value || DEFAULTS.scrollback)));
   updateSettings({ scrollback: v });
+};
+$<HTMLInputElement>("s-hibernate").onchange = (e) => {
+  const raw = (e.target as HTMLInputElement).value;
+  const v = raw === "" ? DEFAULTS.hibernateMinutes : Math.min(1440, Math.max(0, Math.round(+raw || 0)));
+  updateSettings({ hibernateMinutes: v });
+  (e.target as HTMLInputElement).value = String(v);
+  // Restart the countdowns with the new length.
+  for (const tab of tabs.values()) {
+    cancelHibernate(tab);
+    armHibernate(tab);
+  }
 };
 /** Saves the opening size and resizes the window to it right away. */
 function setWindowSize(width: number, height: number) {

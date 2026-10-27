@@ -249,6 +249,9 @@ button { font: inherit; }
 .htab.st-running .h-dot { background: var(--running); }
 .htab.st-idle .h-dot { display: none; }
 .htab .t-num { margin-left: 0; }
+/* Hibernated: its shell and agent were ended to free memory. */
+.htab.sleeping .h-name { font-style: italic; opacity: 0.6; }
+.htab.sleeping .h-name::after { content: " zZ"; font-size: 10px; opacity: 0.8; }
 .h-close {
   width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: none;
   color: var(--dim); cursor: pointer; visibility: hidden; flex: none;
@@ -269,6 +272,7 @@ button { font: inherit; }
 .htab.dragging { opacity: 0.4; }
 .htab .rename-input { width: 150px; }
 
+.t-sleep { flex: none; font-size: 10px; font-style: italic; color: var(--dim); }
 .t-count {
   flex: none; min-width: 18px; padding: 0 5px; border-radius: 9px; text-align: center;
   font-size: 10.5px; font-weight: 600; line-height: 16px; color: var(--dim); background: rgba(255, 255, 255, 0.08);
@@ -764,6 +768,8 @@ body.no-hints .t-num { display: none; }
 #usage-list tbody tr:hover { background: rgba(255, 255, 255, 0.05); }
 #usage-list .u-name { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #usage-list tfoot td { border-top: 1px solid var(--s-line); font-weight: 600; }
+#usage-list .u-sleep { padding: 1px 8px; border: 1px solid var(--s-line); border-radius: 5px; background: var(--s-field); color: var(--s-text); font: inherit; font-size: 12px; cursor: pointer; }
+#usage-list .u-sleep:hover { border-color: var(--s-accent); }
 .wt-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .wt-actions button { font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
 .wt-actions .primary { border: 0; background: var(--s-accent); color: #fff; }

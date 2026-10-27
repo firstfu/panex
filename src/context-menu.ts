@@ -13,6 +13,7 @@ import { startRename } from "./rename";
 import { canHide, isHidden, setHidden } from "./hidden";
 import { openUsage } from "./usage";
 import { IS_WIN } from "./platform";
+import { canHibernate, hibernateTabs } from "./hibernate";
 
 export const ctxEl = $("ctx");
 
@@ -32,6 +33,7 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     ...groupItems(ws),
     copyPathItem(cwd),
     ...(IS_WIN ? [{ label: tr("資源使用…"), keys: keyLabel("showUsage"), run: openUsage }] : []),
+    ...(IS_WIN ? [sleepItem(ws.tabs.map((id) => tabs.get(id)!), tr("休眠工作區"))] : []),
     "-",
     { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveBy(ws.id, -1), disabled: !canMove(ws.id, -1) },
     { label: tr("下移"), keys: keyLabel("moveWorkspaceDown"), run: () => moveBy(ws.id, 1), disabled: !canMove(ws.id, 1) },
@@ -101,6 +103,12 @@ function copyPathItem(cwd: string | undefined): MenuItem {
   return { label: tr("複製路徑"), run: () => void navigator.clipboard.writeText(cwd!).catch(() => {}), disabled: !cwd };
 }
 
+/** Hibernates the tabs that can be (hidden, shell running, no agent mid-turn); disabled when none can. */
+function sleepItem(list: Tab[], label: string): MenuItem {
+  const ok = list.filter((t) => canHibernate(t) && t.status !== "running");
+  return { label, run: () => hibernateTabs(ok), disabled: !ok.length };
+}
+
 export function tabMenu(tab: Tab): MenuItem[] {
   const ws = workspaces.get(tab.wsId)!;
   const i = ws.tabs.indexOf(tab.id);
@@ -108,6 +116,7 @@ export function tabMenu(tab: Tab): MenuItem[] {
   return [
     { label: tr("重新命名分頁…"), keys: keyLabel("renameTab"), run: () => startRename("tab", tab.id) },
     copyPathItem(tab.cwd),
+    ...(IS_WIN ? [sleepItem([tab], tr("休眠分頁"))] : []),
     "-",
     { label: tr("左移"), keys: keyLabel("moveTabLeft"), run: () => moveTab(tab.id, i - 1), disabled: i === 0 },
     { label: tr("右移"), keys: keyLabel("moveTabRight"), run: () => moveTab(tab.id, i + 1), disabled: i === ws.tabs.length - 1 },

@@ -256,6 +256,10 @@
               <div class="row-text"><b data-i18n>重開後接回 Claude Code</b><span data-i18n>重開 panex 時，上次還在跑 Claude Code 的分頁會自動執行 claude --resume</span></div>
               <label class="row-ctl switch"><input id="s-resume" type="checkbox" /><i></i></label>
             </div>
+            <div class="row win-only">
+              <div class="row-text"><b data-i18n>閒置分頁自動休眠</b><span data-i18n>看不到的分頁裡 Claude Code 停下超過這麼久，就結束它與 MCP 以釋放記憶體，切回分頁時自動接回；分頁裡還有其他程式在跑就不動它。0 = 不自動休眠</span></div>
+              <div class="row-ctl"><input id="s-hibernate" class="field num" type="number" min="0" max="1440" step="5" /><em class="unit" data-i18n>分鐘</em></div>
+            </div>
             <div class="row">
               <div class="row-text"><b data-i18n>agent 工作中關閉前先確認</b><span data-i18n>有 Claude Code 正在跑時關閉 panex 或它所在的分頁，先問一聲，免得誤關中斷它</span></div>
               <label class="row-ctl switch"><input id="s-confirm-close" type="checkbox" /><i></i></label>

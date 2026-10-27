@@ -4,6 +4,25 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — 分頁休眠：結束閒置分頁的 claude 與 MCP 釋放記憶體，切回自動接回（Windows）
+
+**變更**
+- 後端 `pty_hibernate(id, onlyAgent)`：把 pane 從表裡拿掉後終止 Job（整棵程序樹），分頁與 xterm 捲動歷史保留；下次 `pty_spawn` 開新 shell。`onlyAgent` 時先用 `Job::only_agent`（Toolhelp 快照，純函式 `only_agent_in` 有單元測試）確認 job 裡只有 shell、conhost、shell 直接開的 `claude.exe` 及其子孫，且 claude 底下沒有 bash／sh／powershell／pwsh（背景任務），否則不動。waiter 執行緒只在 map 裡還是同一個 pane（`Arc::ptr_eq`）時才報 `pty-exit`，休眠不會觸發 `endAgent` 清掉 session id，也不印「程序已結束」。
+- 前端 `src/hibernate.ts`：手動（分頁／工作區右鍵「休眠」、資源使用面板每列「休眠」按鈕）與自動（`agent.hibernateAfterMinutes`，預設 30，0 = 關）。自動倒數只在分頁「看不見＋claude 停著（非 running、非 asking）」時起算，之後的事件不重設倒數（否則 Claude 的 idle_prompt 會一直往後推）；後端拒絕時重試一次就放棄。喚醒走原本的 `spawn` → `autoResume`，休眠中的分頁不受「重開後接回」開關影響。側欄與分頁列顯示 zZ。
+- 實測（測試實例＋真的 Claude Code）：分頁 1.4 GB → 0；切回後 `claude --resume` 接回且記得前文；有背景 `sleep 600` 時自動休眠不動它；看得見的分頁選單為灰。
+
+**為什麼**
+- 實測使用者 panex 下約 14 GB，其中 claude 45%、MCP（每個 claude 各起一套 node／python）42%，介面只占 3%；凍結（suspend）不會釋放 commit，只有結束程序才會。
+
+**影響檔案**
+- `src-tauri/src/{pty,job,lib}.rs`、`src-tauri/Cargo.toml`（`Win32_System_Diagnostics_ToolHelp`）、`src/hibernate.ts`（新）、`src/{agent,terminal,workspaces,main,context-menu,usage,render,settings,settings-panel,i18n,types}.ts`、`src/style.css`、`index.html`
+
+**下一步**
+- 尚未 commit。macOS 不支援（沒有 Job，殺 shell 收不到 claude）。
+- 順手修掉的既有問題：
+  - Job 拿掉 `JOB_OBJECT_LIMIT_BREAKAWAY_OK`。原本 Claude 背景任務經 Git Bash 開的 `sleep.exe` 會跳出 Job，關分頁／休眠都收不到（實測重現）；拿掉後背景任務照常啟動、關分頁會一起結束，`git`、`start` 開新視窗、claude＋MCP 都正常。
+  - `git::tests::worktree_*` 兩個測試：`fs::canonicalize` 在 Windows 加了 `\\?\` 前綴，改用 `temp_base` 去掉；正式程式本來就不用 canonicalize，只修測試。
+
 ## 2026-10-27 — 檔案分頁：已修改檔案標出變更；面板快捷鍵改 Ctrl+Alt
 
 **變更**

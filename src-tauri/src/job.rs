@@ -4,12 +4,16 @@
 //! Windows, and those have their own consoles, so they would outlive the pseudoconsole.
 //! KILL_ON_JOB_CLOSE also covers panex crashing: the OS closes the handle and the job dies.
 
+use std::collections::HashMap;
 use std::os::windows::io::RawHandle;
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
+};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectBasicProcessIdList, JobObjectExtendedLimitInformation,
     QueryInformationJobObject, SetInformationJobObject, TerminateJobObject, JOBOBJECT_BASIC_PROCESS_ID_LIST,
-    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_BREAKAWAY_OK, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 use windows_sys::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX};
 use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
@@ -30,8 +34,9 @@ impl Job {
             }
             let job = Job(h);
             let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
-            // BREAKAWAY_OK lets a program that asks for CREATE_BREAKAWAY_FROM_JOB leave.
-            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+            // No BREAKAWAY_OK: with it, Git Bash (MSYS) starts programs outside the job (a Claude
+            // background task's `sleep`, for one), and they outlive the tab.
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
             let ok = SetInformationJobObject(
                 h,
                 JobObjectExtendedLimitInformation,
@@ -95,6 +100,12 @@ impl Job {
         }
     }
 
+    /// Whether ending the job loses nothing but a Claude Code that `claude --resume` brings
+    /// back (see `only_agent_in`). `shell` is the pid of the tab's shell.
+    pub fn only_agent(&self, shell: u32) -> bool {
+        only_agent_in(&self.pids(), &snapshot(), shell)
+    }
+
     pub fn terminate(&self) {
         unsafe {
             TerminateJobObject(self.0, 1);
@@ -102,10 +113,125 @@ impl Job {
     }
 }
 
+/// The rule behind `Job::only_agent`: every process in `pids` is the shell, a console host,
+/// or part of a `claude.exe` the shell started, and that claude has no Bash / PowerShell tool
+/// shell open (a background task). Anything else (a dev server, a GUI app from `start`, a
+/// process whose parent is gone) means no; so does no claude at all.
+fn only_agent_in(pids: &[u32], procs: &HashMap<u32, (u32, String)>, shell: u32) -> bool {
+    let mut agent = false;
+    for &pid in pids {
+        if pid == shell {
+            continue;
+        }
+        let Some((_, exe)) = procs.get(&pid) else { continue }; // already gone
+        if exe == "conhost.exe" {
+            continue;
+        }
+        // Walk up to the process the shell itself started; give up on a broken chain.
+        let (mut cur, mut top) = (pid, None);
+        for _ in 0..64 {
+            let Some(&(parent, _)) = procs.get(&cur) else { break };
+            if parent == shell {
+                top = Some(cur);
+                break;
+            }
+            if !pids.contains(&parent) {
+                break;
+            }
+            cur = parent;
+        }
+        let Some(top) = top else { return false };
+        if procs.get(&top).map(|(_, e)| e.as_str()) != Some("claude.exe") {
+            return false;
+        }
+        if pid != top && matches!(exe.as_str(), "bash.exe" | "sh.exe" | "powershell.exe" | "pwsh.exe") {
+            return false;
+        }
+        agent |= pid == top;
+    }
+    agent
+}
+
+/// Every process on the machine: pid → (parent pid, lower-case exe name).
+fn snapshot() -> HashMap<u32, (u32, String)> {
+    let mut map = HashMap::new();
+    unsafe {
+        let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if snap == INVALID_HANDLE_VALUE {
+            return map;
+        }
+        let mut e: PROCESSENTRY32W = std::mem::zeroed();
+        e.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
+        let mut ok = Process32FirstW(snap, &mut e);
+        while ok != 0 {
+            let len = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(e.szExeFile.len());
+            let exe = String::from_utf16_lossy(&e.szExeFile[..len]).to_lowercase();
+            map.insert(e.th32ProcessID, (e.th32ParentProcessID, exe));
+            ok = Process32NextW(snap, &mut e);
+        }
+        CloseHandle(snap);
+    }
+    map
+}
+
 impl Drop for Job {
     fn drop(&mut self) {
         unsafe {
             CloseHandle(self.0);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// (pid, parent, exe) rows; the shell is pid 1.
+    fn check(rows: &[(u32, u32, &str)]) -> bool {
+        let procs = rows.iter().map(|&(p, pp, e)| (p, (pp, e.to_string()))).collect();
+        let pids: Vec<u32> = rows.iter().map(|r| r.0).collect();
+        only_agent_in(&pids, &procs, 1)
+    }
+
+    #[test]
+    fn claude_with_mcp_servers_is_only_agent() {
+        assert!(check(&[
+            (1, 0, "cmd.exe"),
+            (2, 1, "conhost.exe"),
+            (10, 1, "claude.exe"),
+            (11, 10, "cmd.exe"),
+            (12, 11, "node.exe"),
+            (13, 12, "conhost.exe"),
+            (14, 10, "python.exe"),
+        ]));
+    }
+
+    #[test]
+    fn bare_shell_is_not() {
+        assert!(!check(&[(1, 0, "cmd.exe"), (2, 1, "conhost.exe")]));
+    }
+
+    #[test]
+    fn anything_else_under_the_shell_is_not() {
+        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (20, 1, "node.exe")]));
+        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (20, 1, "Code.exe")]));
+    }
+
+    #[test]
+    fn a_tool_shell_inside_claude_is_not() {
+        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (11, 10, "bash.exe")]));
+        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (11, 10, "cmd.exe"), (12, 11, "pwsh.exe")]));
+    }
+
+    #[test]
+    fn an_orphan_is_not() {
+        // 30's parent 29 has exited, so nothing says it belongs to claude.
+        assert!(!check(&[(1, 0, "cmd.exe"), (10, 1, "claude.exe"), (30, 29, "node.exe")]));
+    }
+
+    #[test]
+    fn a_process_gone_mid_check_is_ignored() {
+        let procs = [(1, (0, "cmd.exe".into())), (10, (1, "claude.exe".into()))].into_iter().collect();
+        assert!(only_agent_in(&[1, 10, 99], &procs, 1));
     }
 }

@@ -19,6 +19,7 @@ export interface Settings {
   language: LangPref;
   autoUpdate: boolean; // look for a newer panex at launch and when the window regains focus (never a timer)
   resumeSession: boolean;
+  hibernateMinutes: number; // a hidden tab whose Claude Code has been idle this long is hibernated (0 = never; Windows only)
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
   worktreeViaPanex: boolean; // Claude Code's worktrees go through panex (its WorktreeCreate hook; hooks.rs reads it too)
@@ -40,6 +41,7 @@ export const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   language: ["app", "language"],
   autoUpdate: ["app", "checkForUpdates"],
   resumeSession: ["agent", "resumeSession"],
+  hibernateMinutes: ["agent", "hibernateAfterMinutes"],
   confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
   worktreeViaPanex: ["agent", "worktreeViaPanex"],
@@ -62,6 +64,7 @@ export const DEFAULTS: Settings = {
   language: "auto",
   autoUpdate: true,
   resumeSession: true,
+  hibernateMinutes: 30,
   confirmClose: true,
   openFilesWith: "system",
   worktreeViaPanex: true,
@@ -98,6 +101,7 @@ export function settingsFrom(cfg: any): Settings {
   }
   s.opacity = Math.min(100, Math.max(30, s.opacity));
   s.fontSize = Math.min(32, Math.max(8, s.fontSize));
+  s.hibernateMinutes = Math.min(1440, Math.max(0, Math.round(s.hibernateMinutes) || 0));
   s.windowWidth = Math.min(10000, Math.max(480, Math.round(s.windowWidth)));
   s.windowHeight = Math.min(10000, Math.max(300, Math.round(s.windowHeight)));
   if (!["none", "mica", "acrylic"].includes(s.effect)) s.effect = "none";

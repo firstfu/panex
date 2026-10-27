@@ -26,6 +26,7 @@ import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { sweepGoneWorktrees, wireControl } from "./control";
 import { tidyGroups } from "./groups";
+import { armHibernate } from "./hibernate";
 import { refreshPerms } from "./settings-panel";
 import { checkForUpdateSoon } from "./update";
 
@@ -83,38 +84,43 @@ async function main() {
   listen<AgentNotify>("agent-notify", ({ payload: p }) => {
     const tab = tabs.get(p.pane);
     if (!tab) return;
-    // Claude Code exited (or /clear started a new session; the next hook brings its id).
-    if (p.event === "SessionEnd") {
-      if (tab.agentLive || tab.agentSession) endAgent(tab);
-      endRun(tab);
-      tab.asking = false;
-      return;
-    }
-    if (validSessionId(p.sessionId)) {
-      tab.agentLive = true;
-      if (tab.agentSession !== p.sessionId) {
-        tab.agentSession = p.sessionId;
-        saveSessionSoon();
+    // Every event can start or stop the tab's idle countdown (a turn starting, Claude stopping).
+    try {
+      // Claude Code exited (or /clear started a new session; the next hook brings its id).
+      if (p.event === "SessionEnd") {
+        if (tab.agentLive || tab.agentSession) endAgent(tab);
+        endRun(tab);
+        tab.asking = false;
+        return;
       }
-      scheduleRender();
-    }
-    if (p.event !== "Notification") tab.asking = false;
-    if (p.event === "UserPromptSubmit") notify(tab, "running", "");
-    else if (p.event === "Stop") {
-      notify(tab, "done", p.message || tr("已完成"));
-      scheduleGit(tab); // the agent's turn may have edited files or committed
-    }
-    // An API error (rate limit, overload…) ends the turn instead of Stop; the user has to retry.
-    else if (p.event === "StopFailure") {
-      notify(tab, "attention", p.message || tr("API 錯誤，這一輪停下來了"));
-      scheduleGit(tab);
-    }
-    else if (p.notificationType === "auth_success") return;
-    else if (p.notificationType === "idle_prompt" && tab.status === "done") return;
-    else {
-      // A permission prompt or question inside the turn; idle_prompt just means Claude is waiting for a new prompt.
-      if (p.notificationType !== "idle_prompt") tab.asking = true;
-      notify(tab, "attention", p.message || tr("需要你的回應"));
+      if (validSessionId(p.sessionId)) {
+        tab.agentLive = true;
+        if (tab.agentSession !== p.sessionId) {
+          tab.agentSession = p.sessionId;
+          saveSessionSoon();
+        }
+        scheduleRender();
+      }
+      if (p.event !== "Notification") tab.asking = false;
+      if (p.event === "UserPromptSubmit") notify(tab, "running", "");
+      else if (p.event === "Stop") {
+        notify(tab, "done", p.message || tr("已完成"));
+        scheduleGit(tab); // the agent's turn may have edited files or committed
+      }
+      // An API error (rate limit, overload…) ends the turn instead of Stop; the user has to retry.
+      else if (p.event === "StopFailure") {
+        notify(tab, "attention", p.message || tr("API 錯誤，這一輪停下來了"));
+        scheduleGit(tab);
+      }
+      else if (p.notificationType === "auth_success") return;
+      else if (p.notificationType === "idle_prompt" && tab.status === "done") return;
+      else {
+        // A permission prompt or question inside the turn; idle_prompt just means Claude is waiting for a new prompt.
+        if (p.notificationType !== "idle_prompt") tab.asking = true;
+        notify(tab, "attention", p.message || tr("需要你的回應"));
+      }
+    } finally {
+      armHibernate(tab);
     }
   });
 

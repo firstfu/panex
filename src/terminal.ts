@@ -214,6 +214,7 @@ export function onInput(tab: Tab, data: string) {
 
 export async function spawn(tab: Tab) {
   autoResume(tab);
+  tab.hibernated = false;
   const onData = new Channel<ArrayBuffer>();
   onData.onmessage = (buf) => {
     let f = outFilters.get(tab);
@@ -284,6 +285,7 @@ export function attachWebgl(tab: Tab) {
 
 export function disposeTab(tab: Tab) {
   clearTimeout(tab.gitTimer);
+  clearTimeout(tab.sleepTimer);
   tab.webgl?.dispose();
   tab.term.dispose();
   tab.el.remove();

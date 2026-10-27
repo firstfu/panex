@@ -9,6 +9,7 @@ import { activeTab, tabs, tabTitle, workspaces, wsOrder, wsTitle } from "./state
 import { showTab } from "./workspaces";
 import { hideCtx } from "./context-menu";
 import { IS_WIN } from "./platform";
+import { canHibernate, hibernate } from "./hibernate";
 
 type Usage = { id: string; bytes: number; procs: number };
 
@@ -44,12 +45,16 @@ async function refresh() {
     procs += u.procs;
     const ws = wsOf(u.id);
     const name = `${ws ? `${esc(wsTitle(ws))} / ` : ""}${esc(tabTitle(tabs.get(u.id)!))}`;
-    return `<tr data-tab="${u.id}"><td class="u-name">${name}</td><td>${fmtBytes(u.bytes)}</td><td>${u.procs}</td></tr>`;
+    const tab = tabs.get(u.id)!;
+    const sleep = canHibernate(tab) && tab.status !== "running"
+      ? `<button class="u-sleep" data-sleep="${u.id}" title="${esc(tr("結束這個分頁的程序以釋放記憶體，切回來時自動接回"))}">${esc(tr("休眠"))}</button>`
+      : "";
+    return `<tr data-tab="${u.id}"><td class="u-name">${name}</td><td>${fmtBytes(u.bytes)}</td><td>${u.procs}</td><td>${sleep}</td></tr>`;
   });
   listEl.innerHTML = rows.length
-    ? `<thead><tr><th>${esc(tr("工作區 / 分頁"))}</th><th>${esc(tr("記憶體"))}</th><th>${esc(tr("程序"))}</th></tr></thead>` +
+    ? `<thead><tr><th>${esc(tr("工作區 / 分頁"))}</th><th>${esc(tr("記憶體"))}</th><th>${esc(tr("程序"))}</th><th></th></tr></thead>` +
       `<tbody>${body.join("")}</tbody>` +
-      `<tfoot><tr><td>${esc(tr("合計"))}</td><td>${fmtBytes(bytes)}</td><td>${procs}</td></tr></tfoot>`
+      `<tfoot><tr><td>${esc(tr("合計"))}</td><td>${fmtBytes(bytes)}</td><td>${procs}</td><td></td></tr></tfoot>`
     : `<tbody><tr><td class="muted">${esc(tr("沒有執行中的分頁"))}</td></tr></tbody>`;
 }
 
@@ -60,7 +65,13 @@ usageEl.addEventListener("keydown", (e) => {
   e.stopPropagation();
   if (e.key === "Escape") closeUsage();
 });
-listEl.addEventListener("click", (e) => {
+listEl.addEventListener("click", async (e) => {
+  const sleep = (e.target as HTMLElement).closest<HTMLElement>("[data-sleep]")?.dataset.sleep;
+  if (sleep) {
+    const tab = tabs.get(sleep);
+    if (tab) await hibernate(tab);
+    return refresh();
+  }
   const id = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]")?.dataset.tab;
   if (!id) return;
   usageEl.hidden = true;

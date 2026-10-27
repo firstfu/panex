@@ -626,10 +626,18 @@ mod tests {
         assert_eq!(p, Path::new("a").join("c"));
     }
 
+    /// A fresh folder under the real temp dir: on macOS that is under /var, a link to
+    /// /private/var that git resolves. canonicalize's `\\?\` prefix on Windows is dropped,
+    /// since shells and git never report paths that way.
+    fn temp_base(name: &str) -> PathBuf {
+        let tmp = fs::canonicalize(std::env::temp_dir()).unwrap();
+        let tmp = tmp.to_string_lossy();
+        PathBuf::from(tmp.strip_prefix(r"\\?\").unwrap_or(&tmp)).join(format!("{name}-{}", std::process::id()))
+    }
+
     #[test]
     fn worktree_reports_its_main_checkout() {
-        // Real path: on macOS the temp dir is under /var, a link to /private/var that git resolves.
-        let base = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("panex-git-test-{}", std::process::id()));
+        let base = temp_base("panex-git-test");
         let _ = fs::remove_dir_all(&base);
         let main = base.join("repo");
         fs::create_dir_all(&main).unwrap();
@@ -654,7 +662,7 @@ mod tests {
 
     #[test]
     fn worktree_gone_only_when_the_worktree_is() {
-        let base = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("panex-git-gone-test-{}", std::process::id()));
+        let base = temp_base("panex-git-gone-test");
         let _ = fs::remove_dir_all(&base);
         let main = base.join("repo");
         fs::create_dir_all(&main).unwrap();
@@ -672,7 +680,7 @@ mod tests {
 
     #[test]
     fn worktree_info_and_remove() {
-        let base = fs::canonicalize(std::env::temp_dir()).unwrap().join(format!("panex-git-rm-test-{}", std::process::id()));
+        let base = temp_base("panex-git-rm-test");
         let _ = fs::remove_dir_all(&base);
         let main = base.join("repo");
         fs::create_dir_all(&main).unwrap();

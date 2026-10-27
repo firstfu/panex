@@ -100,6 +100,7 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_usage,
+            pty::pty_hibernate,
             pty::tab_close,
             ssh::ssh_hosts,
             session::session_load,

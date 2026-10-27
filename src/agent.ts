@@ -9,9 +9,10 @@ import { saveSessionSoon } from "./session";
 import { closeGitView } from "./git-panel";
 import { scheduleRender } from "./render";
 
-/** A restored tab whose Claude Code was still running when panex closed re-enters that session when its shell starts. */
+/** A restored or hibernated tab whose Claude Code was still running re-enters that session when its shell starts.
+ *  A hibernated tab always does: the user never chose to leave that session. */
 export function autoResume(tab: Tab) {
-  if (!S.settings.resumeSession || !tab.agentSession || tab.agentLive || tab.initialInput) return;
+  if (!(S.settings.resumeSession || tab.hibernated) || !tab.agentSession || tab.agentLive || tab.initialInput) return;
   tab.initialInput = `claude --resume ${tab.agentSession}`;
   tab.agentLive = true;
   tab.skipPrompt = true; // the shell's own startup prompt is not Claude exiting
