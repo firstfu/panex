@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ancestors, buildTree, changeMarks, fmtSize, isImage, kindOf, langOf, resolveLink, slug } from "../src/tree.ts";
+import { ancestors, buildTree, changeMarks, diffMarks, fmtSize, isImage, kindOf, langOf, resolveLink, slug } from "../src/tree.ts";
 
 test("builds a sorted folder tree from flat paths", () => {
   const t = buildTree(["src/b.ts", "README.md", "src/a/x.ts", "Cargo.toml", "src/A.ts"]);
@@ -57,4 +57,13 @@ test("images, kinds and sizes", () => {
   assert.equal(fmtSize(512), "512 B");
   assert.equal(fmtSize(1536), "1.5 KB");
   assert.equal(fmtSize(20 * 1024 * 1024), "20 MB");
+});
+
+test("diff marks give added lines and where removals sit, in new-file numbers", () => {
+  const diff = ["diff --git a/f b/f", "index 1..2 100644", "--- a/f", "+++ b/f", "@@ -1,4 +1,4 @@", " a", "-b", "+B", " c", "-d", "@@ -10,0 +10,2 @@", "+x", "+y"].join("\n");
+  const m = diffMarks(diff);
+  assert.deepEqual([...m.added], [2, 10, 11]);
+  assert.deepEqual([...m.removedAt], [2, 4]);
+  assert.equal(m.adds, 3);
+  assert.equal(m.dels, 2);
 });

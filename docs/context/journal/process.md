@@ -4,6 +4,21 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — 檔案分頁：已修改檔案標出變更；面板快捷鍵改 Ctrl+Alt
+
+**變更**
+- 檔案分頁打開有未提交變更（M／A 等，非 U）的檔案時，用 `git diff HEAD` 取差異：程式碼在行上畫綠色底（新增／改過的行）與紅線（刪除處），頂端多一條 `+N −M` 狀態列與「看差異／看全文」切換；Markdown 維持排版，也有狀態列。後端 `git_diff` 多可省略的 `head` 參數；`tree.ts` 新增純函式 `diffMarks`（有單元測試）。
+- `toggleGitPanel`／`toggleFilesPanel` 預設改為 Windows `Ctrl+Alt+G`／`Ctrl+Alt+E`、macOS `⌘+Alt+G`／`⌘+Alt+E`（原為 Shift 組合）；已自訂的使用者不受影響。
+
+**為什麼**
+- 使用者打開標 `M` 的檔案只看到全文，看不出改了哪裡；快捷鍵是使用者指定的新預設。
+
+**影響檔案**
+- `src-tauri/src/git.rs`、`src/files-panel.ts`、`src/tree.ts`、`src/style.css`、`src/keys.ts`、`src/i18n.ts`、`tests/tree.test.ts`、`docs/context/reference/overview.md`
+
+**下一步**
+- 尚未在實際畫面確認標色位置與紅線；此機器 `cargo check` 被 tauri build script 擋下（`macos-private-api` 訊息），Rust 改動未編譯驗證，請用測試實例或 CI 確認。
+
 ## 2026-10-27 — 發布 0.7.6（tag `v0.7.6`）
 
 **變更**

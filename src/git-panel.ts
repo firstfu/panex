@@ -219,7 +219,7 @@ async function loadGitLog(g: GitStatus, key: string) {
 }
 
 /** Diff and commit lines, colored the way `git diff` colors them. */
-function gitLines(text: string, allAdded = false): string {
+export function gitLines(text: string, allAdded = false): string {
   const lines = text.replace(/\n$/, "").split("\n");
   let html = lines
     .slice(0, GIT_VIEW_MAX_LINES)

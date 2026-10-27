@@ -514,7 +514,7 @@ pub struct GitText {
 /// One file's diff: staged (index vs HEAD) or unstaged (worktree vs index). An untracked file
 /// has no diff, so its content comes back as is and the panel shows it all as added.
 #[tauri::command]
-pub async fn git_diff(root: String, path: String, orig: Option<String>, staged: bool, untracked: bool) -> Result<GitText, String> {
+pub async fn git_diff(root: String, path: String, orig: Option<String>, staged: bool, untracked: bool, head: Option<bool>) -> Result<GitText, String> {
     blocking(move || {
         let root = checked_root(&root)?;
         let path = checked_rel(&path)?.to_string();
@@ -523,7 +523,10 @@ pub async fn git_diff(root: String, path: String, orig: Option<String>, staged: 
         }
         let orig = orig.as_deref().map(checked_rel).transpose()?.map(str::to_string);
         let mut args = vec!["diff", "--no-ext-diff", "--no-textconv", "-M"];
-        if staged {
+        if head == Some(true) {
+            // Working tree against HEAD: everything uncommitted (staged and not) in one diff.
+            args.push("HEAD");
+        } else if staged {
             args.push("--cached");
         }
         args.push("--");

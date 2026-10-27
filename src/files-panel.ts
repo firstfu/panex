@@ -8,11 +8,11 @@ import { invoke } from "@tauri-apps/api/core";
 import type { MarkdownIt, StateCore } from "markdown-it";
 import type { HLJSApi } from "highlight.js";
 import { t as tr } from "./i18n";
-import { type Change, type TreeDir, ancestors, buildTree, changeMarks, fmtSize, isImage, isMarkdown, kindOf, langOf, resolveLink, slug } from "./tree";
+import { type Change, type DiffMarks, type TreeDir, ancestors, buildTree, changeMarks, diffMarks, fmtSize, isImage, isMarkdown, kindOf, langOf, resolveLink, slug } from "./tree";
 import { type Tab } from "./types";
 import { $, esc } from "./util";
 import { activeTab } from "./state";
-import { isViewerCurrent, openViewer } from "./git-panel";
+import { gitLines, isViewerCurrent, openViewer } from "./git-panel";
 import { openLink } from "./links";
 import { showNotice } from "./config";
 import { IS_MAC } from "./platform";
@@ -68,6 +68,7 @@ export function markFilesStale() {
 /** Called when the viewer closes. */
 export function clearFileSel() {
   sel = "";
+  shown = undefined;
 }
 
 const msg = (text: string) => `<div class="g-msg">${esc(text)}</div>`;
@@ -192,12 +193,49 @@ function markdown(): Promise<MarkdownIt> {
   return mdPromise;
 }
 
-/** Code with a line-number gutter; the two columns share one line height so they stay aligned. */
-function codeHtml(hljs: HLJSApi, path: string, text: string): string {
+/**
+ * Code with a line-number gutter; the two columns share one line height so they stay aligned.
+ * Uncommitted changes are drawn as a band layer over the same lines: green on added or edited
+ * lines, a red edge where lines were removed.
+ */
+function codeHtml(hljs: HLJSApi, path: string, text: string, marks?: DiffMarks): string {
   const body = text.replace(/\n$/, "");
   const lines = body.split("\n").length;
   const nums = Array.from({ length: lines }, (_, i) => i + 1).join("\n");
-  return `<div class="f-code"><pre class="f-ln" aria-hidden="true">${nums}</pre><pre class="f-src hljs">${highlight(hljs, body, langOf(path))}</pre></div>`;
+  let bands = "";
+  if (marks) {
+    const rows: string[] = [];
+    for (let n = 1; n <= lines; n++) rows.push(`<div${marks.added.has(n) ? ' class="b-add"' : marks.removedAt.has(n) ? ' class="b-del"' : ""}> </div>`);
+    if (marks.removedAt.has(lines + 1)) rows[lines - 1] = rows[lines - 1].replace("<div", `<div data-del-end="1"`);
+    bands = `<div class="f-bands" aria-hidden="true">${rows.join("")}</div>`;
+  }
+  return `<div class="f-code">${bands}<pre class="f-ln" aria-hidden="true">${nums}</pre><pre class="f-src hljs">${highlight(hljs, body, langOf(path))}</pre></div>`;
+}
+
+/** The bar over a changed file: how much changed, and a switch between the file and its diff. */
+function changeBar(m: DiffMarks, showingDiff: boolean): string {
+  return (
+    `<div class="f-chgbar"><span class="f-add">+${m.adds}</span><span class="f-del">−${m.dels}</span>` +
+    `<span class="f-chgnote">${esc(tr("相對於最近一次提交"))}</span><span class="f-mgap"></span>` +
+    `<button class="f-act" data-diff-toggle="1">${esc(tr(showingDiff ? "看全文" : "看差異"))}</button></div>`
+  );
+}
+
+/** The open file's two renderings when it has uncommitted changes (see the toggle below). */
+let shown: { file: string; diff: string; marks: DiffMarks; diffOn: boolean } | undefined;
+
+/** Uncommitted diff of one file against HEAD; undefined when it isn't changed or git can't say. */
+async function headDiff(root: string, path: string): Promise<string | undefined> {
+  const tab = activeTab();
+  if (!tab || tab.git?.root !== root) return undefined;
+  const letter = changes(tab).find((c) => c.path === path)?.letter;
+  if (!letter || letter === "U") return undefined; // untracked: the whole file is new, nothing to compare
+  try {
+    const r = await invoke<{ text: string; binary: boolean }>("git_diff", { root, path, orig: null, staged: false, untracked: false, head: true });
+    return r.binary || !r.text ? undefined : r.text;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Buttons that hand the open file to the system; Quick Look only exists on macOS. */
@@ -253,14 +291,17 @@ async function openFile(root: string, path: string, anchor = "", source = false)
       });
       return;
     }
-    const [r, hljs] = await Promise.all([invoke<FileText>("file_read", { root, path }), highlighter()]);
+    const [r, hljs, diff] = await Promise.all([invoke<FileText>("file_read", { root, path }), highlighter(), headDiff(root, path)]);
+    const marks = diff && !r.binary && !r.truncated ? diffMarks(diff) : undefined;
     let html: string;
     if (r.binary) html = otherHtml(path, r.size);
     else if (!r.text) html = `<div class="gn">${esc(tr("空檔案"))}</div>`;
     else if (isMarkdown(path)) html = `<div class="md">${(await markdown()).render(r.text)}</div>`;
-    else html = codeHtml(hljs, path, r.text);
+    else html = codeHtml(hljs, path, r.text, marks);
     if (r.truncated) html += `<div class="gn">${esc(tr("內容太長，只顯示前面的部分"))}</div>`;
     if (!isViewerCurrent(req)) return;
+    shown = marks && diff ? { file: html, diff: gitLines(diff), marks, diffOn: false } : undefined;
+    if (shown) html = changeBar(shown.marks, false) + html;
     viewerBody.innerHTML = html;
     viewerBody.scrollTop = 0;
     if (anchor) scrollToAnchor(anchor);
@@ -292,6 +333,14 @@ filesBodyEl.addEventListener("click", (e) => {
   const row = target.closest<HTMLElement>(".f-row");
   if (row?.dataset.dir !== undefined) toggleDir(list.root, row.dataset.dir);
   else if (row?.dataset.path) openFile(list.root, row.dataset.path);
+});
+
+// A changed file's switch between the file (changes marked) and its plain diff.
+viewerBody.addEventListener("click", (e) => {
+  if (!(e.target as HTMLElement).closest("[data-diff-toggle]") || !shown) return;
+  shown.diffOn = !shown.diffOn;
+  viewerBody.innerHTML = changeBar(shown.marks, shown.diffOn) + (shown.diffOn ? shown.diff : shown.file);
+  viewerBody.scrollTop = 0;
 });
 
 // The open file's system buttons, and an SVG's "view source".

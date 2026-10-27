@@ -149,3 +149,34 @@ export function fmtSize(bytes: number): string {
   }
   return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
+
+/** Where a unified diff touched the new file: added lines, and the line a deletion sits in front of. */
+export interface DiffMarks {
+  added: Set<number>;
+  /** New-file line numbers that have removed lines right above them (lines + 1 = removed at the end). */
+  removedAt: Set<number>;
+  adds: number;
+  dels: number;
+}
+
+/** Reads the hunks of one file's unified diff (`git diff` output) into line marks for the new side. */
+export function diffMarks(diff: string): DiffMarks {
+  const m: DiffMarks = { added: new Set(), removedAt: new Set(), adds: 0, dels: 0 };
+  let line = 0;
+  let inHunk = false;
+  for (const l of diff.split("\n")) {
+    const h = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/.exec(l);
+    if (h) {
+      line = Number(h[1]);
+      inHunk = true;
+    } else if (!inHunk) continue;
+    else if (l.startsWith("+")) {
+      m.added.add(line++);
+      m.adds++;
+    } else if (l.startsWith("-")) {
+      m.removedAt.add(line);
+      m.dels++;
+    } else if (l.startsWith(" ")) line++;
+  }
+  return m;
+}
