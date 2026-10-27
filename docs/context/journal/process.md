@@ -12,6 +12,7 @@
 
 **下一步**
 - 使用者更新後確認：關分頁時 claude 與 MCP 一起消失、`Ctrl+Shift+M` 看得到各分頁記憶體。
+- **macOS 版（使用者回家用家裡的 Mac 做）**：Job Object 與 `pty_usage` 目前全是 `#[cfg(windows)]`，Mac 上關分頁只殺 shell、資源面板不出現（`IS_WIN` 擋掉）。做法：`tab_close` 時從 shell pid 往下找出整棵子程序樹逐一結束（`sysctl`／`proc_listchildpids` 或 `ps -o pid,ppid`），資源面板同一棵樹逐一加總記憶體。**不要只殺 process group**：zsh 這類互動式 shell 會把每個指令放進各自的 process group，claude 不在 shell 的 group 裡，殺 group 抓不到它。Mac 沒有 kill-on-close，panex 當掉時無法保護，這點不如 Windows。驗證照 Windows 那次的做法，用 `tests/e2e`（`--features e2e` 的測試實例）：分頁裡起背景程式，關分頁，確認程序樹全消失；這台 Windows 機器只能交叉編譯檢查、不能實際驗證。
 
 ## 2026-10-27 — 「資源使用」面板：每個分頁的記憶體與程序數（Windows）
 
