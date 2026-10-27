@@ -28,9 +28,9 @@ let gitSel = ""; // the row whose diff is on screen
 const collapsed = new Set<string>(); // section labels folded shut
 try { for (const s of JSON.parse(localStorage.getItem("panex.gitCollapsed") ?? "[]")) collapsed.add(String(s)); } catch { /* storage unavailable */ }
 let gvReq = 0; // drops viewer answers that arrive after a newer request
-export type PanelMode = "git" | "files";
+export type PanelMode = "git" | "log" | "files";
 let panelMode: PanelMode = "git";
-try { if (localStorage.getItem("panex.panelTab") === "files") panelMode = "files"; } catch { /* storage unavailable */ }
+try { const m = localStorage.getItem("panex.panelTab"); if (m === "files" || m === "log") panelMode = m; } catch { /* storage unavailable */ }
 
 export function scheduleGit(tab?: Tab) {
   if (!tab?.cwd || tab.ssh) return;
@@ -97,10 +97,10 @@ export function setPanelMode(mode: PanelMode) {
   panelMode = mode;
   try { localStorage.setItem("panex.panelTab", mode); } catch { /* storage unavailable */ }
   for (const b of document.querySelectorAll<HTMLElement>(".g-tab")) b.classList.toggle("on", b.dataset.mode === mode);
-  gitBodyEl.hidden = mode !== "git";
+  gitBodyEl.hidden = mode === "files";
   $("files-body").hidden = mode !== "files";
   if (mode === "files") markFilesStale();
-  else gitLog = undefined; // the commit list isn't kept fresh while hidden
+  if (mode !== "log") gitLog = undefined; // the commit list isn't kept fresh while hidden
   renderGitPanel();
 }
 
@@ -151,6 +151,8 @@ export function renderGitPanel() {
   if (tab.gitErr) return void (gitBodyEl.innerHTML = gitMsg(tr("讀取失敗：{e}", { e: tab.gitErr })));
   if (!g) return void (gitBodyEl.innerHTML = gitMsg(tr(tab.gitTimer || tab.gitBusy ? "載入中…" : "目前的工作目錄不在 git repo 裡")));
 
+  if (panelMode === "log") return renderLogPanel(g);
+
   const sync = g.upstream
     ? [
         g.ahead ? tr("{n} 個未推送的提交", { n: g.ahead }) : "",
@@ -174,10 +176,16 @@ export function renderGitPanel() {
   if (!g.total) html += gitMsg(tr("沒有未提交的變更"));
   else if (g.total > g.files.length) html += gitMsg(tr("只列出前 {shown} 個（共 {total} 個）", { shown: g.files.length, total: g.total }));
 
-  html += sec("最近的提交");
+  const top = gitBodyEl.scrollTop;
+  gitBodyEl.innerHTML = html;
+  gitBodyEl.scrollTop = top;
+}
+
+/** The History tab: the repo's recent commits, one list that owns the whole panel. */
+function renderLogPanel(g: GitStatus) {
+  let html = "";
   const key = `${g.oid ?? ""}:${g.ahead}`;
-  if (collapsed.has("最近的提交")) { /* folded: skip the rows, still load below */ }
-  else if (!g.oid) html += gitMsg(tr("還沒有提交"));
+  if (!g.oid) html += gitMsg(tr("還沒有提交"));
   else if (gitLog?.root === g.root) {
     if (gitLog.error) html += gitMsg(gitLog.error);
     else if (!gitLog.commits.length) html += gitMsg(tr("還沒有提交"));
@@ -190,7 +198,7 @@ export function renderGitPanel() {
         );
       })
       .join("");
-  }
+  } else html += gitMsg(tr("載入中…"));
   const top = gitBodyEl.scrollTop;
   gitBodyEl.innerHTML = html;
   gitBodyEl.scrollTop = top;
