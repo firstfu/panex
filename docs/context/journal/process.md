@@ -19,7 +19,8 @@
 - Windows 端：此機器無法整包交叉編譯（`ring` 要 MSVC 標頭），改把 `job.rs`＋`agent_rule.rs` 單獨放進只依賴 `windows-sys` 的小 crate，`cargo check --target x86_64-pc-windows-msvc --tests` 通過、無警告；完整 Windows 建置與執行仍待 CI／Windows 機器。
 
 **下一步**
-- 仍未驗：Windows 實機行為；claude 有執行中的背景任務時不休眠（單元測試與假程序測過，真 claude 沒測）。
+- 真 claude 背景任務也驗了：叫它用 `run_in_background` 跑 `sleep 613`，分頁藏起來 2.5 分鐘（含一次重試）後沒有休眠、sleep 與 claude 都還在；之後關分頁連背景 sleep 一起清掉（11 個程序、無殘留）。
+- 仍未驗：Windows 實機行為；正式安裝版（要發版後在使用者的 Mac 看）。
 - 自己 `kill` 測試實例或 panex 當掉時，分頁程式會殘留（Mac 無 kill-on-close，驗收時看到 claude 留在原處）。
 - 盲點：Mac 的 claude 若不是以 `claude` 為執行檔名（例如 npm 安裝顯示成 `node`）會被判成「不只 claude」而不自動休眠；panex 當掉無保護（沒有 kill-on-close）。
 
