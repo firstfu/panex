@@ -15,7 +15,7 @@
 
 English · [繁體中文](translations/README.zh-Hant.md)
 
-<a href="https://github.com/firstfu/panex/releases/latest"><b>Download for Windows (panex_0.7.6_x64-setup.exe)</b></a> · <a href="https://github.com/firstfu/panex/releases/latest"><b>macOS (panex_0.7.6_aarch64.dmg)</b></a>
+<a href="https://github.com/firstfu/panex/releases/latest"><b>Download for Windows (panex_0.7.7_x64-setup.exe)</b></a> · <a href="https://github.com/firstfu/panex/releases/latest"><b>macOS (panex_0.7.7_aarch64.dmg)</b></a>
 
 <img src="assets/hero.png" width="860" alt="panex: three workspaces in the sidebar, one waiting for permission (blue), one finished (green), and a workspace with two tabs">
 
@@ -119,7 +119,7 @@ The only file it writes outside its own folders is `~/.claude/settings.json`: wh
 
 ### Windows
 
-1. Download `panex_0.7.6_x64-setup.exe` from [Releases](https://github.com/firstfu/panex/releases/latest).
+1. Download `panex_0.7.7_x64-setup.exe` from [Releases](https://github.com/firstfu/panex/releases/latest).
 2. Run it. Windows SmartScreen will warn you the first time, because the installer isn't code-signed: click **More info**, then **Run anyway**.
 3. panex installs for your user only (no administrator rights needed) and adds a Start menu entry.
 
@@ -127,7 +127,7 @@ Requires **Windows 10 or 11** with WebView2 (already part of Windows 11 and up-t
 
 ### macOS (Apple Silicon)
 
-1. Download `panex_0.7.6_aarch64.dmg` from [Releases](https://github.com/firstfu/panex/releases/latest), open it and drag **panex** into **Applications**.
+1. Download `panex_0.7.7_aarch64.dmg` from [Releases](https://github.com/firstfu/panex/releases/latest), open it and drag **panex** into **Applications**.
 2. The app isn't notarized, so macOS blocks the first launch. Open it once, then go to **System Settings → Privacy & Security** and click **Open Anyway**. If macOS says the app is damaged, run `xattr -cr /Applications/panex.app` in Terminal and open it again.
 
 Tabs start your login shell (`$SHELL`, usually zsh). Default shortcuts use ⌘: ⌘T new tab, ⌘W close tab, ⌘N new workspace, ⌘1–9 / ⌥1–9 jump, ⌘↑↓ workspaces, ⌘←→ tabs, ⌘⇧G Git panel, ⌘⇧E files, ⌘B sidebar, ⌘, settings.

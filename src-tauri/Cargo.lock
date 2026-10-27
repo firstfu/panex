@@ -2647,7 +2647,7 @@ dependencies = [
 
 [[package]]
 name = "panex"
-version = "0.7.6"
+version = "0.7.7"
 dependencies = [
  "base64 0.22.1",
  "fontdb",
