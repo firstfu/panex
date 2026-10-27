@@ -64,7 +64,7 @@ export const DEFAULTS: Settings = {
   language: "auto",
   autoUpdate: true,
   resumeSession: true,
-  hibernateMinutes: 30,
+  hibernateMinutes: 15,
   confirmClose: true,
   openFilesWith: "system",
   worktreeViaPanex: true,
