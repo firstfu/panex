@@ -339,6 +339,9 @@ body.resizing-git #git-resizer { pointer-events: auto; }
   font-size: 11px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: 0.04em;
 }
 .g-sec .t-count { margin-left: auto; }
+.g-sec { cursor: pointer; user-select: none; }
+.g-arrow { width: 0; height: 0; border: 4px solid transparent; border-top-color: currentColor; border-bottom: 0; margin-right: 2px; }
+.g-sec.shut .g-arrow { border: 4px solid transparent; border-left-color: currentColor; border-right: 0; }
 .g-row {
   display: flex; align-items: baseline; gap: 6px; padding: 2px 10px 2px 14px; cursor: pointer;
   white-space: nowrap; overflow: hidden; font-size: 12.5px; line-height: 20px;
@@ -353,6 +356,12 @@ body.resizing-git #git-resizer { pointer-events: auto; }
 .g-st.D { color: #f87171; }
 .g-st.R, .g-st.C { color: #60a5fa; }
 .g-st.U { color: #f472b6; }
+.f-dir.chg .g-name { color: #e2c08d; }
+.f-file.chg-M .g-name { color: #e2c08d; }
+.f-file.chg-A .g-name, .f-file.chg-new .g-name { color: #73c991; }
+.f-file.chg-D .g-name { color: #f87171; text-decoration: line-through; }
+.f-file.chg-R .g-name, .f-file.chg-C .g-name { color: #60a5fa; }
+.f-file.chg-U .g-name { color: #f472b6; }
 .g-commit .g-name { flex: 1; min-width: 0; max-width: none; }
 .g-when { flex: none; color: var(--dim); font-size: 11px; }
 .g-push { flex: none; width: 6px; height: 6px; border-radius: 50%; align-self: center; background: transparent; }

@@ -45,6 +45,7 @@ let hljsPromise: Promise<HLJSApi> | undefined;
 const opened: Record<string, string[]> = (() => {
   try { return JSON.parse(localStorage.getItem(OPEN_KEY) ?? "{}") ?? {}; } catch { return {}; }
 })();
+const autoOpened = new Set<string>(); // "root|dir" already opened for its changes, so a manual collapse sticks
 const openSet = (root: string) => new Set(opened[root] ?? []);
 function saveOpen(root: string, set: Set<string>) {
   delete opened[root];
@@ -90,13 +91,22 @@ export function renderFilesPanel() {
 
   const { letters, dirs } = changeMarks(list.files, changes(tab));
   const open = openSet(root);
+  // Folders holding uncommitted changes open themselves the first time they show up.
+  let added = false;
+  for (const d of dirs) {
+    const k = `${root}|${d}`;
+    if (autoOpened.has(k)) continue;
+    autoOpened.add(k);
+    if (!open.has(d)) { open.add(d); added = true; }
+  }
+  if (added) saveOpen(root, open);
   const out: string[] = [];
   const pad = (depth: number) => `style="padding-left:${10 + depth * 14}px"`;
   const walk = (d: TreeDir, depth: number) => {
     for (const sub of d.dirs) {
       const isOpen = open.has(sub.path);
       out.push(
-        `<div class="g-row f-row f-dir${isOpen ? " open" : ""}" data-dir="${esc(sub.path)}" ${pad(depth)} title="${esc(sub.path)}">` +
+        `<div class="g-row f-row f-dir${isOpen ? " open" : ""}${dirs.has(sub.path) ? " chg" : ""}" data-dir="${esc(sub.path)}" ${pad(depth)} title="${esc(sub.path)}">` +
           `<span class="f-chev"></span><span class="g-name">${esc(sub.name)}</span>` +
           (dirs.has(sub.path) ? `<span class="f-dot" title="${esc(tr("裡面有未提交的變更"))}"></span>` : "") +
           `</div>`,
@@ -107,7 +117,7 @@ export function renderFilesPanel() {
       const path = d.path ? `${d.path}/${name}` : name;
       const letter = letters.get(path);
       out.push(
-        `<div class="g-row f-row f-file${sel === path ? " sel" : ""}" data-path="${esc(path)}" ${pad(depth)} title="${esc(path)}">` +
+        `<div class="g-row f-row f-file${sel === path ? " sel" : ""}${letter ? ` chg-${letter === "U" ? "new" : esc(letter)}` : ""}" data-path="${esc(path)}" ${pad(depth)} title="${esc(path)}">` +
           `<span class="f-chev"></span><span class="g-name">${esc(name)}</span>` +
           (letter ? `<span class="g-st ${letter === "U" ? "new" : esc(letter)}">${esc(letter)}</span>` : "") +
           `</div>`,

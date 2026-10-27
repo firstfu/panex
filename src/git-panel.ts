@@ -25,6 +25,8 @@ const gvBodyEl = $("gv-body");
 let gitOpen = false;
 let gitLog: { root: string; key: string; commits: GitCommit[]; error?: string } | undefined;
 let gitSel = ""; // the row whose diff is on screen
+const collapsed = new Set<string>(); // section labels folded shut
+try { for (const s of JSON.parse(localStorage.getItem("panex.gitCollapsed") ?? "[]")) collapsed.add(String(s)); } catch { /* storage unavailable */ }
 let gvReq = 0; // drops viewer answers that arrive after a newer request
 export type PanelMode = "git" | "files";
 let panelMode: PanelMode = "git";
@@ -159,19 +161,23 @@ export function renderGitPanel() {
   const unstaged = g.files.filter((f) => f.y !== "." && f.x !== "?");
   const untracked = g.files.filter((f) => f.x === "?");
   const changes = unstaged.length + untracked.length;
-  const sec = (label: string, n: number) => `<div class="g-sec">${esc(tr(label))}<span class="t-count">${n}</span></div>`;
+  const sec = (label: string, n?: number) =>
+    `<div class="g-sec${collapsed.has(label) ? " shut" : ""}" data-sec="${esc(label)}"><span class="g-arrow"></span>${esc(tr(label))}` +
+    `${n === undefined ? "" : `<span class="t-count">${n}</span>`}</div>`;
+  const body = (label: string, rows: () => string) => (collapsed.has(label) ? "" : rows());
 
   let html =
     `<div class="g-repo"><div class="g-branch" title="${esc(g.root)}">⎇ ${esc(g.branch ?? "")}</div>` +
     `<div class="g-sync">${esc(sync)}</div></div>`;
-  if (staged.length) html += sec("已暫存的變更", staged.length) + staged.map((f) => fileRow(f, "staged")).join("");
-  if (changes) html += sec("變更", changes) + unstaged.map((f) => fileRow(f, "unstaged")).join("") + untracked.map((f) => fileRow(f, "untracked")).join("");
+  if (staged.length) html += sec("已暫存的變更", staged.length) + body("已暫存的變更", () => staged.map((f) => fileRow(f, "staged")).join(""));
+  if (changes) html += sec("變更", changes) + body("變更", () => unstaged.map((f) => fileRow(f, "unstaged")).join("") + untracked.map((f) => fileRow(f, "untracked")).join(""));
   if (!g.total) html += gitMsg(tr("沒有未提交的變更"));
   else if (g.total > g.files.length) html += gitMsg(tr("只列出前 {shown} 個（共 {total} 個）", { shown: g.files.length, total: g.total }));
 
-  html += `<div class="g-sec">${esc(tr("最近的提交"))}</div>`;
+  html += sec("最近的提交");
   const key = `${g.oid ?? ""}:${g.ahead}`;
-  if (!g.oid) html += gitMsg(tr("還沒有提交"));
+  if (collapsed.has("最近的提交")) { /* folded: skip the rows, still load below */ }
+  else if (!g.oid) html += gitMsg(tr("還沒有提交"));
   else if (gitLog?.root === g.root) {
     if (gitLog.error) html += gitMsg(gitLog.error);
     else if (!gitLog.commits.length) html += gitMsg(tr("還沒有提交"));
@@ -275,6 +281,13 @@ function failGitView(req: number, e: unknown) {
 }
 
 gitBodyEl.addEventListener("click", (e) => {
+  const sec = (e.target as HTMLElement).closest<HTMLElement>(".g-sec");
+  if (sec?.dataset.sec) {
+    const label = sec.dataset.sec;
+    if (!collapsed.delete(label)) collapsed.add(label);
+    try { localStorage.setItem("panex.gitCollapsed", JSON.stringify([...collapsed])); } catch { /* storage unavailable */ }
+    return renderGitPanel();
+  }
   const row = (e.target as HTMLElement).closest<HTMLElement>(".g-row");
   const g = activeTab()?.git;
   if (!row || !g) return;
