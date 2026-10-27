@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-27 — 自動休眠放寬：claude 底下閒置的 bash／powershell 不再擋休眠（`89766e8`）
+
+**變更**
+- `job.rs::only_agent_in`：claude 底下的 bash／sh／powershell／pwsh 只有在自己還有子程序（背景任務）時才擋休眠；沒有子程序的是跑完指令留下的閒置 shell，可以一起結束。`conhost.exe` 不算子程序。
+
+**為什麼**
+- 原規則只要看到 tool shell 就不休眠，Claude Code 常留閒置 shell，導致大部分 claude 分頁休眠不了。
+
+**下一步**
+- 未用真實 Claude Code 驗證（此機器完整 `cargo test` 被 build script 擋，只單獨跑了純函式測試）；請在測試實例確認「閒置 bash 會休眠、背景 `sleep 600` 不會」。
+- 盲點：純 shell 內建迴圈的背景任務沒有子程序，會被誤判閒置。
+- 後續候選：記憶體壓力觸發休眠、每分頁選 MCP 組合、預設 30 分鐘是否調短。
+
 ## 2026-10-27 — 發布 0.7.8（tag `v0.7.8`）
 
 **變更**
