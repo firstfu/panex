@@ -43,6 +43,7 @@ Start-Process <target>\release\panex.exe
 - 截圖：`PrintWindow` 擷取該程序的視窗；CDP 的 `Page.captureScreenshot` 只擷取網頁內容。
 - 機器上同時有使用者正在用的 panex，視窗標題也是 `panex`；操作視窗時一律用測試實例的行程 ID，不要用名稱。
 - **不要對桌面注入真實滑鼠輸入**（`SetCursorPos`／`mouse_event` 做 OLE 拖放）：自製的拖曳來源視窗沒有浮到最上層，按下、拖曳、放開全落在使用者前景的 Claude Code 視窗上（2026-10-20 發生，只造成文字被反白選取）。檔案拖入只靠 CDP 對 `tauri://drag-drop` 發 `plugin:event|emit_to`（`target: {kind:'Webview', label:'main'}`）驗證處理邏輯，原生拖放請使用者實測。
+- 驗證終端機滑鼠選取：CDP `Input.dispatchMouseEvent` 送 `mousePressed`／多段 `mouseMoved`（帶 `buttons:1`）／`mouseReleased`，再用 `Page.captureScreenshot` 找藍色選取帶（`selectionBackground #6366f180`）落在哪一列。**截圖是裝置像素、滑鼠座標是 CSS 像素**，DPI 125% 時要除以 1.25，否則自己的座標就先錯了。要對照修前修後，把原始碼還原成前一版重建（約 20–50 秒）再跑同一套測試。
 - CDP 的 `Input.dispatchKeyEvent` 不帶字元，表單的 Enter 不會送出；要送出就直接 `.click()` 送出鈕。拖曳排序可用 `Input.dispatchMouseEvent` 驗（pointer 事件）。
 
 ## macOS 端對端測試（`--features e2e`）

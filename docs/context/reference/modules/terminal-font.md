@@ -1,6 +1,6 @@
 # 終端機字型與彩色 emoji（terminal font）
 
-> **何時讀**：動到終端機字型（`termFontFamily`、`DEFAULTS.fontFamily`）、設定頁字型選單（`s-font-pick`／`s-font-family`）、`style.css` 的 `"panex emoji"` `@font-face`、`src-tauri/src/fonts.rs`，或遇到「某符號變彩色／變線條」「emoji 擠到隔壁字」之前。
+> **何時讀**：動到終端機字型（`termFontFamily`、`DEFAULTS.fontFamily`）、設定頁字型選單（`s-font-pick`／`s-font-family`）、`style.css` 的 `"panex emoji"` `@font-face`、`src-tauri/src/fonts.rs`，或遇到「某符號變彩色／變線條」「emoji 擠到隔壁字」「滑鼠選取落在隔壁行」之前。
 >
 > 來源索引：根 `CLAUDE.md` 文件索引表。本檔是終端機字型機制的單一事實源。
 
@@ -21,6 +21,13 @@
 
 - **真義**：Claude Code 用 ⏺ 的前景色表示狀態（綠／紅／白），✳ 是 spinner。變成固定顏色的 emoji 之後，狀態就看不出來了。
 - **連帶**：所以只能用 `@font-face` 加 `unicode-range` 列出允許的字元。✗ ✘ ☐ ☒ ⇄ ↻ 在 Segoe UI Emoji 裡是單色字形，就算加進去也不會變彩色，但沒有必要加。
+
+### 滑鼠選取落在隔壁行：格子尺寸沒跟上 DPI 縮放
+症狀是拖曳選取的位置和滑鼠不符，越往下偏越多；在 DPI 125% 的 Windows 上，修之前每個分頁都偏成目標位置的 0.8 倍（1/1.25），選取帶高度也變短（15px／應為 20px）。在該分頁按 Ctrl+滾輪放大再縮回、或縮放視窗，選取就恢復正常。
+
+- **真義**：xterm 把滑鼠位置換成行列，用的是它自己記的字元格寬高，不是問畫面；那組尺寸在分頁剛開、換 WebGL 渲染器（`showTab` 每次切換都會 dispose／重新 attach）或字型載入前後量到，會和實際畫面對不上。改 `fontSize` 或 `fit` 會逼它重量。
+- **處理**：`terminal.ts` 的 `remeasureTab(tab)`（fontSize +1 再改回，再 `fit`），在 `showTab` 的下一個 animation frame 和 `"panex emoji"` 字型載完後各呼叫一次；隱藏中的分頁（`display:none`）量不準，略過。
+- **為什麼只在部分分頁發生**：沒查出來，在 125% DPI 的測試機上每個分頁都重現，沒重現「部分正常」。
 
 ### `<option value>` 不能用 `\u0000` 當代表值
 字型選單的「自訂…」原本用 `"\u0000custom"` 當值，再用 `innerHTML` 組 `<option>`。**實際上** HTML 解析會把 NUL 換成 U+FFFD，程式裡的值和 DOM 裡的值就對不上，選了「自訂」卻被當成「預設」，設定也跟著被重設。現在改用 `":custom"`（字型名稱不會以 `:` 開頭）。
