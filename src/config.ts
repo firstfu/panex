@@ -8,6 +8,7 @@ import { ACTIONS, formatBinding, formatCombo, isDefault, resolveBindings, toConf
 import { type LoadedConfig } from "./types";
 import { CONFIG_PATHS, DEFAULTS, settingsFrom, termFontFamily, type Settings } from "./settings";
 import { esc } from "./util";
+import { remeasureTab } from "./terminal";
 import { S, activeTab, tabs } from "./state";
 import { renderGitPanel } from "./git-panel";
 import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
@@ -73,7 +74,11 @@ export function applyConfig(loaded: LoadedConfig) {
   // The emoji face loads on first use, and xterm caches whatever glyph it drew before that.
   emojiFontReq ??= document.fonts
     .load(`16px "panex emoji"`, "⚠")
-    .then(() => tabs.forEach((t) => t.opened && t.term.clearTextureAtlas()))
+    .then(() => {
+      tabs.forEach((t) => t.opened && t.term.clearTextureAtlas());
+      const vis = activeTab();
+      if (vis) remeasureTab(vis);
+    })
     .catch(() => {});
   if (!settingsEl.hidden && !isCapturing()) openSettings();
 }

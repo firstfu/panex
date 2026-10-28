@@ -7,7 +7,7 @@ import { type Tab, type Workspace } from "./types";
 import { newId, newWsId } from "./util";
 import { S, activeTab, activeWs, tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { saveSession } from "./session";
-import { attachWebgl, createTab, disposeTab, spawn } from "./terminal";
+import { attachWebgl, createTab, disposeTab, remeasureTab, spawn } from "./terminal";
 import { clearStatus, workingTabs } from "./agent";
 import { closeGitView, isGitOpen, renderGitPanel, scheduleGit } from "./git-panel";
 import { closeSearch } from "./search";
@@ -46,6 +46,7 @@ export function showTab(id: string) {
   }
   attachWebgl(tab);
   tab.fit.fit();
+  requestAnimationFrame(() => S.visibleTabId === id && remeasureTab(tab));
   // Restored tabs start their shell only when first viewed.
   if (!tab.running && !tab.exited) spawn(tab);
   closeGitView(false);

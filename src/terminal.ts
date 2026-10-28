@@ -283,6 +283,19 @@ export function attachWebgl(tab: Tab) {
   }
 }
 
+/**
+ * 強制 xterm 重量字元格大小。格子尺寸若是在隱藏、換渲染器或字型還沒載完時量的，會與畫面差一點，
+ * 滑鼠選取就會落在隔壁行；改一下 fontSize 再改回來，會重量並重算滑鼠座標。隱藏中的 tab 量不準，所以略過。
+ */
+export function remeasureTab(tab: Tab) {
+  if (!tab.opened || tab.el.hidden) return;
+  const size = tab.term.options.fontSize;
+  if (size === undefined) return;
+  tab.term.options.fontSize = size + 1;
+  tab.term.options.fontSize = size;
+  tab.fit.fit();
+}
+
 export function disposeTab(tab: Tab) {
   clearTimeout(tab.gitTimer);
   clearTimeout(tab.sleepTimer);
