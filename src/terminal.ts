@@ -75,6 +75,7 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
     cwd: meta.shell === "ssh" ? undefined : meta.cwd ?? undefined,
     customTitle: meta.title ?? undefined,
     agentSession: validSessionId(meta.agentSession) ? meta.agentSession : undefined,
+    noSleep: meta.noSleep === true || undefined,
     term,
     fit,
     serializer,
@@ -221,6 +222,7 @@ export async function spawn(tab: Tab) {
     if (!f) outFilters.set(tab, (f = { dim: createDimFilter(), dec: new TextDecoder() }));
     // stream: true 讓被切在 chunk 邊界的 UTF-8 字元留到下一塊
     tab.term.write(f.dim(f.dec.decode(new Uint8Array(buf), { stream: true })));
+    tab.outAt = Date.now();
     markDirty(tab);
   };
   // Set before the call: ConPTY asks for the cursor position right away and

@@ -29,6 +29,9 @@ pub struct Tab {
     /// Claude Code session id last seen in this tab (from hooks); offered for `claude --resume`.
     #[serde(default, rename = "agentSession", skip_serializing_if = "Option::is_none")]
     pub agent_session: Option<String>,
+    /// The user keeps this tab awake (e.g. the one reached from the phone); hibernation skips it.
+    #[serde(default, rename = "noSleep", skip_serializing_if = "std::ops::Not::not")]
+    pub no_sleep: bool,
 }
 
 /// A sidebar entry holding one or more tabs (cmux's "workspace").
@@ -125,7 +128,7 @@ fn migrate_v1(v: &Value) -> Session {
             color: str_of(t, "color"),
             group: None,
             active: Some(id.clone()),
-            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), ssh: None, title: None, agent_session: None }],
+            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), ssh: None, title: None, agent_session: None, no_sleep: false }],
         });
     }
     s
@@ -231,7 +234,7 @@ mod tests {
             "workspaces": [{
                 "id": "w1", "title": "demo", "color": "blue", "group": "C:\\repo", "active": "t2",
                 "tabs": [
-                    { "id": "t1", "shell": "cmd", "cwd": "C:\\a", "title": "mine", "agentSession": "0f6e1c2a-9b3d-4e5f" },
+                    { "id": "t1", "shell": "cmd", "cwd": "C:\\a", "title": "mine", "agentSession": "0f6e1c2a-9b3d-4e5f", "noSleep": true },
                     { "id": "t2", "shell": "ssh", "ssh": "u@h:22", "cwd": null }
                 ]
             }],

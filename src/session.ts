@@ -20,7 +20,7 @@ function sessionData(): Session {
         active: ws.activeTab ?? null,
         tabs: ws.tabs.map((tid) => {
           const t = tabs.get(tid)!;
-          return { id: t.id, shell: t.shell, ssh: t.ssh ?? null, cwd: t.cwd ?? null, title: t.customTitle ?? null, agentSession: t.agentSession ?? null };
+          return { id: t.id, shell: t.shell, ssh: t.ssh ?? null, cwd: t.cwd ?? null, title: t.customTitle ?? null, agentSession: t.agentSession ?? null, noSleep: t.noSleep || undefined };
         }),
       };
     }),

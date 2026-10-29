@@ -759,17 +759,29 @@ body.no-hints .t-num { display: none; }
 .wt-actions .primary.danger:hover { background: #c81e1e; }
 .ask-text { margin: 0; font-size: 13px; line-height: 1.6; color: var(--s-text); }
 .ask-text.muted { font-size: 12.5px; color: var(--s-muted); }
-.usage-panel { width: min(560px, calc(100vw - 32px)); }
+.usage-panel { width: min(720px, calc(100vw - 32px)); }
+.usage-scroll { max-height: min(60vh, 520px); overflow-y: auto; }
+#usage-list { table-layout: fixed; }
+#usage-list th:nth-child(2) { width: 64px; }
+#usage-list th:nth-child(3) { width: 76px; }
+#usage-list th:nth-child(4) { width: 168px; }
+#usage-list .u-group td { padding: 10px 8px 4px; color: var(--s-muted); font-size: 12px; font-weight: 600; cursor: default; }
+#usage-list tr.u-group:hover { background: none; }
+#usage-list .u-title, #usage-list .u-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#usage-list .u-note { color: var(--s-muted); font-size: 12px; }
+#usage-list .u-acts { display: flex; gap: 4px; justify-content: flex-end; }
+#usage-list .u-btn { padding: 1px 8px; border: 1px solid var(--s-line); border-radius: 5px; background: var(--s-field); color: var(--s-text); font: inherit; font-size: 12px; cursor: pointer; }
+#usage-list .u-btn:hover { border-color: var(--s-accent); }
+#usage-list .u-btn.on { border-color: var(--s-accent); color: var(--s-accent); }
+#usage-list .u-btn:disabled { opacity: 0.5; cursor: default; }
 #usage-list { width: 100%; border-collapse: collapse; font-size: 13px; }
 #usage-list th { text-align: left; font-weight: 500; color: var(--s-muted); padding: 0 8px 6px; border-bottom: 1px solid var(--s-line); }
 #usage-list td { padding: 5px 8px; font-variant-numeric: tabular-nums; }
 #usage-list th:not(:first-child), #usage-list td:not(:first-child) { text-align: right; white-space: nowrap; }
 #usage-list tbody tr { cursor: pointer; }
 #usage-list tbody tr:hover { background: rgba(255, 255, 255, 0.05); }
-#usage-list .u-name { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#usage-list .u-name { overflow: hidden; }
 #usage-list tfoot td { border-top: 1px solid var(--s-line); font-weight: 600; }
-#usage-list .u-sleep { padding: 1px 8px; border: 1px solid var(--s-line); border-radius: 5px; background: var(--s-field); color: var(--s-text); font: inherit; font-size: 12px; cursor: pointer; }
-#usage-list .u-sleep:hover { border-color: var(--s-accent); }
 .wt-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .wt-actions button { font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 6px; cursor: pointer; }
 .wt-actions .primary { border: 0; background: var(--s-accent); color: #fff; }

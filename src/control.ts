@@ -1,21 +1,24 @@
 // Requests from `panex-cli open` (an agent in one tab starting another agent) and
 // `panex-cli worktree-create` / `worktree-remove` (Claude Code's worktree hooks): the backend checks the token
 // and hands them here because the frontend owns the layout. A tab `open` starts runs right away
-// but stays in the background; the user sees it in the sidebar.
+// but stays in the background; the user sees it in the sidebar. `list` / `wake` / `send` let a
+// control tab's agent (reached from the phone) look at, wake and message the other tabs.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { t as tr } from "./i18n";
 import { type Tab, type Workspace } from "./types";
 import { basename, newId, newWsId } from "./util";
-import { S, activeWs, tabs, workspaces, wsOrder } from "./state";
+import { S, activeWs, tabTitle, tabs, workspaces, wsOrder, wsTitle } from "./state";
 import { saveSession } from "./session";
 import { createTab, refreshBranch, spawn } from "./terminal";
 import { scheduleRender } from "./render";
 import { addWorktree, worktreeSetup } from "./worktree-dialog";
 import { groupLead, groupMembers, inFolder, insertInRepoGroup, tidyGroups } from "./groups";
 import { closeTabs, showWorkspace } from "./workspaces";
-import { workingTabs } from "./agent";
+import { notify, workingTabs } from "./agent";
+import { armHibernate, wake } from "./hibernate";
+import { cleanText, matchTargets } from "./remote";
 
 interface OpenArgs {
   cwd: string;
@@ -189,6 +192,115 @@ function closeInside(path: string, keep: Set<string>) {
   if (stale.length) closeTabs(stale.map((t) => t.id));
 }
 
+// `panex-cli list` / `wake` / `send`: a control tab's agent (the one the user reaches from the
+// phone) looks at the other tabs, wakes hibernated ones and passes them a message.
+
+/** Every tab in sidebar order, with the names `matchTargets` looks at. */
+function targets() {
+  return wsOrder.flatMap((wid) => {
+    const ws = workspaces.get(wid)!;
+    return ws.tabs.map((id) => {
+      const tab = tabs.get(id)!;
+      return { id, tab, workspace: wsTitle(ws), title: tabTitle(tab), folder: tab.cwd ? basename(tab.cwd) : "" };
+    });
+  });
+}
+
+type Target = ReturnType<typeof targets>[number];
+
+/** @throws when no tab matches */
+function find(target: string) {
+  const hits = matchTargets(targets(), target);
+  if (!hits.length) throw `no tab matches "${target}"; see panex-cli list`;
+  return hits;
+}
+
+const hasClaude = (t: Tab) => !!(t.agentLive || t.agentSession);
+
+function claudeState(t: Tab) {
+  if (!hasClaude(t)) return "none";
+  if (t.asking) return "needs-input";
+  return t.status === "running" ? "running" : "idle";
+}
+
+function list(a: { from?: string }) {
+  return {
+    tabs: targets().map(({ id, tab, workspace, title }) => ({
+      tab: id,
+      workspace,
+      title,
+      cwd: tab.cwd ?? null,
+      shell: tab.hibernated ? "asleep" : tab.running ? "running" : "stopped",
+      claude: claudeState(tab),
+      message: tab.note ?? "",
+      noSleep: !!tab.noSleep,
+      self: id === a.from,
+    })),
+  };
+}
+
+async function wakeTabs(a: { targets: string[]; from?: string }) {
+  if (!a.targets?.length) throw "give a tab id or name";
+  const hits = new Map<string, Target>();
+  for (const target of a.targets) for (const t of find(target)) hits.set(t.id, t);
+  const out = [];
+  for (const t of hits.values()) {
+    const woke = await wake(t.tab);
+    // `claude --resume` sends no hook, so nothing else would start its idle countdown.
+    if (woke) armHibernate(t.tab);
+    out.push({ tab: t.id, workspace: t.workspace, title: t.title, state: woke ? "woken" : "already-running" });
+  }
+  return { tabs: out };
+}
+
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Waits until a just-started tab has gone quiet: the shell, then `claude --resume` drawing its
+ * screen. Text typed earlier could reach the shell instead of Claude Code.
+ * @throws when the shell ends, or it is still busy after 45 s (under the backend's 60 s)
+ */
+async function settle(tab: Tab) {
+  const start = Date.now();
+  while (Date.now() - start < 45_000) {
+    await pause(250);
+    if (!tab.running) throw "the tab's shell ended while starting";
+    const out = tab.outAt ?? 0;
+    if (out >= start && Date.now() - out >= 2000 && Date.now() - start >= 4000) return;
+  }
+  throw "Claude Code is still starting in that tab; send again in a moment";
+}
+
+/** Types the message into the tab's Claude Code and submits it, waking the tab first if it sleeps. */
+async function send(a: { target: string; text: string; from?: string }) {
+  let hits = find(a.target);
+  if (hits.length > 1) hits = hits.filter((t) => hasClaude(t.tab));
+  if (hits.length !== 1) {
+    const all = find(a.target).map((t) => `${t.id} (${t.workspace} › ${t.title})`);
+    throw `"${a.target}" matches ${all.length} tabs; use the tab id: ${all.join(", ")}`;
+  }
+  const { tab, id } = hits[0];
+  if (id === a.from) throw "that is this tab";
+  if (!hasClaude(tab)) throw "no Claude Code in that tab; send only types into Claude Code";
+  if (tab.asking) throw "its Claude Code is asking the user something; answer that in panex first";
+  const text = cleanText(a.text ?? "");
+  if (!text) throw "nothing to send";
+  const woke = await wake(tab);
+  if (woke) {
+    if (!tab.agentLive) throw "the tab started but did not resume Claude Code";
+    await settle(tab);
+  }
+  // Claude Code reads a quick text + Enter as one paste with a line break, so Enter goes separately.
+  const paste = tab.term.modes.bracketedPasteMode;
+  await invoke("pty_write", { id, data: paste ? `\x1b[200~${text}\x1b[201~` : text.replace(/\n/g, " ") });
+  await pause(150);
+  // Before the answer: a `wait` right after must not see the previous turn's "done".
+  notify(tab, "running", "");
+  await invoke("agent_state", { id, state: "running", message: "" });
+  await invoke("pty_write", { id, data: "\r" });
+  return { tab: id, workspace: hits[0].workspace, title: hits[0].title, woke };
+}
+
 let sweeping = false;
 
 /**
@@ -238,6 +350,9 @@ export function wireControl() {
       if (p.op === "open") value = await open(p.args);
       else if (p.op === "worktree") value = await worktree(p.args);
       else if (p.op === "worktree-remove") value = worktreeRemove(p.args);
+      else if (p.op === "list") value = list(p.args);
+      else if (p.op === "wake") value = await wakeTabs(p.args);
+      else if (p.op === "send") value = await send(p.args);
       else throw "unknown request";
     } catch (e) {
       ok = false;

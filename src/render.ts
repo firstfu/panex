@@ -208,6 +208,8 @@ function renderTabbar() {
     if (t.note) d.title = t.note;
     if (t.hibernated) d.title = (t.note ? `${t.note}
 ` : "") + tr("已休眠：切回來時自動接回");
+    if (t.noSleep) d.title = (d.title ? `${d.title}
+` : "") + tr("不會休眠");
     const num = i < 8 ? i + 1 : i === ws.tabs.length - 1 ? 9 : 0;
     const hint = num ? digitHint("selectTabByNumber", num) : "";
     d.innerHTML =

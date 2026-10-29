@@ -10,11 +10,35 @@ import { type Tab } from "./types";
 import { S, tabs } from "./state";
 import { spawn } from "./terminal";
 import { scheduleRender } from "./render";
+import { saveSession } from "./session";
 import { CAN_MANAGE } from "./platform";
 
-/** Whether the tab can be hibernated by hand right now: hidden, with a local shell running. */
+/** Whether the tab can be hibernated by hand right now: hidden, with a local shell running, not kept awake. */
 export function canHibernate(tab: Tab) {
-  return CAN_MANAGE && tab.running && !tab.hibernated && !tab.ssh && tab.id !== S.visibleTabId;
+  return CAN_MANAGE && tab.running && !tab.hibernated && !tab.ssh && !tab.noSleep && tab.id !== S.visibleTabId;
+}
+
+/** Keeps the tab out of hibernation (manual and automatic), or lets it sleep again. */
+export function setNoSleep(tab: Tab, on: boolean) {
+  tab.noSleep = on || undefined;
+  if (on) cancelHibernate(tab);
+  else armHibernate(tab);
+  saveSession();
+  scheduleRender();
+}
+
+/**
+ * Starts a tab's shell without showing it: a hibernated tab resumes its Claude Code session, a
+ * restored tab that was never opened starts like on first view. `panex-cli wake` and `send`.
+ * @returns false when the shell was already running
+ */
+export async function wake(tab: Tab) {
+  if (tab.running) return false;
+  tab.exited = false;
+  await spawn(tab);
+  if (!tab.running) throw "the shell did not start";
+  scheduleRender();
+  return true;
 }
 
 /** Whether the tab's agent is idle enough to hibernate without asking: not mid-turn and not

@@ -107,9 +107,9 @@
 
     <div id="usage" class="overlay" hidden>
       <div class="wt-panel usage-panel" role="dialog" aria-modal="true" aria-labelledby="usage-title" tabindex="-1">
-        <h2 id="usage-title" data-i18n>資源使用</h2>
-        <table id="usage-list"></table>
-        <p class="ask-text muted" data-i18n>每個分頁連同它開的所有程式（claude、MCP server…）加總；記憶體是各程式的私有記憶體。點一列切到該分頁。</p>
+        <h2 id="usage-title" data-i18n>分頁總覽</h2>
+        <div class="usage-scroll"><table id="usage-list"></table></div>
+        <p class="ask-text muted" data-i18n>依狀態列出所有分頁。記憶體是每個分頁連同它開的所有程式（claude、MCP server…）的私有記憶體加總。點一列切到該分頁。</p>
         <div class="wt-actions">
           <button type="button" id="usage-refresh" class="ghost" data-i18n>重新整理</button>
           <button type="button" id="usage-close" class="primary" data-i18n>關閉</button>

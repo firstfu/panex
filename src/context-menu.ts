@@ -13,7 +13,7 @@ import { startRename } from "./rename";
 import { canHide, isHidden, setHidden } from "./hidden";
 import { openUsage } from "./usage";
 import { CAN_MANAGE } from "./platform";
-import { canHibernate, hibernateTabs } from "./hibernate";
+import { canHibernate, hibernateTabs, setNoSleep } from "./hibernate";
 
 export const ctxEl = $("ctx");
 
@@ -32,7 +32,7 @@ export function wsMenu(ws: Workspace): MenuItem[] {
     { label: tr("用新 worktree 開新工作區…"), keys: keyLabel("newWorktree"), run: () => (showWorkspace(ws.id), openWorktreeDialog()) },
     ...groupItems(ws),
     copyPathItem(cwd),
-    ...(CAN_MANAGE ? [{ label: tr("資源使用…"), keys: keyLabel("showUsage"), run: openUsage }] : []),
+    ...(CAN_MANAGE ? [{ label: tr("分頁總覽…"), keys: keyLabel("showUsage"), run: openUsage }] : []),
     ...(CAN_MANAGE ? [sleepItem(ws.tabs.map((id) => tabs.get(id)!), tr("休眠工作區"))] : []),
     "-",
     { label: tr("上移"), keys: keyLabel("moveWorkspaceUp"), run: () => moveBy(ws.id, -1), disabled: !canMove(ws.id, -1) },
@@ -117,6 +117,7 @@ export function tabMenu(tab: Tab): MenuItem[] {
     { label: tr("重新命名分頁…"), keys: keyLabel("renameTab"), run: () => startRename("tab", tab.id) },
     copyPathItem(tab.cwd),
     ...(CAN_MANAGE ? [sleepItem([tab], tr("休眠分頁"))] : []),
+    ...(CAN_MANAGE ? [{ label: tab.noSleep ? tr("允許休眠") : tr("不要休眠這個分頁"), run: () => setNoSleep(tab, !tab.noSleep) }] : []),
     "-",
     { label: tr("左移"), keys: keyLabel("moveTabLeft"), run: () => moveTab(tab.id, i - 1), disabled: i === 0 },
     { label: tr("右移"), keys: keyLabel("moveTabRight"), run: () => moveTab(tab.id, i + 1), disabled: i === ws.tabs.length - 1 },

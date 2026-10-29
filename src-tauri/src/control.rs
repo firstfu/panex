@@ -1,5 +1,5 @@
-//! Control requests from `panex-cli open|wait`, so an agent in one tab can start others and
-//! wait for them. They arrive over the notification pipe (notify.rs) and must carry the token
+//! Control requests from `panex-cli open|wait|list|wake|send`, so an agent in one tab can start
+//! others, wait for them, and wake and message hibernated ones. They arrive over the notification pipe (notify.rs) and must carry the token
 //! that only shells started by this panex get in PANEX_TOKEN; any other local process is refused.
 //!
 //! `open`, `worktree` and `worktree-remove` (Claude Code's worktree hooks) are carried out by the frontend, which owns the layout: we emit `ctl-request` and the
@@ -103,6 +103,8 @@ pub async fn handle(app: &AppHandle, req: &Value) -> Value {
         Some("open" | "worktree") => open(app, req).await,
         // worktree 正要被刪，panex 只整理側欄，所以不檢查資料夾。
         Some("worktree-remove") => to_frontend(app, req).await,
+        // 分頁的名稱、休眠與 Claude 狀態都在前端；send 會等休眠的分頁接回，最多 45 秒。
+        Some("list" | "wake" | "send") => to_frontend(app, req).await,
         Some("wait") => wait(app, req).await,
         _ => Err("unknown request".into()),
     };
