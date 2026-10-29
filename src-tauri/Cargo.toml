@@ -1,7 +1,7 @@
 # panex backend crate: the app (src/main.rs → lib.rs) and the panex-cli hook helper (src/bin).
 [package]
 name = "panex"
-version = "0.7.11"
+version = "0.7.12"
 description = "Open-source, cross-platform terminal for running many AI coding agents"
 license = "MIT"
 edition = "2021"
