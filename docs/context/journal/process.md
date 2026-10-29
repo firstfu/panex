@@ -4,6 +4,30 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-10-29 — 分頁「不要休眠」標記＋`panex-cli list`／`wake`／`send`（未 commit）
+
+**變更**
+- 分頁右鍵「不要休眠這個分頁」／「允許休眠」：`tab.noSleep`，存進 `session.json` 的 `noSleep`（Rust `session::Tab` 加欄位、`skip_serializing_if` false，舊檔不需遷移），擋在 `canHibernate`，所以手動、工作區、資源面板、自動倒數都跳過它；分頁 tooltip 加「不會休眠」。
+- `panex-cli list`／`wake TAB...`／`send TAB TEXT...`（或 `-` 讀 stdin）：後端 `control.rs` 轉給前端 `control.ts`。`list` 列分頁與 shell／Claude 狀態；`wake` 背景 `spawn`（休眠的會 `claude --resume`），叫醒後 `armHibernate`；`send` 只送進有 Claude 的分頁，休眠就先叫醒並等輸出安靜，bracketed paste 送文字、150 ms 後送 Enter，送前先把後端狀態設 running。名稱比對與控制字元過濾放 `src/remote.ts`（純函式，`tests/remote.test.ts`）。
+- `panex-cli help` 補三條指令說明；`skills/panex/SKILL.md` 的 description 加「從手機問／叫醒／轉達其他分頁」情境；`reference/overview.md` 的 control.rs 列補機制。
+
+**為什麼**
+- 使用者想從 Claude mobile 跟休眠中的分頁對話；休眠時分頁沒有程序可連。做法是留一個不休眠的控制分頁（手機連它），由它的 claude 用 panex-cli 叫醒、轉達其他分頁。
+
+**驗證（2026-10-29，Windows test-build 測試實例＋真 Claude Code，從 cmd 直接下 panex-cli）**
+- `tsc`、`npm test` 22 項、`cargo test` lib 34＋cli 4 項全過。
+- `list` 正確；對沒有 Claude 的分頁 `send` 被拒；`wake` 叫起背景分頁；分頁自動休眠後 `send` 會叫醒、接回同一個 session（記得上一輪回覆），`wait` 拿到新回覆而不是舊的 done；`noSleep` 選單、存檔、超過休眠時間仍不休眠都確認。
+- 未驗：macOS；手機端實際用 Claude Code 遠端控制連進控制分頁；控制分頁的 claude 依 skill 自行呼叫 panex-cli；只 `wake` 不 `send` 時的自動休眠倒數（邏輯已補、未實測）。
+
+**追加：「資源使用」改成「分頁總覽」（參考 Orca 的 Agent Dashboard）**
+- 同一個視窗（`Ctrl+Shift+M`、工作區右鍵）改列出全部分頁並依狀態分組：在等你、正在做、做完、閒著、睡著了、未啟動；每列加最後訊息、這一輪時間，按鈕加「叫醒／啟動」「不休眠」。分組規則 `remote.ts::groupOf`（有測試）。`panex-cli list` 多回 `message`。快捷鍵 id 仍是 `showUsage`，使用者的綁定不受影響。
+- 不照抄 Orca 的四欄看板（分頁少時列表好讀）和 PR 狀態篩選（要打 GitHub API，違反閒置零成本）。
+- 驗證：測試實例用 `panex-cli notify` 假 hook 造出各狀態，截圖確認分組與欄位對齊；按休眠→移到「睡著了」、按叫醒→回到「做完」、按啟動→「閒著」、按不休眠→按鈕亮起且休眠鈕消失。`npm test` 23 項過。
+
+**下一步**
+- 使用者確認後 commit；在正式版設定控制分頁，用手機實測整個流程。
+- 若要 cmux-remote 式「手機直接看每個分頁」，再評估本機 relay＋Tailscale。
+
 ## 2026-10-28 — 發布 0.7.11（tag `v0.7.11`）
 
 **變更**
