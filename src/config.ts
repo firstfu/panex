@@ -13,6 +13,7 @@ import { S, activeTab, tabs } from "./state";
 import { renderGitPanel } from "./git-panel";
 import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { fillSettings, isCapturing, openSettings, settingsEl } from "./settings-panel";
+import { syncLiveMem } from "./mem";
 
 let configError: string | undefined;
 let emojiFontReq: Promise<void> | undefined;
@@ -68,6 +69,7 @@ export function applyConfig(loaded: LoadedConfig) {
     if (S.shells.length && !S.shells.some((s) => s.id === S.settings.defaultShell)) S.settings.defaultShell = S.shells[0].id;
     S.bindings = resolveBindings(S.rawConfig.shortcuts?.bindings);
     applySettings();
+    syncLiveMem();
     scheduleRender();
   }
   renderConfigNotice();

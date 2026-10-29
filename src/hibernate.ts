@@ -11,6 +11,7 @@ import { S, tabs } from "./state";
 import { spawn } from "./terminal";
 import { scheduleRender } from "./render";
 import { saveSession } from "./session";
+import { refreshMem } from "./mem";
 import { CAN_MANAGE } from "./platform";
 
 /** Whether the tab can be hibernated by hand right now: hidden, with a local shell running, not kept awake. */
@@ -37,6 +38,7 @@ export async function wake(tab: Tab) {
   tab.exited = false;
   await spawn(tab);
   if (!tab.running) throw "the shell did not start";
+  refreshMem();
   scheduleRender();
   return true;
 }
@@ -73,6 +75,7 @@ export async function hibernate(tab: Tab, auto = false) {
   const time = new Date().toLocaleString("zh-TW", { hour12: false });
   const resume = tab.agentSession ? tr("，切回來時會接回 Claude Code") : tr("，切回來時會重新啟動 shell");
   tab.term.write(`\x1b[0m\r\n\x1b[90m${tr("── 已休眠（{time}）{resume} ──", { time, resume })}\x1b[0m\r\n`);
+  refreshMem();
   // Shown again while the backend was ending it: wake it right away.
   if (S.visibleTabId === tab.id) spawn(tab);
   scheduleRender();

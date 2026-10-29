@@ -12,6 +12,7 @@ import { openSshDialog } from "./ssh-dialog";
 import { gitBadges } from "./git-panel";
 import { groupLead, groupName, isCollapsed, repoName, units } from "./groups";
 import { hiddenOrder, isHidden, visibleOrder } from "./hidden";
+import { fmtBytes, fmtMemShort, memOf } from "./mem";
 
 export const wsListEl = $("tabs");
 export const hiddenEl = $("hidden-row");
@@ -144,10 +145,11 @@ function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
   // Asleep only when every tab is: one awake tab still holds its memory.
   const asleep = !whole && ws.tabs.every((id) => tabs.get(id)?.hibernated);
   const sleep = asleep ? `<span class="t-sleep" title="${esc(tr("已休眠：切回來時自動接回"))}">zZ</span>` : "";
+  const mem = memTag(whole ? whole.flatMap((id) => workspaces.get(id)?.tabs ?? []) : ws.tabs, "t-mem");
   const title =
     S.renaming?.kind === "ws" && S.renaming.id === wid
       ? renameInput
-      : `${caret}${dot}<span class="name">${esc(wsTitle(ws))}</span>${sleep}${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
+      : `${caret}${dot}<span class="name">${esc(wsTitle(ws))}</span>${sleep}${mem}${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
   d.innerHTML =
     `<div class="t-title">${title}</div>` +
     (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +
@@ -155,6 +157,21 @@ function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
     stateLine(status, st) +
     `<button class="t-close" title="${esc(withKey("關閉工作區", "closeWorkspace"))}">×</button>`;
   return d;
+}
+
+/** The memory of the given tabs added up, as a small tag with the process count in its tooltip; "" before the first read. */
+function memTag(ids: string[], cls: string) {
+  let bytes = 0, procs = 0, any = false;
+  for (const id of ids) {
+    const u = memOf.get(id);
+    if (!u) continue;
+    any = true;
+    bytes += u.bytes;
+    procs += u.procs;
+  }
+  if (!any) return "";
+  const title = tr("記憶體 {m}・{n} 個程序", { m: fmtBytes(bytes), n: procs });
+  return `<span class="${cls}" title="${esc(title)}">${fmtMemShort(bytes)}</span>`;
 }
 
 /** Marks a linked worktree; outside a group (whose header names the repo) it also names the repo. */
@@ -215,7 +232,7 @@ function renderTabbar() {
     d.innerHTML =
       S.renaming?.kind === "tab" && S.renaming.id === tid
         ? renameInput
-        : `<span class="h-dot"></span><span class="h-name">${esc(tabTitle(t))}</span>` +
+        : `<span class="h-dot"></span><span class="h-name">${esc(tabTitle(t))}</span>${memTag([tid], "h-mem")}` +
           (hint ? `<span class="t-num">${hint}</span>` : "") +
           `<button class="h-close" title="${esc(withKey("關閉分頁", "closeTab"))}">×</button>`;
     return d;

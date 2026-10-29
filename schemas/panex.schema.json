@@ -42,6 +42,11 @@
           "default": "auto",
           "description": "介面語言：auto 跟隨系統（中文系統用繁體中文，其他用英文）、en 英文、zh-Hant 繁體中文。"
         },
+        "liveMemory": {
+          "type": "boolean",
+          "default": false,
+          "description": "分頁列與側欄的記憶體數字除了在切換分頁、視窗取回焦點、agent 開始或做完一輪時更新外，視窗在前景時每 10 秒再更新一次。關著時閒置的 panex 不跑任何計時器。（Windows、macOS）"
+        },
         "checkForUpdates": {
           "type": "boolean",
           "default": true,

@@ -16,6 +16,7 @@ import { openCloseAsk } from "./close-ask";
 import { setCollapsed, tidyGroups } from "./groups";
 import { canHide, isHidden, setHidden, visibleOrder } from "./hidden";
 import { armHibernate, cancelHibernate } from "./hibernate";
+import { refreshMem } from "./mem";
 
 /** Shows a tab (switching workspace if needed). Only the visible tab keeps a WebGL context. */
 export function showTab(id: string) {
@@ -55,6 +56,7 @@ export function showTab(id: string) {
   if (S.focused) clearStatus(tab);
   if (isGitOpen() || tab.gitStale) scheduleGit(tab);
   renderGitPanel();
+  refreshMem();
   saveSession();
   scheduleRender();
 }

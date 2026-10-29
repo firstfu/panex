@@ -16,6 +16,7 @@ import { checkForUpdate, showManualResult } from "./update";
 import { openLink } from "./links";
 import { IS_MAC } from "./platform";
 import { armHibernate, cancelHibernate } from "./hibernate";
+import { syncLiveMem } from "./mem";
 import appIcon from "../src-tauri/icons/128x128@2x.png";
 
 export const settingsEl = $("settings");
@@ -176,6 +177,7 @@ export function fillSettings() {
   $<HTMLInputElement>("s-worktree-panex").checked = S.settings.worktreeViaPanex;
   $<HTMLInputElement>("s-scrollback").value = String(S.settings.scrollback);
   $<HTMLInputElement>("s-hibernate").value = String(S.settings.hibernateMinutes);
+  $<HTMLInputElement>("s-live-mem").checked = S.settings.liveMemory;
   $<HTMLInputElement>("s-win-w").value = String(S.settings.windowWidth);
   $<HTMLInputElement>("s-win-h").value = String(S.settings.windowHeight);
   $("cfg-path").textContent = S.configPath;
@@ -421,6 +423,10 @@ settingsEl.addEventListener("click", (e) => {
   const kind = (e.target as HTMLElement).closest<HTMLElement>("[data-perm-open]")?.dataset.permOpen;
   if (kind) invoke("perms_open", { kind }).catch((err) => showNotice(String(err)));
 });
+$<HTMLInputElement>("s-live-mem").onchange = (e) => {
+  updateSettings({ liveMemory: (e.target as HTMLInputElement).checked });
+  syncLiveMem();
+};
 $<HTMLInputElement>("s-confirm-close").onchange = (e) =>
   updateSettings({ confirmClose: (e.target as HTMLInputElement).checked });
 // The WorktreeCreate hook in ~/.claude/settings.json follows this switch, and the backend reads

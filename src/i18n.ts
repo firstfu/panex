@@ -370,6 +370,8 @@ const EN: Record<string, string> = {
   "工作區 / 分頁": "Workspace / tab",
   "記憶體": "Memory",
   "合計": "Total",
+  "即時更新記憶體": "Live memory numbers",
+  "分頁旁的記憶體數字平常只在切換分頁、AI 開始或做完一輪時更新；打開後視窗在前景時每 10 秒再更新一次": "The memory next to each tab normally updates when you switch tabs or an agent starts or finishes a turn; turn this on to also update every 10 s while the window is in front",
   "記憶體 {m}・{n} 個程序": "Memory {m} · {n} processes",
 };
 

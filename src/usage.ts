@@ -2,10 +2,9 @@
 // not started), with the agent's last message, the turn's time, and memory and process count
 // read from each tab's process tree (Job Object on Windows, descendants of the shell on macOS).
 // Each row can wake, hibernate or keep the tab awake. Nothing is polled: the dialog reads once
-// when opened, refreshed or after one of its buttons, and the sidebar reads a workspace's tabs
-// when the pointer moves onto its row.
+// when opened, refreshed or after one of its buttons. The numbers on the tabs and sidebar rows
+// come from mem.ts; moving the pointer onto one re-reads them.
 
-import { invoke } from "@tauri-apps/api/core";
 import { t as tr } from "./i18n";
 import { type Tab, type Workspace } from "./types";
 import { $, esc, fmtDuration } from "./util";
@@ -15,18 +14,17 @@ import { hideCtx } from "./context-menu";
 import { CAN_MANAGE } from "./platform";
 import { armHibernate, canHibernate, hibernate, setNoSleep, wake } from "./hibernate";
 import { GROUPS, type Group, groupOf } from "./remote";
-
-type Usage = { id: string; bytes: number; procs: number };
+import { fmtBytes, refreshMem, readUsage, setUsage, type Usage } from "./mem";
 
 const usageEl = $("usage");
 const listEl = $("usage-list");
 
-export function fmtBytes(n: number) {
-  const mb = n / 1048576;
-  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
+/** Reads every tab's memory, and hands the read to the tab bar and sidebar too. */
+async function read() {
+  const list = await readUsage();
+  setUsage(list);
+  return list;
 }
-
-const read = () => invoke<Usage[]>("pty_usage").catch(() => [] as Usage[]);
 
 export function openUsage() {
   if (!CAN_MANAGE) return;
@@ -133,22 +131,16 @@ listEl.addEventListener("click", async (e) => {
   showTab(id);
 });
 
-// Hovering a workspace row reads its tabs and puts the total in the row's tooltip.
-// The sidebar re-renders often, so remember the element, not just the id.
-let hovered: HTMLElement | null = null;
-$("tabs").addEventListener("mouseover", (e) => {
-  if (!CAN_MANAGE) return;
-  const row = (e.target as HTMLElement).closest<HTMLElement>("[data-ws]");
-  if (!row || row === hovered) return;
-  hovered = row;
-  const ws = workspaces.get(row.dataset.ws!);
-  if (!ws) return;
-  read().then((list) => {
-    const mine = list.filter((u) => ws.tabs.includes(u.id));
-    if (!mine.length || hovered !== row) return;
-    const bytes = mine.reduce((s, u) => s + u.bytes, 0);
-    const procs = mine.reduce((s, u) => s + u.procs, 0);
-    row.title = tr("記憶體 {m}・{n} 個程序", { m: fmtBytes(bytes), n: procs });
+// Moving onto a workspace row or a tab re-reads the memory numbers shown on them.
+// The sidebar re-renders often, so key on the id, not the element.
+let hovered: string | undefined;
+for (const el of [$("tabs"), $("tabbar")]) {
+  el.addEventListener("mouseover", (e) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>("[data-ws], [data-tab]");
+    const key = row?.dataset.ws ?? row?.dataset.tab;
+    if (!key || key === hovered) return;
+    hovered = key;
+    refreshMem();
   });
-});
-$("tabs").addEventListener("mouseleave", () => (hovered = null));
+  el.addEventListener("mouseleave", () => (hovered = undefined));
+}

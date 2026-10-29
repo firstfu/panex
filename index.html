@@ -261,6 +261,10 @@
               <div class="row-ctl"><input id="s-hibernate" class="field num" type="number" min="0" max="1440" step="5" /><em class="unit" data-i18n>分鐘</em></div>
             </div>
             <div class="row">
+              <div class="row-text"><b data-i18n>即時更新記憶體</b><span data-i18n>分頁旁的記憶體數字平常只在切換分頁、AI 開始或做完一輪時更新；打開後視窗在前景時每 10 秒再更新一次</span></div>
+              <label class="row-ctl switch"><input id="s-live-mem" type="checkbox" /><i></i></label>
+            </div>
+            <div class="row">
               <div class="row-text"><b data-i18n>agent 工作中關閉前先確認</b><span data-i18n>有 Claude Code 正在跑時關閉 panex 或它所在的分頁，先問一聲，免得誤關中斷它</span></div>
               <label class="row-ctl switch"><input id="s-confirm-close" type="checkbox" /><i></i></label>
             </div>

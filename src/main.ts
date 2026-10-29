@@ -27,6 +27,7 @@ import { openCloseAsk } from "./close-ask";
 import { sweepGoneWorktrees, wireControl } from "./control";
 import { tidyGroups } from "./groups";
 import { armHibernate } from "./hibernate";
+import { refreshMem, syncLiveMem } from "./mem";
 import { refreshPerms } from "./settings-panel";
 import { checkForUpdateSoon } from "./update";
 
@@ -46,6 +47,8 @@ async function main() {
     if (S.focused) checkForUpdateSoon();
     // Back from System Settings: the permission rows may have changed.
     if (S.focused) void refreshPerms();
+    if (S.focused) refreshMem();
+    syncLiveMem();
   });
   win.onCloseRequested(async (e) => {
     // Closing kills the agents' processes; --resume brings the conversation back but not the turn in progress.
@@ -65,6 +68,7 @@ async function main() {
     const tab = tabs.get(payload.id);
     if (!tab) return;
     tab.running = false;
+    refreshMem();
     if (tab.agentLive || tab.agentSession) endAgent(tab);
     if (tab.status === "running") tab.status = "idle";
     if (payload.code === 0) {
@@ -121,6 +125,8 @@ async function main() {
       }
     } finally {
       armHibernate(tab);
+      // A turn starting or ending is when a tab's memory moves most (tools, MCP servers).
+      if (p.event !== "Notification") refreshMem();
     }
   });
 
