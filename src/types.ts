@@ -136,6 +136,7 @@ export interface Tab {
   sleepRefusedAt?: number;
   seenAt?: number; // when the user last looked at this tab
   typedAt?: number; // the user's last keystroke here
+  savedAt?: number; // time of the last scrollback snapshot (not persisted)
   outAt?: number; // time of the shell's last output, to tell when a resumed Claude Code has settled (not persisted)
 }
 

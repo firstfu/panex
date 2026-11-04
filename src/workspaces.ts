@@ -7,7 +7,7 @@ import { type Tab, type Workspace } from "./types";
 import { newId, newWsId } from "./util";
 import { S, activeTab, activeWs, tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { saveSession } from "./session";
-import { attachWebgl, createTab, disposeTab, remeasureTab, spawn } from "./terminal";
+import { attachWebgl, createTab, disposeTab, remeasureTab, skipHiddenSelectionDraws, spawn } from "./terminal";
 import { clearStatus, workingTabs } from "./agent";
 import { closeGitView, isGitOpen, renderGitPanel, scheduleGit } from "./git-panel";
 import { closeSearch } from "./search";
@@ -32,6 +32,7 @@ export function showTab(id: string) {
       prev.seenAt = Date.now();
     }
   }
+  if (S.visibleTabId !== id) invoke("pty_set_visible", { id }).catch(() => {});
   S.visibleTabId = id;
   S.activeWsId = ws.id;
   if (ws.group) setCollapsed(ws.group, false);
@@ -42,6 +43,7 @@ export function showTab(id: string) {
   if (!tab.opened) {
     tab.term.open(tab.el);
     tab.opened = true;
+    skipHiddenSelectionDraws(tab);
   }
   attachWebgl(tab);
   tab.fit.fit();

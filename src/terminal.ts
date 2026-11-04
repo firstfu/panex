@@ -32,6 +32,7 @@ import { IS_MAC } from "./platform";
 const outFilters = new WeakMap<Tab, { dim: (s: string) => string; dec: TextDecoder }>();
 
 const SNAPSHOT_DELAY_MS = 4000;
+const SNAPSHOT_MAX_WAIT_MS = 30_000;
 const SNAPSHOT_LINES = 1000;
 const isWindows = navigator.userAgent.includes("Windows");
 
@@ -275,24 +276,59 @@ export async function spawn(tab: Tab) {
   }
 }
 
-function markDirty(tab: Tab) {
-  tab.dirty = true;
+function armSnapshot() {
   // Only armed while output is flowing; an idle app runs no timers.
   snapshotTimer ??= window.setTimeout(() => {
     snapshotTimer = undefined;
-    flushSnapshots();
+    flushSnapshots(false);
+    for (const tab of tabs.values()) if (tab.dirty) return armSnapshot();
   }, SNAPSHOT_DELAY_MS);
 }
 
-function flushSnapshots() {
+function markDirty(tab: Tab) {
+  tab.dirty = true;
+  armSnapshot();
+}
+
+/**
+ * Saves the scrollback of tabs that changed. Serializing is real work, so a tab still producing
+ * output waits for a pause, up to SNAPSHOT_MAX_WAIT_MS; only a crash can lose that much.
+ * @param all save every changed tab now (the window is closing)
+ */
+function flushSnapshots(all = true) {
   const jobs: Promise<unknown>[] = [];
+  const now = Date.now();
   for (const tab of tabs.values()) {
     if (!tab.dirty) continue;
+    const quiet = now - (tab.outAt ?? 0) >= SNAPSHOT_DELAY_MS;
+    if (!all && !quiet && now - (tab.savedAt ?? 0) < SNAPSHOT_MAX_WAIT_MS) continue;
+    tab.savedAt = now;
     tab.dirty = false;
     const data = tab.serializer.serialize({ scrollback: SNAPSHOT_LINES, excludeAltBuffer: true, excludeModes: true });
     jobs.push(invoke("scrollback_save", { id: tab.id, data }).catch(() => {}));
   }
   return Promise.all(jobs);
+}
+
+/**
+ * Every scroll makes xterm re-apply the selection to its renderer, and its pause for hidden
+ * terminals doesn't cover that path: a hidden tab with output rebuilt its whole DOM screen on
+ * each frame. xterm keeps the selection state either way and hands it to the next renderer,
+ * which `attachWebgl` creates when the tab is shown, so nothing is lost by skipping the draw.
+ */
+export function skipHiddenSelectionDraws(tab: Tab) {
+  const service = (tab.term as unknown as { _core?: { _renderService?: RenderServiceInternals } })._core?._renderService;
+  const draw = service?.handleSelectionChanged;
+  if (!service || !draw) return; // xterm renamed its internals: only the optimization is lost
+  service.handleSelectionChanged = function (this: RenderServiceInternals, start, end, column) {
+    if (!tab.el.hidden) return draw.call(this, start, end, column);
+    Object.assign(this._selectionState, { start, end, columnSelectMode: column });
+  };
+}
+
+interface RenderServiceInternals {
+  handleSelectionChanged(start: unknown, end: unknown, column: boolean): void;
+  _selectionState: { start: unknown; end: unknown; columnSelectMode: boolean };
 }
 
 export function attachWebgl(tab: Tab) {

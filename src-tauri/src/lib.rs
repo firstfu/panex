@@ -20,6 +20,7 @@ mod job;
 mod links;
 mod notify;
 mod perms;
+mod output;
 mod pty;
 mod session;
 mod ssh;
@@ -103,6 +104,7 @@ pub fn run() {
             files::file_image,
             files::file_action,
             pty::shells_list,
+            output::pty_set_visible,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

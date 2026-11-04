@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use crate::output::Outlet;
 use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter, Manager, State};
 
@@ -23,7 +24,7 @@ pub struct Pane {
     /// The shell's pid, the root of the tree `pty_hibernate` inspects.
     pid: Option<u32>,
     /// Swappable so a reloaded webview can re-attach to a shell that is still running.
-    out: Arc<Mutex<Channel<InvokeResponseBody>>>,
+    out: Arc<Outlet>,
 }
 
 pub type PtyMap = Mutex<HashMap<String, Pane>>;
@@ -71,7 +72,7 @@ pub fn pty_spawn(
         return Err("invalid id".into());
     }
     if let Some(pane) = state.ptys.lock().unwrap().get(&id) {
-        *pane.out.lock().unwrap() = on_data;
+        pane.out.replace_channel(on_data);
         return Ok(());
     }
 
@@ -118,7 +119,7 @@ pub fn pty_spawn(
     #[cfg(unix)]
     let job = pid.map(crate::job::Job::assign);
 
-    let out = Arc::new(Mutex::new(on_data));
+    let out = Outlet::new(id.clone(), on_data);
     let mine = out.clone();
     state.ptys.lock().unwrap().insert(
         id.clone(),
@@ -137,10 +138,7 @@ pub fn pty_spawn(
         loop {
             match reader.read(&mut buf) {
                 Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    // A send error means the webview is gone (reload/crash); keep draining.
-                    let _ = out.lock().unwrap().send(InvokeResponseBody::Raw(buf[..n].to_vec()));
-                }
+                Ok(n) => out.write(&buf[..n]),
             }
         }
     });
@@ -164,6 +162,7 @@ pub fn pty_spawn(
         };
         let Some(pane) = pane else { return };
         crate::control::pane_exited(&app, &id);
+        pane.out.flush();
         drop(pane);
         let _ = app.emit("pty-exit", ExitPayload { id, code });
     });
