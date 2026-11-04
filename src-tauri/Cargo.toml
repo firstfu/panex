@@ -29,7 +29,7 @@ e2e = []
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"
