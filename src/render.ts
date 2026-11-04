@@ -26,12 +26,31 @@ export const shellMenuEl = $("shell-menu");
 const hooksEl = $("hooks-row");
 let renderQueued = false;
 
+// A render replaces every row, and the browser fires no click when the pressed element is gone by
+// the release. Renders come often (an agent's title spinner, memory reads after hovering a row),
+// so hold them while a press on these lists is down. Click follows pointerup in the same task,
+// so the render queued on release lands after it.
+let pressed = false;
+let renderHeld = false;
+for (const el of [wsListEl, hiddenEl, tabbarEl]) el.addEventListener("pointerdown", () => (pressed = true), true);
+function releasePress() {
+  pressed = false;
+  if (!renderHeld) return;
+  renderHeld = false;
+  scheduleRender();
+}
+window.addEventListener("pointerup", releasePress, true);
+window.addEventListener("pointercancel", releasePress, true);
+// Not capturing: the press itself blurs the terminal, and capture would see that blur too.
+window.addEventListener("blur", releasePress);
+
 export function scheduleRender() {
   if (renderQueued) return;
   renderQueued = true;
   requestAnimationFrame(() => {
     renderQueued = false;
-    render();
+    if (pressed) renderHeld = true;
+    else render();
   });
 }
 
