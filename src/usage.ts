@@ -1,7 +1,7 @@
-// Tab overview: every tab grouped by what it is doing (needs you, working, done, idle, asleep,
+// Tab overview: every tab grouped by what it is doing (needs you, working, done, idle,
 // not started), with the agent's last message, the turn's time, and memory and process count
 // read from each tab's process tree (Job Object on Windows, descendants of the shell on macOS).
-// Each row can wake, hibernate or keep the tab awake. Nothing is polled: the dialog reads once
+// A tab that isn't running can be started from its row. Nothing is polled: the dialog reads once
 // when opened, refreshed or after one of its buttons. The numbers on the tabs and sidebar rows
 // come from mem.ts; moving the pointer onto one re-reads them.
 
@@ -10,9 +10,9 @@ import { type Tab, type Workspace } from "./types";
 import { $, esc, fmtDuration } from "./util";
 import { activeTab, tabs, tabTitle, workspaces, wsOrder, wsTitle } from "./state";
 import { showTab } from "./workspaces";
+import { startInBackground } from "./terminal";
 import { hideCtx } from "./context-menu";
 import { CAN_MANAGE } from "./platform";
-import { armHibernate, canHibernate, hibernate, setNoSleep, wake } from "./hibernate";
 import { GROUPS, type Group, groupOf } from "./remote";
 import { fmtBytes, refreshMem, readUsage, setUsage, type Usage } from "./mem";
 
@@ -44,7 +44,6 @@ const GROUP_LABEL: Record<Group, string> = {
   running: "正在做",
   done: "做完",
   idle: "閒著",
-  asleep: "睡著了",
   stopped: "未啟動",
 };
 
@@ -54,24 +53,15 @@ function turnTime(tab: Tab) {
   return tab.status === "done" && tab.runMs !== undefined ? fmtDuration(tab.runMs) : "";
 }
 
-function button(kind: string, id: string, label: string, title: string, on = false) {
-  return `<button class="u-btn${on ? " on" : ""}" data-${kind}="${id}" title="${esc(tr(title))}">${esc(tr(label))}</button>`;
-}
-
 function row(ws: Workspace, tab: Tab, group: Group, u: Usage | undefined) {
   const name = `${esc(wsTitle(ws))} / ${esc(tabTitle(tab))}`;
   const note = tab.note ? `<div class="u-note">${esc(tab.note)}</div>` : "";
   const mem = u ? `<span title="${esc(tr("{n} 個程序", { n: u.procs }))}">${fmtBytes(u.bytes)}</span>` : "";
-  const btns: string[] = [];
-  if ((group === "asleep" || group === "stopped") && !tab.ssh) {
-    btns.push(group === "asleep"
-      ? button("wake", tab.id, "叫醒", "在背景接回這個分頁的 Claude Code，不切過去")
-      : button("wake", tab.id, "啟動", "在背景啟動這個分頁，不切過去"));
-  }
-  if (canHibernate(tab) && tab.status !== "running") btns.push(button("sleep", tab.id, "休眠", "結束這個分頁的程序以釋放記憶體，切回來時自動接回"));
-  if (!tab.ssh) btns.push(button("nosleep", tab.id, "不休眠", "這個分頁不會被休眠（例如從手機連的控制分頁）；再按一次取消", !!tab.noSleep));
+  const start = group === "stopped" && !tab.ssh
+    ? `<button class="u-btn" data-start="${tab.id}" title="${esc(tr("在背景啟動這個分頁，不切過去"))}">${esc(tr("啟動"))}</button>`
+    : "";
   return `<tr data-tab="${tab.id}"><td class="u-name"><div class="u-title">${name}</div>${note}</td>` +
-    `<td>${turnTime(tab)}</td><td>${mem}</td><td><div class="u-acts">${btns.join("")}</div></td></tr>`;
+    `<td>${turnTime(tab)}</td><td>${mem}</td><td><div class="u-acts">${start}</div></td></tr>`;
 }
 
 async function refresh() {
@@ -111,18 +101,12 @@ usageEl.addEventListener("keydown", (e) => {
 listEl.addEventListener("click", async (e) => {
   const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".u-btn");
   if (btn) {
-    const { sleep, wake: wakeId, nosleep } = btn.dataset;
-    const tab = tabs.get(sleep ?? wakeId ?? nosleep ?? "");
+    const tab = tabs.get(btn.dataset.start ?? "");
     if (!tab) return;
     btn.disabled = true;
-    if (sleep) await hibernate(tab);
-    else if (nosleep) setNoSleep(tab, !tab.noSleep);
-    else {
-      // The shell starts behind the dialog; `claude --resume` sends no hook, so arm the countdown here.
-      if (await wake(tab).catch(() => false)) armHibernate(tab);
-      // Give the new process tree a moment, so its memory shows on the refresh.
-      await new Promise((r) => setTimeout(r, 1000));
-    }
+    await startInBackground(tab).catch(() => false);
+    // Give the new process tree a moment, so its memory shows on the refresh.
+    await new Promise((r) => setTimeout(r, 1000));
     return refresh();
   }
   const id = (e.target as HTMLElement).closest<HTMLElement>("[data-tab]")?.dataset.tab;

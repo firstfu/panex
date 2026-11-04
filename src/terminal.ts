@@ -21,6 +21,7 @@ import { sweepGoneWorktrees } from "./control";
 import { scheduleGit } from "./git-panel";
 import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
+import { refreshMem } from "./mem";
 import { inFolder } from "./groups";
 import { IS_MAC } from "./platform";
 
@@ -75,7 +76,6 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
     cwd: meta.shell === "ssh" ? undefined : meta.cwd ?? undefined,
     customTitle: meta.title ?? undefined,
     agentSession: validSessionId(meta.agentSession) ? meta.agentSession : undefined,
-    noSleep: meta.noSleep === true || undefined,
     term,
     fit,
     serializer,
@@ -213,9 +213,23 @@ export function onInput(tab: Tab, data: string) {
   }
 }
 
+/**
+ * Starts a tab's shell without showing it, like on first view. `panex-cli wake` and `send`, and
+ * the tab overview's start button.
+ * @returns false when the shell was already running
+ */
+export async function startInBackground(tab: Tab) {
+  if (tab.running) return false;
+  tab.exited = false;
+  await spawn(tab);
+  if (!tab.running) throw "the shell did not start";
+  refreshMem();
+  scheduleRender();
+  return true;
+}
+
 export async function spawn(tab: Tab) {
   autoResume(tab);
-  tab.hibernated = false;
   const onData = new Channel<ArrayBuffer>();
   onData.onmessage = (buf) => {
     let f = outFilters.get(tab);
@@ -300,7 +314,6 @@ export function remeasureTab(tab: Tab) {
 
 export function disposeTab(tab: Tab) {
   clearTimeout(tab.gitTimer);
-  clearTimeout(tab.sleepTimer);
   tab.webgl?.dispose();
   tab.term.dispose();
   tab.el.remove();

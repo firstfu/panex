@@ -4,12 +4,8 @@
 //! Windows, and those have their own consoles, so they would outlive the pseudoconsole.
 //! KILL_ON_JOB_CLOSE also covers panex crashing: the OS closes the handle and the job dies.
 
-use std::collections::HashMap;
 use std::os::windows::io::RawHandle;
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
-use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
-};
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 use windows_sys::Win32::System::JobObjects::{
     AssignProcessToJobObject, CreateJobObjectW, JobObjectBasicProcessIdList, JobObjectExtendedLimitInformation,
     QueryInformationJobObject, SetInformationJobObject, TerminateJobObject, JOBOBJECT_BASIC_PROCESS_ID_LIST,
@@ -100,39 +96,11 @@ impl Job {
         }
     }
 
-    /// Whether ending the job loses nothing but a Claude Code that `claude --resume` brings
-    /// back (see `agent_rule::only_agent_in`). `shell` is the pid of the tab's shell.
-    pub fn only_agent(&self, shell: u32) -> bool {
-        crate::agent_rule::only_agent_in(&self.pids(), &snapshot(), shell, &crate::agent_rule::WINDOWS)
-    }
-
     pub fn terminate(&self) {
         unsafe {
             TerminateJobObject(self.0, 1);
         }
     }
-}
-
-/// Every process on the machine: pid → (parent pid, lower-case exe name).
-fn snapshot() -> HashMap<u32, (u32, String)> {
-    let mut map = HashMap::new();
-    unsafe {
-        let snap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if snap == INVALID_HANDLE_VALUE {
-            return map;
-        }
-        let mut e: PROCESSENTRY32W = std::mem::zeroed();
-        e.dwSize = std::mem::size_of::<PROCESSENTRY32W>() as u32;
-        let mut ok = Process32FirstW(snap, &mut e);
-        while ok != 0 {
-            let len = e.szExeFile.iter().position(|&c| c == 0).unwrap_or(e.szExeFile.len());
-            let exe = String::from_utf16_lossy(&e.szExeFile[..len]).to_lowercase();
-            map.insert(e.th32ProcessID, (e.th32ParentProcessID, exe));
-            ok = Process32NextW(snap, &mut e);
-        }
-        CloseHandle(snap);
-    }
-    map
 }
 
 impl Drop for Job {

@@ -16,7 +16,6 @@ export interface SavedTab {
   cwd?: string | null;
   title?: string | null;
   agentSession?: string | null;
-  noSleep?: boolean;
 }
 
 interface SavedWorkspace {
@@ -125,10 +124,6 @@ export interface Tab {
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
   skipPrompt?: boolean; // an auto-resume was queued: the shell's first prompt is its startup one, not Claude exiting
   promptAt?: number; // time of the last prompt report, to merge duplicates
-  hibernated?: boolean; // shell and agent were ended to free memory; viewing the tab starts them again (not persisted)
-  sleepTimer?: number; // auto-hibernate countdown, armed only while the tab is hidden with its agent idle
-  sleepRetried?: boolean; // the running countdown is the one retry after the backend found other programs in the tab
-  noSleep?: boolean; // the user keeps this tab awake (e.g. the control tab reached from the phone); persisted
   outAt?: number; // time of the shell's last output, to tell when a resumed Claude Code has settled (not persisted)
 }
 

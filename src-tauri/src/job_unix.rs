@@ -16,8 +16,6 @@ struct Row {
     pid: u32,
     ppid: u32,
     rss_kb: u64,
-    /// Lower-case executable name, no directory.
-    name: String,
 }
 
 impl Job {
@@ -31,15 +29,6 @@ impl Job {
         let tree = descendants(self.root, &rows);
         let kb: u64 = rows.iter().filter(|r| tree.contains(&r.pid)).map(|r| r.rss_kb).sum();
         (kb * 1024, tree.len() as u32)
-    }
-
-    /// Whether ending the tab loses nothing but a Claude Code that `claude --resume` brings back.
-    pub fn only_agent(&self, shell: u32) -> bool {
-        let rows = snapshot();
-        let tree = descendants(self.root, &rows);
-        let pids: Vec<u32> = tree.into_iter().collect();
-        let procs: HashMap<u32, (u32, String)> = rows.into_iter().map(|r| (r.pid, (r.ppid, r.name))).collect();
-        crate::agent_rule::only_agent_in(&pids, &procs, shell, &crate::agent_rule::UNIX)
     }
 
     /// Kills the shell and all its descendants. A program can fork while we signal, so look
@@ -81,28 +70,18 @@ fn descendants(root: u32, rows: &[Row]) -> HashSet<u32> {
 }
 
 fn snapshot() -> Vec<Row> {
-    let Ok(out) = Command::new("ps").args(["-axo", "pid=,ppid=,rss=,comm="]).output() else { return Vec::new() };
+    let Ok(out) = Command::new("ps").args(["-axo", "pid=,ppid=,rss="]).output() else { return Vec::new() };
     parse(&String::from_utf8_lossy(&out.stdout))
 }
 
-/// `pid ppid rss comm` per line; comm is a path and may contain spaces, so it is the rest.
+/// `pid ppid rss` per line.
 fn parse(text: &str) -> Vec<Row> {
     text.lines()
         .filter_map(|line| {
-            let (pid, rest) = word(line)?;
-            let (ppid, rest) = word(rest)?;
-            let (rss, comm) = word(rest)?;
-            let comm = comm.trim();
-            let name = comm.rsplit('/').next().unwrap_or(comm).to_lowercase();
-            Some(Row { pid: pid.parse().ok()?, ppid: ppid.parse().ok()?, rss_kb: rss.parse().ok()?, name })
+            let mut w = line.split_whitespace();
+            Some(Row { pid: w.next()?.parse().ok()?, ppid: w.next()?.parse().ok()?, rss_kb: w.next()?.parse().ok()? })
         })
         .collect()
-}
-
-fn word(s: &str) -> Option<(&str, &str)> {
-    let s = s.trim_start();
-    let end = s.find(char::is_whitespace)?;
-    Some((&s[..end], &s[end..]))
 }
 
 #[cfg(test)]
@@ -110,17 +89,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parses_ps_rows_with_spaces_in_the_path() {
-        let rows = parse("  100     1  2048 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome\n  101   100   512 -zsh\n");
+    fn parses_ps_rows() {
+        let rows = parse("  100     1  2048\n  101   100   512\n");
         assert_eq!(rows.len(), 2);
         assert_eq!((rows[0].pid, rows[0].ppid, rows[0].rss_kb), (100, 1, 2048));
-        assert_eq!(rows[0].name, "google chrome");
-        assert_eq!(rows[1].name, "-zsh");
+        assert_eq!((rows[1].pid, rows[1].ppid, rows[1].rss_kb), (101, 100, 512));
     }
 
     #[test]
     fn walks_down_from_the_shell_only() {
-        let row = |pid, ppid| Row { pid, ppid, rss_kb: 1, name: String::new() };
+        let row = |pid, ppid| Row { pid, ppid, rss_kb: 1 };
         let rows = [row(1, 0), row(10, 1), row(11, 10), row(12, 11), row(20, 1)];
         let t = descendants(10, &rows);
         assert_eq!(t, [10, 11, 12].into_iter().collect());

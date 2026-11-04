@@ -20,8 +20,6 @@ pub struct Pane {
     killer: Box<dyn ChildKiller + Send + Sync>,
     /// None if the job could not be set up; the tab still works, it just isn't contained.
     job: Option<crate::job::Job>,
-    /// The shell's pid, the root of the tree `pty_hibernate` inspects.
-    pid: Option<u32>,
     /// Swappable so a reloaded webview can re-attach to a shell that is still running.
     out: Arc<Mutex<Channel<InvokeResponseBody>>>,
 }
@@ -110,16 +108,14 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let killer = child.clone_killer();
-    let pid = child.process_id();
     #[cfg(windows)]
     let job = child.as_raw_handle().and_then(|h| {
         crate::job::Job::assign(h).map_err(|e| eprintln!("panex: tab {id} not in a job: {e}")).ok()
     });
     #[cfg(unix)]
-    let job = pid.map(crate::job::Job::assign);
+    let job = child.process_id().map(crate::job::Job::assign);
 
     let out = Arc::new(Mutex::new(on_data));
-    let mine = out.clone();
     state.ptys.lock().unwrap().insert(
         id.clone(),
         Pane {
@@ -127,7 +123,6 @@ pub fn pty_spawn(
             master: pair.master,
             killer,
             job,
-            pid,
             out: out.clone(),
         },
     );
@@ -153,15 +148,7 @@ pub fn pty_spawn(
         if state.quitting() {
             return;
         }
-        // A pane that is no longer this one's was hibernated (and maybe already restarted):
-        // the tab lives on, so there is no exit to report.
-        let pane = {
-            let mut map = state.ptys.lock().unwrap();
-            match map.get(&id) {
-                Some(p) if Arc::ptr_eq(&p.out, &mine) => map.remove(&id),
-                _ => None,
-            }
-        };
+        let pane = state.ptys.lock().unwrap().remove(&id);
         let Some(pane) = pane else { return };
         crate::control::pane_exited(&app, &id);
         drop(pane);
@@ -221,29 +208,6 @@ pub fn tab_close(state: State<AppState>, id: String) {
         }
         let _ = pane.killer.kill();
     }
-}
-
-/// Ends a tab's shell and everything in it to free their memory, keeping the tab (its
-/// scrollback stays in the frontend's xterm). The next `pty_spawn` starts a fresh shell.
-/// With `only_agent`, does nothing and returns false unless all that would end is a
-/// Claude Code the frontend can `--resume` (see `Job::only_agent`).
-#[tauri::command]
-pub fn pty_hibernate(state: State<AppState>, id: String, only_agent: bool) -> Result<bool, String> {
-    let mut map = state.ptys.lock().unwrap();
-    let Some(pane) = map.get(&id) else { return Ok(false) };
-    let Some(job) = &pane.job else { return Err("tab not in a job".into()) };
-    if only_agent && !pane.pid.is_some_and(|pid| job.only_agent(pid)) {
-        return Ok(false);
-    }
-    let mut pane = map.remove(&id).unwrap();
-    drop(map);
-    if let Some(job) = &pane.job {
-        job.terminate();
-    }
-    let _ = pane.killer.kill();
-    // Closing the pseudoconsole can block while it drains; keep that off the IPC thread.
-    std::thread::spawn(move || drop(pane));
-    Ok(true)
 }
 
 /// Called once on app exit. The session is left untouched so the next launch restores it.

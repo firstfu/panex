@@ -2,7 +2,7 @@
 // `panex-cli worktree-create` / `worktree-remove` (Claude Code's worktree hooks): the backend checks the token
 // and hands them here because the frontend owns the layout. A tab `open` starts runs right away
 // but stays in the background; the user sees it in the sidebar. `list` / `wake` / `send` let a
-// control tab's agent (reached from the phone) look at, wake and message the other tabs.
+// control tab's agent (reached from the phone) look at, start and message the other tabs.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -11,13 +11,12 @@ import { type Tab, type Workspace } from "./types";
 import { basename, newId, newWsId } from "./util";
 import { S, activeWs, tabTitle, tabs, workspaces, wsOrder, wsTitle } from "./state";
 import { saveSession } from "./session";
-import { createTab, refreshBranch, spawn } from "./terminal";
+import { createTab, refreshBranch, spawn, startInBackground } from "./terminal";
 import { scheduleRender } from "./render";
 import { addWorktree, worktreeSetup } from "./worktree-dialog";
 import { groupLead, groupMembers, inFolder, insertInRepoGroup, tidyGroups } from "./groups";
 import { closeTabs, showWorkspace } from "./workspaces";
 import { notify, workingTabs } from "./agent";
-import { armHibernate, wake } from "./hibernate";
 import { cleanText, matchTargets } from "./remote";
 
 interface OpenArgs {
@@ -193,7 +192,7 @@ function closeInside(path: string, keep: Set<string>) {
 }
 
 // `panex-cli list` / `wake` / `send`: a control tab's agent (the one the user reaches from the
-// phone) looks at the other tabs, wakes hibernated ones and passes them a message.
+// phone) looks at the other tabs, starts ones that aren't running and passes them a message.
 
 /** Every tab in sidebar order, with the names `matchTargets` looks at. */
 function targets() {
@@ -230,10 +229,9 @@ function list(a: { from?: string }) {
       workspace,
       title,
       cwd: tab.cwd ?? null,
-      shell: tab.hibernated ? "asleep" : tab.running ? "running" : "stopped",
+      shell: tab.running ? "running" : "stopped",
       claude: claudeState(tab),
       message: tab.note ?? "",
-      noSleep: !!tab.noSleep,
       self: id === a.from,
     })),
   };
@@ -245,9 +243,7 @@ async function wakeTabs(a: { targets: string[]; from?: string }) {
   for (const target of a.targets) for (const t of find(target)) hits.set(t.id, t);
   const out = [];
   for (const t of hits.values()) {
-    const woke = await wake(t.tab);
-    // `claude --resume` sends no hook, so nothing else would start its idle countdown.
-    if (woke) armHibernate(t.tab);
+    const woke = await startInBackground(t.tab);
     out.push({ tab: t.id, workspace: t.workspace, title: t.title, state: woke ? "woken" : "already-running" });
   }
   return { tabs: out };
@@ -271,7 +267,7 @@ async function settle(tab: Tab) {
   throw "Claude Code is still starting in that tab; send again in a moment";
 }
 
-/** Types the message into the tab's Claude Code and submits it, waking the tab first if it sleeps. */
+/** Types the message into the tab's Claude Code and submits it, starting the tab first if it isn't running. */
 async function send(a: { target: string; text: string; from?: string }) {
   let hits = find(a.target);
   if (hits.length > 1) hits = hits.filter((t) => hasClaude(t.tab));
@@ -285,7 +281,7 @@ async function send(a: { target: string; text: string; from?: string }) {
   if (tab.asking) throw "its Claude Code is asking the user something; answer that in panex first";
   const text = cleanText(a.text ?? "");
   if (!text) throw "nothing to send";
-  const woke = await wake(tab);
+  const woke = await startInBackground(tab);
   if (woke) {
     if (!tab.agentLive) throw "the tab started but did not resume Claude Code";
     await settle(tab);

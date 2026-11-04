@@ -2,7 +2,6 @@
 //! config, installs the Claude Code hooks and starts the notification / control pipe at launch, and
 //! flushes state on exit. Each concern lives in its own module below.
 
-mod agent_rule;
 mod config;
 mod control;
 mod files;
@@ -104,7 +103,6 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_usage,
-            pty::pty_hibernate,
             pty::tab_close,
             ssh::ssh_hosts,
             session::session_load,

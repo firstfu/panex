@@ -4,6 +4,25 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-04 — 移除整套分頁休眠機制（隨 0.7.13 發布）
+
+**變更**
+- 刪除 `src/hibernate.ts`、`src-tauri/src/agent_rule.rs`，以及 `pty_hibernate`、`Job::only_agent`、自動休眠設定（`agent.hibernateAfterMinutes`）、`tab.hibernated`／`noSleep`、右鍵選單項、分頁總覽的「睡著了」分組與休眠／不休眠／叫醒按鈕、zZ 樣式、相關 i18n、e2e 的 hibernate 檢查。
+- 連帶清掉只有休眠在用的東西：`Pane.pid`、waiter 的 `Arc::ptr_eq` 判斷（`e601a10` 為休眠加的；`pty_spawn` 遇到同 id 會提早返回，新 pane 只會在舊 pane 移除後才插入，不再需要）、Windows 的 ToolHelp 快照與 feature、macOS `ps` 的 `comm` 欄與 `Row.name`。
+- 保留 `panex-cli list`／`wake`／`send` 與分頁總覽的「啟動」：`wake()` 搬到 `terminal.ts` 改名 `startInBackground`，只負責在背景啟動沒在跑的分頁；`list` 的 `shell` 只剩 running／stopped，不再回 `noSleep`。`reference/overview.md`、`operations.md`、`panex-cli help`、`skills/panex/SKILL.md` 同步改寫。
+- `session.json` 不需遷移：舊檔的 `noSleep` 讀取時被忽略，下次存檔消失。使用者 `panex.json` 裡舊的 `hibernateAfterMinutes` 不會被清，但已沒有程式讀它。
+
+**為什麼**
+- 使用者認為現行休眠機制很爛，要求相關程式碼全部刪除、完全不留。
+
+**驗證（Windows test-build 測試實例）**
+- `tsc`、`npm test` 23 項、`cargo test` lib 27＋cli 4 項全過，`cargo check` 無警告；關鍵字掃描程式、測試、skill、網站與 reference 皆 0 筆。
+- 帶 `noSleep` 的舊 session 與帶 `hibernateAfterMinutes` 的舊設定正常載入，存檔後 `noSleep` 消失；`pty_hibernate` 回 command not found；`list`、`wake`、分頁總覽分組與「啟動」按鈕正常，主控台無錯誤。
+- 未驗：macOS 整包編譯與 e2e（`job_unix.rs` 只在 Windows 用 stub 跑過 `parse`、`descendants` 兩個測試，真實 `ps` 與 `terminate` 沒跑）；`send` 接回真 Claude Code；右鍵選單只過型別檢查，沒實際點。
+
+**下一步**
+- 待使用者決定 `panex-cli wake` 要留、改名或刪除，以及是否另做新的機制。
+
 ## 2026-10-29 — 發布 0.7.12（tag `v0.7.12`）
 
 **變更**

@@ -80,22 +80,21 @@ Results are best collected from git: have each agent commit in its worktree, the
 Driving the tabs that are already open (e.g. when the user talks to you from their phone):
 
 panex-cli list
-    Prints {"tabs":[{"tab","workspace","title","cwd","shell","claude","message","noSleep","self"}]}
-    in sidebar order. shell: running, asleep (hibernated to free memory; wake or send starts it
-    again) or stopped (not started since panex opened, or ended). claude: none, idle, running
+    Prints {"tabs":[{"tab","workspace","title","cwd","shell","claude","message","self"}]}
+    in sidebar order. shell: running or stopped (not started since panex opened, or ended; wake or
+    send starts it). claude: none, idle, running
     or needs-input. message: the agent's last finished reply or question, if any. self marks
     your own tab. Use the tab ids it prints in the commands below.
 
 panex-cli wake TAB...
-    Starts the given tabs without bringing them to the front; a hibernated tab resumes its
-    Claude Code session. TAB is a tab id, or a workspace, tab or folder name (all tabs of a
+    Starts the given tabs without bringing them to the front. TAB is a tab id, or a workspace, tab or folder name (all tabs of a
     workspace). Prints {"tabs":[{"tab","workspace","title","state"}]}, state woken or
     already-running.
 
 panex-cli send TAB TEXT...
 panex-cli send TAB -          (TEXT from stdin, for long or multi-line messages)
-    Types TEXT into the Claude Code in TAB and presses Enter, as if the user had. A hibernated
-    tab is woken first and the message goes in once Claude Code is back (can take up to 45 s).
+    Types TEXT into the Claude Code in TAB and presses Enter, as if the user had. A tab that
+    is not running is started first and the message goes in once Claude Code is back (can take up to 45 s).
     Refused when the tab has no Claude Code (it never types into a plain shell), when its Claude
     is asking the user something, or when TAB is your own tab or matches several tabs.
     Prints {"tab","workspace","title","woke"}. Then `panex-cli wait TAB` returns its reply.

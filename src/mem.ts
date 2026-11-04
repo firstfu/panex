@@ -1,7 +1,7 @@
 // Memory of every tab, shown next to its name in the tab bar and summed per workspace in the
 // sidebar (Windows and macOS). Read from the tabs' process trees (`pty_usage`) only when
 // something happens: switching tabs, the window coming back, an agent starting or finishing a
-// turn, a tab hibernating, waking or ending, the pointer moving onto a tab. Bursts of events
+// turn, a tab starting or ending, the pointer moving onto a tab. Bursts of events
 // merge into one read. The optional live mode (`app.liveMemory`) also reads every 10 s, and
 // only while the window has focus, so an idle panex in the background still runs no timer.
 

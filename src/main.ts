@@ -26,7 +26,6 @@ import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
 import { openCloseAsk } from "./close-ask";
 import { sweepGoneWorktrees, wireControl } from "./control";
 import { tidyGroups } from "./groups";
-import { armHibernate } from "./hibernate";
 import { refreshMem, syncLiveMem } from "./mem";
 import { refreshPerms } from "./settings-panel";
 import { checkForUpdateSoon } from "./update";
@@ -124,7 +123,6 @@ async function main() {
         notify(tab, "attention", p.message || tr("需要你的回應"));
       }
     } finally {
-      armHibernate(tab);
       // A turn starting or ending is when a tab's memory moves most (tools, MCP servers).
       if (p.event !== "Notification") refreshMem();
     }

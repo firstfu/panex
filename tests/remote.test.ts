@@ -39,7 +39,6 @@ test("nothing or blank matches nothing", () => {
 
 test("overview groups: no shell first, then what the agent is doing", () => {
   const t = (o: object) => groupOf({ status: "idle", running: true, ...o });
-  assert.equal(t({ hibernated: true, running: false, status: "done" }), "asleep");
   assert.equal(t({ running: false }), "stopped");
   assert.equal(t({ status: "running", asking: true }), "needs");
   assert.equal(t({ status: "attention" }), "needs");

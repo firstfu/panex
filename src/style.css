@@ -249,9 +249,6 @@ button { font: inherit; }
 .htab.st-running .h-dot { background: var(--running); }
 .htab.st-idle .h-dot { display: none; }
 .htab .t-num { margin-left: 0; }
-/* Hibernated: its shell and agent were ended to free memory. */
-.htab.sleeping .h-name { font-style: italic; opacity: 0.6; }
-.htab.sleeping .h-name::after { content: " zZ"; font-size: 10px; opacity: 0.8; }
 .h-close {
   width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: none;
   color: var(--dim); cursor: pointer; visibility: hidden; flex: none;
@@ -272,7 +269,6 @@ button { font: inherit; }
 .htab.dragging { opacity: 0.4; }
 .htab .rename-input { width: 150px; }
 
-.t-sleep { flex: none; font-size: 10px; font-style: italic; color: var(--dim); }
 .t-mem, .h-mem { flex: none; font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
 .h-mem { margin-left: 2px; }
 .t-count {
@@ -774,7 +770,6 @@ body.no-hints .t-num { display: none; }
 #usage-list .u-acts { display: flex; gap: 4px; justify-content: flex-end; }
 #usage-list .u-btn { padding: 1px 8px; border: 1px solid var(--s-line); border-radius: 5px; background: var(--s-field); color: var(--s-text); font: inherit; font-size: 12px; cursor: pointer; }
 #usage-list .u-btn:hover { border-color: var(--s-accent); }
-#usage-list .u-btn.on { border-color: var(--s-accent); color: var(--s-accent); }
 #usage-list .u-btn:disabled { opacity: 0.5; cursor: default; }
 #usage-list { width: 100%; border-collapse: collapse; font-size: 13px; }
 #usage-list th { text-align: left; font-weight: 500; color: var(--s-muted); padding: 0 8px 6px; border-bottom: 1px solid var(--s-line); }
