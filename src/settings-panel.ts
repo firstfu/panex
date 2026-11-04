@@ -13,7 +13,6 @@ import { applyConfig, setBinding, setFontSize, showNotice, updateSettings, write
 import { scheduleRender } from "./render";
 import { hideCtx } from "./context-menu";
 import { checkForUpdate, showManualResult } from "./update";
-import { openLink } from "./links";
 import { IS_MAC } from "./platform";
 import { syncLiveMem } from "./mem";
 import appIcon from "../src-tauri/icons/128x128@2x.png";
@@ -416,8 +415,6 @@ $<HTMLInputElement>("s-resume").onchange = (e) => {
 $<HTMLInputElement>("s-update").onchange = (e) => updateSettings({ autoUpdate: (e.target as HTMLInputElement).checked });
 $("s-update-check").onclick = () => void checkForUpdate(true);
 $<HTMLImageElement>("s-app-icon").src = appIcon;
-$("s-github").onclick = () => void openLink("open_url", { url: "https://github.com/firstfu/panex" });
-$("s-report").onclick = () => void openLink("open_url", { url: "https://github.com/firstfu/panex/issues/new" });
 settingsEl.addEventListener("click", (e) => {
   const kind = (e.target as HTMLElement).closest<HTMLElement>("[data-perm-open]")?.dataset.permOpen;
   if (kind) invoke("perms_open", { kind }).catch((err) => showNotice(String(err)));
