@@ -96,6 +96,8 @@ async function main() {
         tab.asking = false;
         return;
       }
+      if (p.remote !== undefined) tab.agentRemote = p.remote;
+      if (typeof p.background === "boolean") tab.agentBackground = p.background;
       if (validSessionId(p.sessionId)) {
         tab.agentLive = true;
         if (tab.agentSession !== p.sessionId) {
@@ -127,6 +129,9 @@ async function main() {
       if (p.event !== "Notification") refreshMem();
     }
   });
+
+  // Windows says when memory runs low; the read behind this decides what to do about it.
+  listen("memory-low", () => refreshMem());
 
   listen<LoadedConfig>("config-changed", ({ payload }) => {
     // While our own writes are queued the file lags behind the UI (e.g. dragging the

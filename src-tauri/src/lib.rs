@@ -2,6 +2,8 @@
 //! config, installs the Claude Code hooks and starts the notification / control pipe at launch, and
 //! flushes state on exit. Each concern lives in its own module below.
 
+mod agent_rule;
+mod sleep;
 mod config;
 mod control;
 mod files;
@@ -80,6 +82,8 @@ pub fn run() {
             });
             app.manage(control::Control::default());
             hooks::ensure(app.handle());
+            #[cfg(windows)]
+            sleep::watch_low_memory(app.handle().clone());
             notify::start_server(app.handle().clone());
             Ok(())
         })
@@ -103,6 +107,9 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_usage,
+            pty::pty_hibernate,
+            pty::agent_running,
+            sleep::memory_status,
             pty::tab_close,
             ssh::ssh_hosts,
             session::session_load,

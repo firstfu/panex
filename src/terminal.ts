@@ -22,6 +22,8 @@ import { scheduleGit } from "./git-panel";
 import { fileLinks, linkClick, linkHint, openLink } from "./links";
 import { scheduleRender } from "./render";
 import { refreshMem } from "./mem";
+import { beginWake } from "./hibernate";
+import { isTerminalReply } from "./sleep-rule";
 import { inFolder } from "./groups";
 import { IS_MAC } from "./platform";
 
@@ -204,6 +206,12 @@ function guardImeInput(el: HTMLElement, term: Terminal) {
 }
 
 export function onInput(tab: Tab, data: string) {
+  const reply = isTerminalReply(data);
+  if (tab.wake && !reply) {
+    tab.wake.keys.push(data); // the shell would get them; they're meant for Claude Code
+    return;
+  }
+  if (!reply) tab.typedAt = Date.now();
   agentKey(tab, data);
   if (tab.running) {
     invoke("pty_write", { id: tab.id, data }).catch(() => {});
@@ -230,6 +238,7 @@ export async function startInBackground(tab: Tab) {
 
 export async function spawn(tab: Tab) {
   autoResume(tab);
+  if (tab.hibernated) beginWake(tab);
   const onData = new Channel<ArrayBuffer>();
   onData.onmessage = (buf) => {
     let f = outFilters.get(tab);

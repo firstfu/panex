@@ -20,6 +20,8 @@ pub struct Pane {
     killer: Box<dyn ChildKiller + Send + Sync>,
     /// None if the job could not be set up; the tab still works, it just isn't contained.
     job: Option<crate::job::Job>,
+    /// The shell's pid, the root of the tree `pty_hibernate` inspects.
+    pid: Option<u32>,
     /// Swappable so a reloaded webview can re-attach to a shell that is still running.
     out: Arc<Mutex<Channel<InvokeResponseBody>>>,
 }
@@ -108,14 +110,16 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let killer = child.clone_killer();
+    let pid = child.process_id();
     #[cfg(windows)]
     let job = child.as_raw_handle().and_then(|h| {
         crate::job::Job::assign(h).map_err(|e| eprintln!("panex: tab {id} not in a job: {e}")).ok()
     });
     #[cfg(unix)]
-    let job = child.process_id().map(crate::job::Job::assign);
+    let job = pid.map(crate::job::Job::assign);
 
     let out = Arc::new(Mutex::new(on_data));
+    let mine = out.clone();
     state.ptys.lock().unwrap().insert(
         id.clone(),
         Pane {
@@ -123,6 +127,7 @@ pub fn pty_spawn(
             master: pair.master,
             killer,
             job,
+            pid,
             out: out.clone(),
         },
     );
@@ -148,7 +153,15 @@ pub fn pty_spawn(
         if state.quitting() {
             return;
         }
-        let pane = state.ptys.lock().unwrap().remove(&id);
+        // A pane that is no longer this one's was hibernated (and maybe already restarted):
+        // the tab lives on, so there is no exit to report.
+        let pane = {
+            let mut map = state.ptys.lock().unwrap();
+            match map.get(&id) {
+                Some(p) if Arc::ptr_eq(&p.out, &mine) => map.remove(&id),
+                _ => None,
+            }
+        };
         let Some(pane) = pane else { return };
         crate::control::pane_exited(&app, &id);
         drop(pane);
@@ -208,6 +221,60 @@ pub fn tab_close(state: State<AppState>, id: String) {
         }
         let _ = pane.killer.kill();
     }
+}
+
+/// Ends a tab's shell and everything in it to free their memory, keeping the tab (its screen and
+/// scrollback stay in the frontend's xterm). The next `pty_spawn` starts a fresh shell. Answers
+/// "ok", or why not (`sleep::Refusal`), unless all that would end is an idle Claude Code that
+/// `claude --resume` brings back, with no phone connected to it.
+#[tauri::command]
+pub async fn pty_hibernate(app: AppHandle, id: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || hibernate(&app.state::<AppState>(), &id)).await.map_err(|e| e.to_string())
+}
+
+fn hibernate(state: &AppState, id: &str) -> String {
+    use crate::sleep::{check_agent, Refusal};
+    // Reading the transcript can take a moment; every other tab's writes wait on this lock.
+    let pids = match state.ptys.lock().unwrap().get(id).map(|p| p.job.as_ref().map(|j| j.pids())) {
+        Some(Some(pids)) => pids,
+        _ => return Refusal::NoAgent.as_str().to_string(),
+    };
+    if let Err(why) = check_agent(&pids) {
+        return why.as_str().to_string();
+    }
+    let mut map = state.ptys.lock().unwrap();
+    let Some(pane) = map.get(id) else { return Refusal::NoAgent.as_str().to_string() };
+    let safe = match (&pane.job, pane.pid) {
+        (Some(job), Some(pid)) => job.only_agent(pid),
+        _ => false,
+    };
+    if !safe {
+        return Refusal::Processes.as_str().to_string();
+    }
+    // Things may have moved during the transcript read (a turn started, a phone connected).
+    let now = pane.job.as_ref().map(|j| j.pids()).unwrap_or_default();
+    if let Err(why) = crate::sleep::check_state(&now) {
+        return why.as_str().to_string();
+    }
+    let mut pane = map.remove(id).unwrap();
+    drop(map);
+    if let Some(job) = &pane.job {
+        job.terminate();
+    }
+    let _ = pane.killer.kill();
+    // Closing the pseudoconsole can block while it drains; keep that off this thread's caller.
+    std::thread::spawn(move || drop(pane));
+    "ok".to_string()
+}
+
+/// Whether a Claude Code has come up in the tab, to tell a resume that worked from one that didn't.
+#[tauri::command]
+pub fn agent_running(state: State<AppState>, id: String) -> bool {
+    let pids = match state.ptys.lock().unwrap().get(&id).map(|p| p.job.as_ref().map(|j| j.pids())) {
+        Some(Some(pids)) => pids,
+        _ => return false,
+    };
+    crate::sleep::agent_among(&pids)
 }
 
 /// Called once on app exit. The session is left untouched so the next launch restores it.

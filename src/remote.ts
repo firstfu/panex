@@ -3,14 +3,15 @@
 // and which overview group a tab is in.
 
 /** Overview groups, in the order they are shown: what needs the user first. */
-export const GROUPS = ["needs", "running", "done", "idle", "stopped"] as const;
+export const GROUPS = ["needs", "running", "done", "idle", "asleep", "stopped"] as const;
 export type Group = (typeof GROUPS)[number];
 
 /**
- * The overview group of a tab: stopped (no shell: never opened since launch, or ended) comes
- * before the agent's state, since a tab without a shell has none.
+ * The overview group of a tab: asleep (hibernated) and stopped (no shell: never opened since
+ * launch, or ended) come before the agent's state, since a tab without a shell has none.
  */
-export function groupOf(t: { status: string; asking?: boolean; running: boolean }): Group {
+export function groupOf(t: { status: string; asking?: boolean; hibernated?: boolean; running: boolean }): Group {
+  if (t.hibernated) return "asleep";
   if (!t.running) return "stopped";
   if (t.asking || t.status === "attention") return "needs";
   if (t.status === "running") return "running";

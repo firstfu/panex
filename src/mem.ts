@@ -9,6 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { S } from "./state";
 import { scheduleRender } from "./render";
 import { CAN_MANAGE } from "./platform";
+import { checkPressure } from "./hibernate";
 
 export type Usage = { id: string; bytes: number; procs: number };
 
@@ -53,7 +54,9 @@ async function read() {
   }
   busy = true;
   try {
-    setUsage(await readUsage());
+    const usage = await readUsage();
+    setUsage(usage);
+    void checkPressure(usage);
   } finally {
     busy = false;
     if (again) {

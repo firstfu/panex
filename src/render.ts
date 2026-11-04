@@ -236,9 +236,10 @@ function renderTabbar() {
   const items = ws.tabs.map((tid, i) => {
     const t = tabs.get(tid)!;
     const d = document.createElement("div");
-    d.className = `htab st-${t.status}${tid === S.visibleTabId ? " active" : ""}`;
+    d.className = `htab st-${t.status}${tid === S.visibleTabId ? " active" : ""}${t.hibernated ? " sleeping" : ""}`;
     d.dataset.tab = tid;
     if (t.note) d.title = t.note;
+    if (t.hibernated) d.title = (t.note ? `${t.note}\n` : "") + tr("已休眠：切回來時自動接回");
     const num = i < 8 ? i + 1 : i === ws.tabs.length - 1 ? 9 : 0;
     const hint = num ? digitHint("selectTabByNumber", num) : "";
     d.innerHTML =

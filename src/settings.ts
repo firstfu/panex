@@ -19,6 +19,7 @@ export interface Settings {
   language: LangPref;
   autoUpdate: boolean; // look for a newer panex at launch and when the window regains focus (never a timer)
   resumeSession: boolean;
+  hibernateOnPressure: boolean; // end hidden idle Claude Code tabs when memory runs short (Windows and macOS)
   liveMemory: boolean; // also re-read the tabs' memory every 10 s while the window has focus (else only on events)
   confirmClose: boolean; // ask before closing while an agent is mid-turn
   openFilesWith: "system" | "vscode" | "cursor"; // what Ctrl/⌘+clicking a file path in the terminal opens
@@ -41,6 +42,7 @@ export const CONFIG_PATHS: Record<keyof Settings, string[]> = {
   language: ["app", "language"],
   autoUpdate: ["app", "checkForUpdates"],
   resumeSession: ["agent", "resumeSession"],
+  hibernateOnPressure: ["agent", "hibernateOnMemoryPressure"],
   liveMemory: ["app", "liveMemory"],
   confirmClose: ["agent", "confirmCloseWhileRunning"],
   openFilesWith: ["terminal", "openFilesWith"],
@@ -64,6 +66,7 @@ export const DEFAULTS: Settings = {
   language: "auto",
   autoUpdate: true,
   resumeSession: true,
+  hibernateOnPressure: true,
   liveMemory: false,
   confirmClose: true,
   openFilesWith: "system",

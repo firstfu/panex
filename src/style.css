@@ -249,6 +249,9 @@ button { font: inherit; }
 .htab.st-running .h-dot { background: var(--running); }
 .htab.st-idle .h-dot { display: none; }
 .htab .t-num { margin-left: 0; }
+/* Hibernated: its shell and agent were ended to free memory. */
+.htab.sleeping .h-name { font-style: italic; opacity: 0.6; }
+.htab.sleeping .h-name::after { content: " zZ"; font-size: 10px; opacity: 0.8; }
 .h-close {
   width: 18px; height: 18px; padding: 0; border: 0; border-radius: 4px; background: none;
   color: var(--dim); cursor: pointer; visibility: hidden; flex: none;
@@ -277,6 +280,10 @@ button { font: inherit; }
 }
 .term { position: absolute; inset: 0; padding: 4px 0 0 6px; }
 .term[hidden] { display: none; }
+/* A still copy of the screen while a hibernated tab's Claude Code comes back behind it. */
+.term.waking > .xterm { opacity: 0; } /* not visibility: the hidden terminal must keep the keyboard focus */
+.wake-cover { position: absolute; inset: 0; z-index: 5; padding: 4px 0 0 6px; overflow: hidden; pointer-events: none; }
+.wake-badge { position: absolute; top: 8px; right: 14px; padding: 2px 10px; border-radius: 10px; font-size: 12px; color: #fff; background: rgba(40, 40, 48, 0.9); }
 /* Git badges after the branch in the sidebar: unpushed ↑, behind ↓, uncommitted ●. */
 .g-badge { margin-left: 6px; font-variant-numeric: tabular-nums; }
 .g-badge.ahead { color: var(--attention); }
