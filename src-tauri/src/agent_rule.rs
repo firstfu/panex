@@ -70,8 +70,36 @@ pub fn only_agent_in(pids: &[u32], procs: &HashMap<u32, (u32, String)>, shell: u
     agent
 }
 
+/// macOS's KERN_PROCARGS2 buffer: argc as an i32, the executable's path, NUL padding, then argv.
+/// Here rather than in `job_unix.rs` so its tests run on every platform.
+/// @returns the arguments, program name excluded; None if the buffer isn't that shape
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+pub fn parse_procargs(buf: &[u8]) -> Option<Vec<String>> {
+    let argc = i32::from_ne_bytes(buf.get(..4)?.try_into().ok()?);
+    let argc = usize::try_from(argc).ok()?;
+    let rest = &buf[4..];
+    let rest = &rest[rest.iter().position(|&b| b == 0)?..]; // past the path
+    let rest = &rest[rest.iter().position(|&b| b != 0)?..]; // past the padding
+    let argv: Vec<String> = rest.split(|&b| b == 0).take(argc).map(|a| String::from_utf8_lossy(a).into_owned()).collect();
+    if argv.len() < argc {
+        return None;
+    }
+    Some(argv.into_iter().skip(1).collect())
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn parses_procargs() {
+        let mut buf = 3i32.to_ne_bytes().to_vec();
+        buf.extend_from_slice(b"/usr/local/bin/claude\0\0\0claude\0--settings\0a b.json\0HOME=/x\0");
+        assert_eq!(super::parse_procargs(&buf), Some(vec!["--settings".to_string(), "a b.json".to_string()]));
+        assert_eq!(super::parse_procargs(&[1, 0]), None);
+        let mut short = 5i32.to_ne_bytes().to_vec();
+        short.extend_from_slice(b"/p\0a\0b");
+        assert_eq!(super::parse_procargs(&short), None);
+    }
+
     use super::*;
 
     // Windows names, so the same cases cover both platforms' logic.

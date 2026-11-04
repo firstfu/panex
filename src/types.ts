@@ -16,6 +16,7 @@ export interface SavedTab {
   cwd?: string | null;
   title?: string | null;
   agentSession?: string | null;
+  agentArgs?: unknown;
 }
 
 interface SavedWorkspace {
@@ -123,6 +124,7 @@ export interface Tab {
   initialInput?: string; // typed into the shell once, right after it starts (worktree setup command)
   leaveDir?: { from: string; to: string }; // 已刪的 worktree：下一個提示字元若還在 from 裡面，就 cd 到 to（不存檔）
   agentSession?: string; // id of the Claude Code session running here (persisted; dropped once Claude exits)
+  agentArgs?: string[]; // the flags it was started with that a resume should repeat (persisted, with agentSession)
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
   skipPrompt?: boolean; // an auto-resume was queued: the shell's first prompt is its startup one, not Claude exiting
   promptAt?: number; // time of the last prompt report, to merge duplicates

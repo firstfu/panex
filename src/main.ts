@@ -19,7 +19,7 @@ import { S, activeTab, tabs, workspaces, wsOrder } from "./state";
 import { applyConfig, configWritesPending, keyLabel } from "./config";
 import { saveSessionSoon } from "./session";
 import { createTab, detectWindowsBuild, flushForClose } from "./terminal";
-import { clearStatus, endAgent, endRun, notify, workingTabs } from "./agent";
+import { captureArgs, clearStatus, endAgent, endRun, notify, workingTabs } from "./agent";
 import { closeTab, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
 import { scheduleGit, setGitOpen } from "./git-panel";
 import { refreshHooks, renderShellMenu, scheduleRender } from "./render";
@@ -102,8 +102,10 @@ async function main() {
         tab.agentLive = true;
         if (tab.agentSession !== p.sessionId) {
           tab.agentSession = p.sessionId;
+          tab.agentArgs = undefined;
           saveSessionSoon();
         }
+        if (!tab.agentArgs) void captureArgs(tab);
         scheduleRender();
       }
       if (p.event !== "Notification") tab.asking = false;

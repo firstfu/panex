@@ -128,7 +128,7 @@
         "hibernateOnMemoryPressure": {
           "type": "boolean",
           "default": true,
-          "description": "記憶體吃緊時（panex 的分頁用掉實體記憶體一半，或全機可用不到一成），結束看不到、閒置中的 Claude Code 分頁以釋放記憶體，切回去時自動 claude --resume。連著 Remote Control、還有背景工作或跑著其他程式的分頁不會被動到。僅 Windows 與 macOS。"
+          "description": "記憶體吃緊時（panex 的分頁用掉實體記憶體一半、全機可用不到一成，或 Windows 的認可額度〔實體記憶體加分頁檔〕剩不到一成），結束看不到、閒置中的 Claude Code 分頁以釋放記憶體，切回去時自動 claude --resume，並帶上原本的啟動參數。連著 Remote Control、還有背景工作或跑著其他程式的分頁不會被動到。僅 Windows 與 macOS。"
         },
         "confirmCloseWhileRunning": {
           "type": "boolean",

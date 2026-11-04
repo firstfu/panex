@@ -13,6 +13,14 @@ test("pressure: half the machine in tabs, or under a tenth left", () => {
   assert.equal(underPressure(1 * GB, { total: 32 * GB, available: 3.2 * GB }), false);
 });
 
+test("pressure: the commit limit running out counts, with physical memory still free", () => {
+  const free = { total: 32 * GB, available: 10 * GB };
+  assert.equal(underPressure(1 * GB, { ...free, commitTotal: 50 * GB, commitAvailable: 4 * GB }), true);
+  assert.equal(underPressure(1 * GB, { ...free, commitTotal: 50 * GB, commitAvailable: 5 * GB }), false);
+  assert.equal(underPressure(1 * GB, { ...free, commitTotal: null, commitAvailable: null }), false);
+  assert.equal(underPressure(1 * GB, { ...free, commitTotal: 0, commitAvailable: 0 }), false);
+});
+
 test("pressure: a nonsense reading is not pressure", () => {
   assert.equal(underPressure(1 * GB, { total: 0, available: 0 }), false);
 });

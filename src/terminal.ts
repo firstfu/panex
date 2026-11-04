@@ -24,6 +24,7 @@ import { scheduleRender } from "./render";
 import { refreshMem } from "./mem";
 import { beginWake } from "./hibernate";
 import { isTerminalReply } from "./sleep-rule";
+import { keepResumeArgs } from "./resume-args";
 import { inFolder } from "./groups";
 import { IS_MAC } from "./platform";
 
@@ -78,6 +79,7 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
     cwd: meta.shell === "ssh" ? undefined : meta.cwd ?? undefined,
     customTitle: meta.title ?? undefined,
     agentSession: validSessionId(meta.agentSession) ? meta.agentSession : undefined,
+    agentArgs: validSessionId(meta.agentSession) && meta.agentArgs ? keepResumeArgs(meta.agentArgs) : undefined,
     term,
     fit,
     serializer,

@@ -67,6 +67,29 @@ impl Job {
 
 /// `root` and every process below it; empty if `root` is gone (its children were adopted by
 /// launchd and can no longer be told apart).
+/// The arguments another process was started with, its program name excluded.
+#[cfg(target_os = "macos")]
+pub fn command_args(pid: u32) -> Option<Vec<String>> {
+    let mut mib = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as libc::c_int];
+    let mut size = 0usize;
+    unsafe {
+        if libc::sysctl(mib.as_mut_ptr(), 3, std::ptr::null_mut(), &mut size, std::ptr::null_mut(), 0) != 0 {
+            return None;
+        }
+        let mut buf = vec![0u8; size];
+        if libc::sysctl(mib.as_mut_ptr(), 3, buf.as_mut_ptr().cast(), &mut size, std::ptr::null_mut(), 0) != 0 {
+            return None;
+        }
+        buf.truncate(size);
+        crate::agent_rule::parse_procargs(&buf)
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn command_args(_pid: u32) -> Option<Vec<String>> {
+    None
+}
+
 fn descendants(root: u32, rows: &[Row]) -> HashSet<u32> {
     let mut tree = HashSet::new();
     if !rows.iter().any(|r| r.pid == root) {

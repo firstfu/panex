@@ -6,14 +6,24 @@ export const IDLE_MS = 5 * 60_000;
 /** After the backend refuses a tab (phone connected, background work), leave it alone this long. */
 export const REFUSED_MS = 60_000;
 
+/** Mirrors sleep.rs. The commit numbers are Windows only. */
+export interface MemoryStatus {
+  total: number;
+  available: number;
+  commitTotal?: number | null;
+  commitAvailable?: number | null;
+}
+
 /**
- * Memory is short when panex's tabs use half the machine's physical memory, or when less than a
- * tenth of it is left for anyone. These decide when to look for a tab that can go; they never cap
- * what the user can run.
+ * Memory is short when panex's tabs use half the machine's physical memory, when less than a tenth
+ * of it is left for anyone, or (Windows) when less than a tenth of the commit limit is left: past
+ * that limit programs fail to allocate even with physical memory free. These decide when to look
+ * for a tab that can go; they never cap what the user can run.
  */
-export function underPressure(tabsBytes: number, mem: { total: number; available: number }) {
+export function underPressure(tabsBytes: number, mem: MemoryStatus) {
   if (!(mem.total > 0)) return false;
-  return tabsBytes >= mem.total * 0.5 || mem.available < mem.total * 0.1;
+  if (tabsBytes >= mem.total * 0.5 || mem.available < mem.total * 0.1) return true;
+  return !!mem.commitTotal && mem.commitAvailable != null && mem.commitAvailable < mem.commitTotal * 0.1;
 }
 
 /** What the rule needs to know about a tab. */

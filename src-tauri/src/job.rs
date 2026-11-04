@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::os::windows::io::RawHandle;
-use windows_sys::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
+use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE, INVALID_HANDLE_VALUE, UNICODE_STRING};
 use windows_sys::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
 };
@@ -17,6 +17,51 @@ use windows_sys::Win32::System::JobObjects::{
 };
 use windows_sys::Win32::System::ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS_EX};
 use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows_sys::Win32::UI::Shell::CommandLineToArgvW;
+
+#[link(name = "ntdll")]
+extern "system" {
+    fn NtQueryInformationProcess(process: HANDLE, class: u32, info: *mut std::ffi::c_void, len: u32, returned: *mut u32) -> i32;
+}
+/// PROCESSINFOCLASS's ProcessCommandLineInformation (Windows 8.1+): a UNICODE_STRING and its text.
+const PROCESS_COMMAND_LINE: u32 = 60;
+
+/// The arguments another process was started with, its program name excluded.
+pub fn command_args(pid: u32) -> Option<Vec<String>> {
+    unsafe {
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if process.is_null() {
+            return None;
+        }
+        let mut len = 0u32;
+        NtQueryInformationProcess(process, PROCESS_COMMAND_LINE, std::ptr::null_mut(), 0, &mut len);
+        // u64s for the alignment of the UNICODE_STRING at the start.
+        let mut buf = vec![0u64; (len as usize).div_ceil(8).max(1)];
+        let status = NtQueryInformationProcess(process, PROCESS_COMMAND_LINE, buf.as_mut_ptr().cast(), len, &mut len);
+        CloseHandle(process);
+        if status < 0 {
+            return None;
+        }
+        let text = &*buf.as_ptr().cast::<UNICODE_STRING>();
+        let mut line = std::slice::from_raw_parts(text.Buffer, text.Length as usize / 2).to_vec();
+        line.push(0);
+        let mut count = 0;
+        let argv = CommandLineToArgvW(line.as_ptr(), &mut count);
+        if argv.is_null() {
+            return None;
+        }
+        let args = std::slice::from_raw_parts(argv, count.max(0) as usize)
+            .iter()
+            .skip(1)
+            .map(|&a| {
+                let len = (0..).take_while(|&i| *a.add(i) != 0).count();
+                String::from_utf16_lossy(std::slice::from_raw_parts(a, len))
+            })
+            .collect();
+        LocalFree(argv.cast());
+        Some(args)
+    }
+}
 
 pub struct Job(HANDLE);
 
@@ -140,5 +185,29 @@ impl Drop for Job {
         unsafe {
             CloseHandle(self.0);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_a_command_line_with_spaces_and_quotes() {
+        let mut child = std::process::Command::new("cmd.exe")
+            .args(["/c", "ping -n 5 127.0.0.1 >nul", "a b", "c\"d"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let args = command_args(child.id()).unwrap();
+        let _ = child.kill();
+        let _ = child.wait();
+        assert_eq!(args.last().map(String::as_str), Some("c\"d"));
+        assert!(args.iter().any(|a| a == "a b"));
+    }
+
+    #[test]
+    fn a_process_that_is_gone_has_no_arguments() {
+        assert_eq!(command_args(u32::MAX), None);
     }
 }

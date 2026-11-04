@@ -29,6 +29,10 @@ pub struct Tab {
     /// Claude Code session id last seen in this tab (from hooks); offered for `claude --resume`.
     #[serde(default, rename = "agentSession", skip_serializing_if = "Option::is_none")]
     pub agent_session: Option<String>,
+    /// The flags to resume that session with. Kept as raw JSON: the frontend checks it, and a bad
+    /// value here must not cost the user the whole session file.
+    #[serde(default, rename = "agentArgs", skip_serializing_if = "Option::is_none")]
+    pub agent_args: Option<serde_json::Value>,
 }
 
 /// A sidebar entry holding one or more tabs (cmux's "workspace").
@@ -125,7 +129,7 @@ fn migrate_v1(v: &Value) -> Session {
             color: str_of(t, "color"),
             group: None,
             active: Some(id.clone()),
-            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), ssh: None, title: None, agent_session: None }],
+            tabs: vec![Tab { id, shell: str_of(t, "shell").unwrap_or_else(|| "cmd".into()), cwd: str_of(t, "cwd"), ssh: None, title: None, agent_session: None, agent_args: None }],
         });
     }
     s

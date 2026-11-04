@@ -109,6 +109,7 @@ pub fn run() {
             pty::pty_usage,
             pty::pty_hibernate,
             pty::agent_running,
+            pty::agent_args,
             sleep::memory_status,
             pty::tab_close,
             ssh::ssh_hosts,

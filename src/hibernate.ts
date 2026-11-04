@@ -16,12 +16,13 @@ import { spawn } from "./terminal";
 import { notify } from "./agent";
 import { showNotice } from "./config";
 import { CAN_MANAGE } from "./platform";
-import { REFUSED_MS, sleepOrder, underPressure, type SleepInfo } from "./sleep-rule";
+import { REFUSED_MS, sleepOrder, underPressure, type MemoryStatus, type SleepInfo } from "./sleep-rule";
 
 const NEXT_READ_MS = 2000; // after ending a tab, let the system see the memory come back
 const WAKE_QUIET_MS = 1500;
 const WAKE_MIN_MS = 2500;
 const WAKE_MAX_MS = 45_000;
+const WAKE_REDRAW_MS = 400;
 
 let checking = false;
 let warned = false; // told the user once during this stretch of short memory
@@ -50,7 +51,7 @@ export async function checkPressure(usage: Usage[]) {
   if (!CAN_MANAGE || !S.settings.hibernateOnPressure || checking) return;
   checking = true;
   try {
-    const mem = await invoke<{ total: number; available: number }>("memory_status");
+    const mem = await invoke<MemoryStatus>("memory_status");
     if (!underPressure(usage.reduce((n, u) => n + u.bytes, 0), mem)) {
       warned = false;
       return;
@@ -147,6 +148,7 @@ function coverScreen(tab: Tab) {
  */
 export function beginWake(tab: Tab) {
   const session = tab.agentSession;
+  const args = tab.agentArgs;
   tab.hibernated = false;
   // Started in the background (`panex-cli send`), nobody is looking and there is no size to draw at.
   const uncover = tab.opened && S.visibleTabId === tab.id ? coverScreen(tab) : () => {};
@@ -159,6 +161,13 @@ export function beginWake(tab: Tab) {
 
   const finish = async (ok: boolean) => {
     if (tab.wake !== wake) return;
+    if (ok) {
+      // Claude Code's first drawing leaves the shell's text among its own until its own full
+      // redraw, seconds later. Ctrl+L asks for that redraw now, while the cover still hides it.
+      await invoke("pty_write", { id: tab.id, data: "\x0c" }).catch(() => {});
+      await new Promise((done) => window.setTimeout(done, WAKE_REDRAW_MS));
+      if (tab.wake !== wake) return;
+    }
     tab.wake = undefined;
     uncover();
     if (ok) {
@@ -168,10 +177,10 @@ export function beginWake(tab: Tab) {
       // because the old cursor may have been anywhere in Claude Code's interface.
       const after = tab.serializer.serialize({ scrollback: 0, excludeAltBuffer: true, excludeModes: true });
       tab.term.reset();
-      tab.term.write(`${before}[${tab.term.rows};1H
-${after}`);
+      tab.term.write(`${before}\x1b[${tab.term.rows};1H\r\n${after}`);
       // The shell prompt reports "Claude Code exited", which forgets the session; keep it for a retry.
       tab.agentSession = session;
+      tab.agentArgs = args;
       tab.agentLive = false;
       saveSessionSoon();
       notify(tab, "attention", tr("Claude Code 沒有接回來，可以手動執行 claude --resume {id}", { id: session ?? "" }));

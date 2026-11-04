@@ -8,20 +8,32 @@ import { S, tabTitle, tabs, workspaces, wsTitle } from "./state";
 import { saveSessionSoon } from "./session";
 import { closeGitView } from "./git-panel";
 import { scheduleRender } from "./render";
+import { keepResumeArgs, resumeCommand } from "./resume-args";
 
 /** A restored or hibernated tab whose Claude Code was still running re-enters that session when
  *  its shell starts. A hibernated tab always does: the user never chose to leave that session. */
 export function autoResume(tab: Tab) {
   if (!(S.settings.resumeSession || tab.hibernated) || !tab.agentSession || tab.agentLive || tab.initialInput) return;
-  tab.initialInput = `claude --resume ${tab.agentSession}`;
+  tab.initialInput = resumeCommand(tab.agentSession, tab.agentArgs, tab.shell);
   tab.agentLive = true;
   tab.skipPrompt = true; // the shell's own startup prompt is not Claude exiting
+}
+
+/** Notes the flags the tab's Claude Code was started with, so a resume can use them. If they can't
+ *  be read yet (its state file isn't there), the next hook tries again. */
+export async function captureArgs(tab: Tab) {
+  const session = tab.agentSession;
+  const argv = await invoke<string[] | null>("agent_args", { id: tab.id }).catch(() => null);
+  if (!argv || tab.agentSession !== session) return;
+  tab.agentArgs = keepResumeArgs(argv);
+  saveSessionSoon();
 }
 
 /** Claude Code is gone from this tab (shell prompt is back): don't re-enter it on the next start. */
 export function endAgent(tab: Tab) {
   tab.agentLive = false;
   tab.agentSession = undefined;
+  tab.agentArgs = undefined;
   saveSessionSoon();
 }
 

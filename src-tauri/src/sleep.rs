@@ -68,12 +68,22 @@ fn parse_live(text: &str) -> Option<Live> {
 /// The Claude Code among `pids`. None when there is none, or more than one (a claude started
 /// from claude's own tool shell): which session the tab resumes is then unclear.
 fn live_in(dir: &Path, pids: &[u32]) -> Option<Live> {
-    let mut found = pids.iter().filter_map(|pid| std::fs::read_to_string(dir.join("sessions").join(format!("{pid}.json"))).ok());
+    parse_live(&live_file(dir, pids)?.1)
+}
+
+/// The one Claude Code's pid among `pids` and the text of its state file.
+fn live_file(dir: &Path, pids: &[u32]) -> Option<(u32, String)> {
+    let mut found = pids.iter().filter_map(|pid| Some((*pid, std::fs::read_to_string(dir.join("sessions").join(format!("{pid}.json"))).ok()?)));
     let first = found.next()?;
     if found.next().is_some() {
         return None;
     }
-    parse_live(&first)
+    Some(first)
+}
+
+/// The pid of the one Claude Code among these processes.
+pub fn agent_pid(pids: &[u32]) -> Option<u32> {
+    live_file(&claude_dir()?, pids).map(|(pid, _)| pid)
 }
 
 /// Whether a Claude Code is running among these processes.
@@ -206,30 +216,38 @@ fn iso_ms(ms: i64) -> String {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Memory {
     total: u64,
     available: u64,
+    /// Windows only: the commit limit (physical memory plus page files) and what is left of it.
+    commit_total: Option<u64>,
+    commit_available: Option<u64>,
 }
 
 /// Physical memory and how much of it is free to use, for the frontend's pressure rule.
 #[tauri::command]
 pub fn memory_status(app: AppHandle) -> Result<Memory, String> {
-    let (mut total, mut available) = read_memory()?;
+    let (mut total, mut available, mut commit) = read_memory()?;
     // Pressure can't be forced on a machine someone is working on, so a test instance reads
-    // "<total> <available>" from a file it names. The real instance never looks.
+    // "<total> <available> [<commit total> <commit available>]" from a file it names. The real instance never looks.
     if app.config().identifier != "dev.panex.terminal" {
         if let Some(text) = std::env::var_os("PANEX_TEST_MEM_FILE").and_then(|p| std::fs::read_to_string(p).ok()) {
             let mut nums = text.split_whitespace().filter_map(|n| n.parse::<u64>().ok());
             if let (Some(t), Some(a)) = (nums.next(), nums.next()) {
                 (total, available) = (t, a);
             }
+            if let (Some(t), Some(a)) = (nums.next(), nums.next()) {
+                commit = Some((t, a));
+            }
         }
     }
-    Ok(Memory { total, available })
+    let (commit_total, commit_available) = commit.unzip();
+    Ok(Memory { total, available, commit_total, commit_available })
 }
 
 #[cfg(windows)]
-fn read_memory() -> Result<(u64, u64), String> {
+fn read_memory() -> Result<(u64, u64, Option<(u64, u64)>), String> {
     use windows_sys::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
     unsafe {
         let mut m: MEMORYSTATUSEX = std::mem::zeroed();
@@ -237,12 +255,14 @@ fn read_memory() -> Result<(u64, u64), String> {
         if GlobalMemoryStatusEx(&mut m) == 0 {
             return Err(std::io::Error::last_os_error().to_string());
         }
-        Ok((m.ullTotalPhys, m.ullAvailPhys))
+        // Despite the name these are the commit limit and what's left of it: allocations fail
+        // once it runs out, however much physical memory is still free.
+        Ok((m.ullTotalPhys, m.ullAvailPhys, Some((m.ullTotalPageFile, m.ullAvailPageFile))))
     }
 }
 
 #[cfg(unix)]
-fn read_memory() -> Result<(u64, u64), String> {
+fn read_memory() -> Result<(u64, u64, Option<(u64, u64)>), String> {
     let sysctl = |name: &str| -> Result<u64, String> {
         let out = std::process::Command::new("/usr/sbin/sysctl").args(["-n", name]).output().map_err(|e| e.to_string())?;
         String::from_utf8_lossy(&out.stdout).trim().parse().map_err(|e| format!("{name}: {e}"))
@@ -250,7 +270,8 @@ fn read_memory() -> Result<(u64, u64), String> {
     let total = sysctl("hw.memsize")?;
     // The percentage of memory macOS considers free, the number its own pressure levels use.
     let level = sysctl("kern.memorystatus_level")?;
-    Ok((total, total / 100 * level.min(100)))
+    // macOS grows its swap as needed, so there is no commit limit to watch.
+    Ok((total, total / 100 * level.min(100), None))
 }
 
 /// Windows tells a waiting thread when memory runs low, so the app needs no timer to notice while

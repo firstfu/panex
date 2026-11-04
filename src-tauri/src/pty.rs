@@ -267,6 +267,14 @@ fn hibernate(state: &AppState, id: &str) -> String {
     "ok".to_string()
 }
 
+/// The arguments of the tab's Claude Code as it was started, for resuming it the same way. None
+/// when there isn't exactly one, or its command line can't be read.
+#[tauri::command]
+pub fn agent_args(state: State<AppState>, id: String) -> Option<Vec<String>> {
+    let pids = state.ptys.lock().unwrap().get(&id)?.job.as_ref()?.pids();
+    crate::job::command_args(crate::sleep::agent_pid(&pids)?)
+}
+
 /// Whether a Claude Code has come up in the tab, to tell a resume that worked from one that didn't.
 #[tauri::command]
 pub fn agent_running(state: State<AppState>, id: String) -> bool {
