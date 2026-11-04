@@ -20,6 +20,7 @@
 - **公開 repo 裡混進使用者的私人路徑**：這是 public repo，設定面板的字型預覽曾寫死 `C:\Users\mis`，到發佈前掃描才發現（已改 `C:\Users\you`）。每次 commit 前、加截圖前都要掃過使用者名稱、院內網址、私人分頁名稱與金鑰；截圖一律用測試實例的示範資料拍（見 `operations.md`）。
 - **PTY 輸出在 Rust 端轉字串 → 中文亂碼**：多位元組字元會被切在兩次 read 之間。輸出一律以 raw bytes 傳給 `term.write(Uint8Array)`，由 xterm 解 UTF-8。
 - **ConPTY 開機會先問游標位置（portable-pty 開了 INHERIT_CURSOR）**：前端必須在 `pty_spawn` 回來之前就把 `running` 設 true，讓 xterm 的回覆送得進去，否則 console 卡住不出 prompt。
+- **側欄、分頁列的點擊會被重畫吃掉（要點兩次）**：`render()` 會換掉整排元素，按下的元素在放開前被換掉，瀏覽器就不觸發 click。agent 的標題動畫與滑鼠移到列上後的記憶體讀取都會觸發重畫，所以 `scheduleRender` 在這些列表被按住時先暫停、放開後補畫（`render.ts`）。新增可點擊的列表，若內容也會被重畫換掉，要一併納入。解除暫停用的視窗 `blur` 不能掛 capture：按下列表時終端機失焦，capture 也收得到，會提前解除。用 CDP 驗證時，要先確認重畫真的在發生（例如計算 `#tabs` 的 childList 變動），否則修前修後都會通過，看不出差別。
 - **在視窗 focus 事件裡呼叫 `webview.setFocus()` → 無限迴圈**：setFocus 會再觸發一次視窗 focus 事件，結果 CPU 空轉、游標狂閃、整個 App 卡頓。這個「自動焦點」功能已整個移除（2026-10-20，使用者裁定不需要）：點一下視窗本來就會聚焦終端機。不要再加回來；若真的遇到拿不到焦點，先問清楚實際操作情境再查。
 - **`dragDropEnabled` 與列表拖曳排序、檔案拖入互斥（Windows）**：Tauri 視窗預設 `dragDropEnabled: true`，會在視窗層攔截原生拖放，網頁內的 HTML5 `dragstart`／`dragover`／`drop` 收不到；設成 `false` 排序雖會動，但從檔案總管拖檔進視窗就完全沒反應（收不到路徑）。兩者都要，所以主視窗保持預設（true），列表排序用 pointer 事件實作（`wireDrag`，不用 `draggable`），拖入的檔案走 `getCurrentWebview().onDragDropEvent`，把路徑 paste 進目前分頁（含空格加雙引號）。**不要再把 `dragDropEnabled` 設回 false，也不要把排序改回 HTML5 拖曳**（2026-10-20 先後踩過兩次）。只收得到「檔案」；從瀏覽器拖出來的圖片沒有路徑。
 - **WebView2 除錯埠撞到使用者自己的 Chrome**：用 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=<port>` 測試前先確認該埠沒被占用，CDP 腳本只連 URL 是 `localhost:1420`／`tauri.localhost` 的頁面。
