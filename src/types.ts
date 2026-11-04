@@ -43,6 +43,8 @@ export interface AgentNotify {
   message?: string;
   notificationType?: string | null;
   sessionId?: string | null;
+  remote?: boolean; // Remote Control connected (older panex-cli doesn't send it)
+  background?: boolean | null; // a Stop hook listed background tasks or scheduled prompts
 }
 
 // Mirrors git.rs. x/y are the staged/worktree letters of `git status --short` ('.' = unchanged).
@@ -124,6 +126,14 @@ export interface Tab {
   agentLive?: boolean; // Claude Code is running in this tab right now (cleared at the next shell prompt)
   skipPrompt?: boolean; // an auto-resume was queued: the shell's first prompt is its startup one, not Claude exiting
   promptAt?: number; // time of the last prompt report, to merge duplicates
+  agentRemote?: boolean; // the last hook ran with Remote Control connected (not persisted)
+  agentBackground?: boolean; // the last Stop hook listed background work (not persisted)
+  hibernated?: boolean; // shell and agent were ended to free memory; viewing the tab starts them again (not persisted)
+  wake?: { keys: string[] }; // resuming after hibernation: the user's keys wait here until Claude Code is back
+  sleepRefused?: string; // why the backend last refused to end this tab
+  sleepRefusedAt?: number;
+  seenAt?: number; // when the user last looked at this tab
+  typedAt?: number; // the user's last keystroke here
   outAt?: number; // time of the shell's last output, to tell when a resumed Claude Code has settled (not persisted)
 }
 

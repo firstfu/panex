@@ -29,6 +29,7 @@ export function showTab(id: string) {
       // Browsers cap live WebGL contexts (~16); only the visible tab keeps one.
       prev.webgl?.dispose();
       prev.webgl = undefined;
+      prev.seenAt = Date.now();
     }
   }
   S.visibleTabId = id;
@@ -36,6 +37,7 @@ export function showTab(id: string) {
   if (ws.group) setCollapsed(ws.group, false);
   if (isHidden(ws.id)) setHidden([ws.id], false); // showing a workspace means wanting to see it
   ws.activeTab = id;
+  tab.seenAt = Date.now();
   tab.el.hidden = false;
   if (!tab.opened) {
     tab.term.open(tab.el);

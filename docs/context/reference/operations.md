@@ -42,6 +42,7 @@ Start-Process <target>\release\panex.exe
 - 測 `claude --resume` 這類流程時，在測試實例啟動前把一個假的 `claude.cmd`（印一行字再 `ping -n 40 127.0.0.1`）放進 `PATH` 最前面：真的 `claude` 會對假 session id 報 `No conversation found`、跳信任資料夾詢問，還會用真的 hook 回報新 session id 干擾結果。
 - 量重畫頻率與主執行緒負擔：CDP `Performance.enable` 後，前後各取一次 `Performance.getMetrics`，相減 `TaskDuration`、`ScriptDuration`、`RecalcStyleDuration`、`LayoutDuration`（單位是秒）；重畫次數用 `MutationObserver` 看 `#tabs` 的 `childList`。先量一段閒置當基準，確認數字會回到接近 0，才能排除上一個情境還在跑。
 - 用真的 Claude Code 量測時（不是假的 `claude.cmd`）：分頁 `cwd` 要指向已信任過的資料夾，否則會停在信任詢問，預設選項是「No, exit」，後續送的 Enter 會讓它直接退出，量到的就不是 Claude Code。啟動測試實例前要從環境拿掉 `CLAUDE*` 與使用者 panex 注入的 `PANEX_*`。送指令前後截圖確認它真的在跑，不要只看 `pty_write` 回 `ok`。
+- 測試實例分頁裡的 Claude Code，hook 跑的是 `~/.claude/settings.json` 指向的**已安裝版** `panex-cli`，測不到這次改的 CLI 欄位（2026-11-04 因此誤判排程分頁會被休眠）。在 `claude --settings` 另加一個指向測試版 `panex-cli.exe notify` 的 Stop hook。`panex-cli list`／`send` 也只接受從 panex 分頁執行，要在測試分頁裡打指令、輸出導到檔案。測試實例若從使用者 panex 的分頁開出來，使用者重開 panex 時會被一起收掉。記憶體壓力用測試版讀取的 `PANEX_TEST_MEM_FILE`（內容 `<total> <available>`）模擬。
 - 截圖：`PrintWindow` 擷取該程序的視窗；CDP 的 `Page.captureScreenshot` 只擷取網頁內容。
 - 機器上同時有使用者正在用的 panex，視窗標題也是 `panex`；操作視窗時一律用測試實例的行程 ID，不要用名稱。
 - **不要對桌面注入真實滑鼠輸入**（`SetCursorPos`／`mouse_event` 做 OLE 拖放）：自製的拖曳來源視窗沒有浮到最上層，按下、拖曳、放開全落在使用者前景的 Claude Code 視窗上（2026-10-20 發生，只造成文字被反白選取）。檔案拖入只靠 CDP 對 `tauri://drag-drop` 發 `plugin:event|emit_to`（`target: {kind:'Webview', label:'main'}`）驗證處理邏輯，原生拖放請使用者實測。

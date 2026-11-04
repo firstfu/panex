@@ -227,7 +227,7 @@ function list(a: { from?: string }) {
       workspace,
       title,
       cwd: tab.cwd ?? null,
-      shell: tab.running ? "running" : "stopped",
+      shell: tab.hibernated ? "asleep" : tab.running ? "running" : "stopped",
       claude: claudeState(tab),
       message: tab.note ?? "",
       self: id === a.from,

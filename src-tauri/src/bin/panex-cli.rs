@@ -80,7 +80,8 @@ Driving the tabs that are already open (e.g. when the user talks to you from the
 
 panex-cli list
     Prints {"tabs":[{"tab","workspace","title","cwd","shell","claude","message","self"}]}
-    in sidebar order. shell: running or stopped (not started since panex opened, or ended; send
+    in sidebar order. shell: running, asleep (ended to free memory while it was short; send resumes
+    its Claude Code) or stopped (not started since panex opened, or ended; send
     starts it). claude: none, idle, running or needs-input. message: the agent's last finished reply or question, if any. self marks
     your own tab. Use the tab ids it prints in the commands below.
 
@@ -432,6 +433,10 @@ fn notify(rest: &[String]) {
         "message": message,
         "notificationType": hook["notification_type"],
         "sessionId": hook["session_id"],
+        // Hibernation leaves such tabs alone. Set only while Remote Control is connected.
+        "remote": std::env::var_os("CLAUDE_CODE_BRIDGE_SESSION_ID").is_some(),
+        // Only Stop says; null otherwise, which leaves what the last Stop said in place.
+        "background": background_work(&hook),
         // 讓 panex 分辨這個分頁是哪一次啟動開的（notify.rs 會丟掉別次啟動的 hook）。
         "token": std::env::var("PANEX_TOKEN").ok(),
     });
@@ -439,6 +444,15 @@ fn notify(rest: &[String]) {
     if std::env::var_os("PANEX_DEBUG").is_some() {
         eprintln!("panex-cli: {payload} -> {pipe}: {result:?}");
     }
+}
+
+/// Whether a Stop hook lists work still going on: background tasks or scheduled prompts.
+fn background_work(hook: &Value) -> Value {
+    if hook["hook_event_name"].as_str() != Some("Stop") {
+        return Value::Null;
+    }
+    let listed = |key: &str| hook[key].as_array().is_some_and(|a| !a.is_empty());
+    Value::Bool(listed("background_tasks") || listed("session_crons"))
 }
 
 /// Reads stdin unless it's an interactive console; gives up after 2 s so a stray

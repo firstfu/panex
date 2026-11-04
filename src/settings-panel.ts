@@ -175,6 +175,7 @@ export function fillSettings() {
   $<HTMLInputElement>("s-confirm-close").checked = S.settings.confirmClose;
   $<HTMLInputElement>("s-worktree-panex").checked = S.settings.worktreeViaPanex;
   $<HTMLInputElement>("s-scrollback").value = String(S.settings.scrollback);
+  $<HTMLInputElement>("s-hibernate").checked = S.settings.hibernateOnPressure;
   $<HTMLInputElement>("s-live-mem").checked = S.settings.liveMemory;
   $<HTMLInputElement>("s-win-w").value = String(S.settings.windowWidth);
   $<HTMLInputElement>("s-win-h").value = String(S.settings.windowHeight);
@@ -443,6 +444,7 @@ $<HTMLInputElement>("s-scrollback").onchange = (e) => {
   const v = Math.min(100000, Math.max(500, Math.round(+(e.target as HTMLInputElement).value || DEFAULTS.scrollback)));
   updateSettings({ scrollback: v });
 };
+$<HTMLInputElement>("s-hibernate").onchange = (e) => updateSettings({ hibernateOnPressure: (e.target as HTMLInputElement).checked });
 /** Saves the opening size and resizes the window to it right away. */
 function setWindowSize(width: number, height: number) {
   const clamp = (v: number, min: number) => Math.min(10000, Math.max(min, Math.round(v)));

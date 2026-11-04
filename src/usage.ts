@@ -44,6 +44,7 @@ const GROUP_LABEL: Record<Group, string> = {
   running: "正在做",
   done: "做完",
   idle: "閒著",
+  asleep: "睡著了",
   stopped: "未啟動",
 };
 
@@ -57,8 +58,8 @@ function row(ws: Workspace, tab: Tab, group: Group, u: Usage | undefined) {
   const name = `${esc(wsTitle(ws))} / ${esc(tabTitle(tab))}`;
   const note = tab.note ? `<div class="u-note">${esc(tab.note)}</div>` : "";
   const mem = u ? `<span title="${esc(tr("{n} 個程序", { n: u.procs }))}">${fmtBytes(u.bytes)}</span>` : "";
-  const start = group === "stopped" && !tab.ssh
-    ? `<button class="u-btn" data-start="${tab.id}" title="${esc(tr("在背景啟動這個分頁，不切過去"))}">${esc(tr("啟動"))}</button>`
+  const start = (group === "stopped" || group === "asleep") && !tab.ssh
+    ? `<button class="u-btn" data-start="${tab.id}" title="${esc(tr(group === "asleep" ? "在背景接回這個分頁的 Claude Code，不切過去" : "在背景啟動這個分頁，不切過去"))}">${esc(tr(group === "asleep" ? "叫醒" : "啟動"))}</button>`
     : "";
   return `<tr data-tab="${tab.id}"><td class="u-name"><div class="u-title">${name}</div>${note}</td>` +
     `<td>${turnTime(tab)}</td><td>${mem}</td><td><div class="u-acts">${start}</div></td></tr>`;
