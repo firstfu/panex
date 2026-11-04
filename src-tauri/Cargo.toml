@@ -1,7 +1,7 @@
 # panex backend crate: the app (src/main.rs → lib.rs) and the panex-cli hook helper (src/bin).
 [package]
 name = "panex"
-version = "0.7.15"
+version = "0.7.16"
 description = "Open-source, cross-platform terminal for running many AI coding agents"
 license = "MIT"
 edition = "2021"
@@ -29,7 +29,7 @@ e2e = []
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-notification = "2"
 tauri-plugin-updater = "2"
