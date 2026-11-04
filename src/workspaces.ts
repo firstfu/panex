@@ -7,7 +7,7 @@ import { type Tab, type Workspace } from "./types";
 import { newId, newWsId } from "./util";
 import { S, activeTab, activeWs, tabs, workspaces, wsActiveTab, wsOrder } from "./state";
 import { saveSession } from "./session";
-import { attachWebgl, createTab, disposeTab, remeasureTab, skipHiddenSelectionDraws, spawn } from "./terminal";
+import { attachWebgl, createTab, disposeTab, releaseWebgl, remeasureIfStale, skipHiddenSelectionDraws, spawn } from "./terminal";
 import { clearStatus, workingTabs } from "./agent";
 import { closeGitView, isGitOpen, renderGitPanel, scheduleGit } from "./git-panel";
 import { closeSearch } from "./search";
@@ -26,9 +26,9 @@ export function showTab(id: string) {
     const prev = tabs.get(S.visibleTabId);
     if (prev) {
       prev.el.hidden = true;
-      // Browsers cap live WebGL contexts (~16); only the visible tab keeps one.
-      prev.webgl?.dispose();
-      prev.webgl = undefined;
+      // Browsers cap live WebGL contexts (~16); only the visible tab keeps one. The old one goes
+      // before the new one comes: overlapping them raises the GPU process's memory for good.
+      releaseWebgl(prev);
       prev.seenAt = Date.now();
     }
   }
@@ -47,7 +47,7 @@ export function showTab(id: string) {
   }
   attachWebgl(tab);
   tab.fit.fit();
-  requestAnimationFrame(() => S.visibleTabId === id && remeasureTab(tab));
+  requestAnimationFrame(() => S.visibleTabId === id && remeasureIfStale(tab));
   // Restored tabs start their shell only when first viewed.
   if (!tab.running && !tab.exited) spawn(tab);
   closeGitView(false);

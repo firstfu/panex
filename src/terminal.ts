@@ -45,7 +45,11 @@ function termTheme() {
   return { background: "#00000000", foreground: "#e4e4e7", cursor: "#e4e4e7", selectionBackground: "#6366f180" };
 }
 
-export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab {
+/**
+ * @param restore the tab may have a saved scrollback; it is read when the shell starts, because
+ *   a restored tab nobody opens shouldn't cost a parse and a screen's worth of buffer at launch
+ */
+export function createTab(meta: SavedTab, wsId: string, restore = false): Tab {
   const term = new Terminal({
     allowProposedApi: true,
     allowTransparency: true,
@@ -90,23 +94,11 @@ export function createTab(meta: SavedTab, wsId: string, restored?: string): Tab 
     exited: false,
     dirty: false,
     status: "idle",
+    restorePending: restore,
   };
 
   refreshBranch(tab);
   scheduleGit(tab);
-
-  if (restored) {
-    term.write(createDimFilter()(squeezeBlankRuns(restored)), () => {
-      // The snapshot leaves the cursor wherever the program had it (TUIs park it mid-screen),
-      // so move below the last non-empty line before printing the marker.
-      const b = term.buffer.active;
-      let last = b.length - 1;
-      while (last > 0 && !b.getLine(last)?.translateToString(true).trim()) last--;
-      const row = Math.max(1, last - b.baseY + 1);
-      const time = new Date().toLocaleString("zh-TW", { hour12: false });
-      term.write(`\x1b[0m\x1b[?25h\x1b[${row};1H\r\n\x1b[90m${tr("── 已還原工作階段（{time}）──", { time })}\x1b[0m\r\n`);
-    });
-  }
 
   // Ctrl/⌘+click opens web links and file paths; both are matched only while the mouse is over a line.
   const hint = { hover: () => linkHint(tab, true), leave: () => linkHint(tab, false) };
@@ -215,6 +207,11 @@ export function onInput(tab: Tab, data: string) {
     return;
   }
   if (!reply) tab.typedAt = Date.now();
+  // Replies go through: ConPTY's opening cursor query needs its answer before pty_spawn returns.
+  if (tab.earlyKeys && !reply) {
+    tab.earlyKeys.push(data);
+    return;
+  }
   agentKey(tab, data);
   if (tab.running) {
     invoke("pty_write", { id: tab.id, data }).catch(() => {});
@@ -239,6 +236,36 @@ export async function startInBackground(tab: Tab) {
   return true;
 }
 
+/**
+ * Writes the saved scrollback into a restored tab, once, before anything else reaches its terminal.
+ * The terminal stays invisible and ignores the mouse until then: the screen is still scrolling, and
+ * a drag on it would select across rows.
+ */
+async function restoreScrollback(tab: Tab) {
+  if (!tab.restorePending) return;
+  tab.restorePending = false;
+  tab.el.classList.add("restoring");
+  try {
+    const saved = await invoke<string>("scrollback_load", { id: tab.id }).catch(() => "");
+    if (!saved || !tabs.has(tab.id)) return;
+    const term = tab.term;
+    await new Promise<void>((done) => {
+      term.write(createDimFilter()(squeezeBlankRuns(saved)), () => {
+        // The snapshot leaves the cursor wherever the program had it (TUIs park it mid-screen),
+        // so move below the last non-empty line before printing the marker.
+        const b = term.buffer.active;
+        let last = b.length - 1;
+        while (last > 0 && !b.getLine(last)?.translateToString(true).trim()) last--;
+        const row = Math.max(1, last - b.baseY + 1);
+        const time = new Date().toLocaleString("zh-TW", { hour12: false });
+        term.write(`\x1b[0m\x1b[?25h\x1b[${row};1H\r\n\x1b[90m${tr("── 已還原工作階段（{time}）──", { time })}\x1b[0m\r\n`, done);
+      });
+    });
+  } finally {
+    tab.el.classList.remove("restoring");
+  }
+}
+
 export async function spawn(tab: Tab) {
   autoResume(tab);
   if (tab.hibernated) beginWake(tab);
@@ -254,7 +281,9 @@ export async function spawn(tab: Tab) {
   // Set before the call: ConPTY asks for the cursor position right away and
   // xterm's answer must reach the shell, or the console waits forever.
   tab.running = true;
+  if (tab.restorePending) tab.earlyKeys = [];
   try {
+    await restoreScrollback(tab);
     await invoke("pty_spawn", {
       id: tab.id,
       shell: tab.shell,
@@ -269,7 +298,11 @@ export async function spawn(tab: Tab) {
       invoke("pty_write", { id: tab.id, data: `${tab.initialInput}\r` }).catch(() => {});
       tab.initialInput = undefined;
     }
+    const early = tab.earlyKeys?.join("");
+    tab.earlyKeys = undefined;
+    if (early) invoke("pty_write", { id: tab.id, data: early }).catch(() => {});
   } catch (e) {
+    tab.earlyKeys = undefined;
     tab.running = false;
     tab.exited = true;
     tab.term.write(`\r\n\x1b[31m${tr("無法啟動 {shell}：{e}", { shell: tab.ssh ? `ssh ${tab.ssh}` : shellName(tab.shell), e: String(e) })}\x1b[0m\r\n`);
@@ -331,6 +364,20 @@ interface RenderServiceInternals {
   _selectionState: { start: unknown; end: unknown; columnSelectMode: boolean };
 }
 
+/**
+ * Takes the WebGL renderer off a tab. xterm's dispose leaves the context for the garbage collector,
+ * and until that runs the GPU process keeps its textures, so the context is given up here.
+ */
+export function releaseWebgl(tab: Tab) {
+  const webgl = tab.webgl;
+  if (!webgl) return;
+  tab.webgl = undefined;
+  const canvases = [...tab.el.querySelectorAll("canvas")];
+  webgl.dispose();
+  // Only the canvases the renderer just took away: getContext would add a context to any other.
+  for (const c of canvases) if (!c.isConnected) c.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+}
+
 export function attachWebgl(tab: Tab) {
   if (tab.webgl) return;
   try {
@@ -359,9 +406,29 @@ export function remeasureTab(tab: Tab) {
   tab.fit.fit();
 }
 
+/**
+ * remeasureTab after a tab switch, only when the cell size is really off: it makes xterm build a
+ * glyph atlas for the other font size, which cost more GPU memory than the rest of the switch.
+ */
+export function remeasureIfStale(tab: Tab) {
+  if (!tab.opened || tab.el.hidden) return;
+  const core = (tab.term as unknown as { _core?: TerminalInternals })._core;
+  const chars = core?._charSizeService;
+  const cell = core?._renderService?.dimensions?.css?.cell;
+  if (!chars?.measure || !cell) return remeasureTab(tab); // xterm renamed its internals: pay the old way
+  chars.measure();
+  const lineHeight = tab.term.options.lineHeight ?? 1;
+  if (Math.abs(cell.width - chars.width) > 1 || Math.abs(cell.height - chars.height * lineHeight) > 1) remeasureTab(tab);
+}
+
+interface TerminalInternals {
+  _charSizeService?: { measure(): void; width: number; height: number };
+  _renderService?: { dimensions?: { css?: { cell?: { width: number; height: number } } } };
+}
+
 export function disposeTab(tab: Tab) {
   clearTimeout(tab.gitTimer);
-  tab.webgl?.dispose();
+  releaseWebgl(tab);
   tab.term.dispose();
   tab.el.remove();
   tabs.delete(tab.id);

@@ -116,6 +116,8 @@ export interface Tab {
   running: boolean; // a shell process is attached
   exited: boolean; // shell ended with an error; Enter restarts it
   dirty: boolean; // output since the last scrollback snapshot
+  restorePending?: boolean; // the saved scrollback hasn't been read yet; done when the shell starts
+  earlyKeys?: string[]; // typed during that restore, before the shell exists; sent once it does
   status: Status;
   note?: string;
   runStart?: number; // when the current agent turn started; kept through "attention" so the turn's total time is right

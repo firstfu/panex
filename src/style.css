@@ -282,6 +282,7 @@ button { font: inherit; }
 .term[hidden] { display: none; }
 /* A still copy of the screen while a hibernated tab's Claude Code comes back behind it. */
 .term.waking > .xterm { opacity: 0; } /* not visibility: the hidden terminal must keep the keyboard focus */
+.term.restoring > .xterm { opacity: 0; pointer-events: none; }
 .wake-cover { position: absolute; inset: 0; z-index: 5; padding: 4px 0 0 6px; overflow: hidden; pointer-events: none; }
 .wake-badge { position: absolute; top: 8px; right: 14px; padding: 2px 10px; border-radius: 10px; font-size: 12px; color: #fff; background: rgba(40, 40, 48, 0.9); }
 /* Git badges after the branch in the sidebar: unpushed ↑, behind ↓, uncommitted ●. */

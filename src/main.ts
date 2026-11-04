@@ -157,15 +157,11 @@ async function main() {
   getVersion().then((v) => ($("s-version").textContent = `v${v}`)).catch(() => {});
 
   const saved = (session.workspaces ?? []).filter((w) => w.tabs?.length);
-  const restored = await Promise.all(
-    saved.flatMap((w) => w.tabs).map((t) => invoke<string>("scrollback_load", { id: t.id }).catch(() => "")),
-  );
-  let k = 0;
   for (const sw of saved) {
     const ws: Workspace = { id: sw.id, customTitle: sw.title ?? undefined, color: sw.color ?? undefined, group: sw.group ?? undefined, tabs: [] };
     workspaces.set(ws.id, ws);
     wsOrder.push(ws.id);
-    for (const st of sw.tabs) ws.tabs.push(createTab(st, ws.id, restored[k++]).id);
+    for (const st of sw.tabs) ws.tabs.push(createTab(st, ws.id, true).id);
     ws.activeTab = sw.active && ws.tabs.includes(sw.active) ? sw.active : ws.tabs[0];
   }
   tidyGroups();
