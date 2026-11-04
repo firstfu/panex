@@ -1,4 +1,4 @@
-//! Control requests from `panex-cli open|wait|list|wake|send`, so an agent in one tab can start
+//! Control requests from `panex-cli open|wait|list|send`, so an agent in one tab can start
 //! others, wait for them, and start and message tabs that are already open. They arrive over the notification pipe (notify.rs) and must carry the token
 //! that only shells started by this panex get in PANEX_TOKEN; any other local process is refused.
 //!
@@ -104,7 +104,7 @@ pub async fn handle(app: &AppHandle, req: &Value) -> Value {
         // worktree 正要被刪，panex 只整理側欄，所以不檢查資料夾。
         Some("worktree-remove") => to_frontend(app, req).await,
         // 分頁的名稱與 Claude 狀態都在前端；send 會等還沒啟動的分頁接回，最多 45 秒。
-        Some("list" | "wake" | "send") => to_frontend(app, req).await,
+        Some("list" | "send") => to_frontend(app, req).await,
         Some("wait") => wait(app, req).await,
         _ => Err("unknown request".into()),
     };

@@ -1,7 +1,7 @@
 // Requests from `panex-cli open` (an agent in one tab starting another agent) and
 // `panex-cli worktree-create` / `worktree-remove` (Claude Code's worktree hooks): the backend checks the token
 // and hands them here because the frontend owns the layout. A tab `open` starts runs right away
-// but stays in the background; the user sees it in the sidebar. `list` / `wake` / `send` let a
+// but stays in the background; the user sees it in the sidebar. `list` / `send` let a
 // control tab's agent (reached from the phone) look at, start and message the other tabs.
 
 import { invoke } from "@tauri-apps/api/core";
@@ -191,8 +191,8 @@ function closeInside(path: string, keep: Set<string>) {
   if (stale.length) closeTabs(stale.map((t) => t.id));
 }
 
-// `panex-cli list` / `wake` / `send`: a control tab's agent (the one the user reaches from the
-// phone) looks at the other tabs, starts ones that aren't running and passes them a message.
+// `panex-cli list` / `send`: a control tab's agent (the one the user reaches from the
+// phone) looks at the other tabs and passes them a message, starting the tab first if needed.
 
 /** Every tab in sidebar order, with the names `matchTargets` looks at. */
 function targets() {
@@ -204,8 +204,6 @@ function targets() {
     });
   });
 }
-
-type Target = ReturnType<typeof targets>[number];
 
 /** @throws when no tab matches */
 function find(target: string) {
@@ -235,18 +233,6 @@ function list(a: { from?: string }) {
       self: id === a.from,
     })),
   };
-}
-
-async function wakeTabs(a: { targets: string[]; from?: string }) {
-  if (!a.targets?.length) throw "give a tab id or name";
-  const hits = new Map<string, Target>();
-  for (const target of a.targets) for (const t of find(target)) hits.set(t.id, t);
-  const out = [];
-  for (const t of hits.values()) {
-    const woke = await startInBackground(t.tab);
-    out.push({ tab: t.id, workspace: t.workspace, title: t.title, state: woke ? "woken" : "already-running" });
-  }
-  return { tabs: out };
 }
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -281,8 +267,8 @@ async function send(a: { target: string; text: string; from?: string }) {
   if (tab.asking) throw "its Claude Code is asking the user something; answer that in panex first";
   const text = cleanText(a.text ?? "");
   if (!text) throw "nothing to send";
-  const woke = await startInBackground(tab);
-  if (woke) {
+  const started = await startInBackground(tab);
+  if (started) {
     if (!tab.agentLive) throw "the tab started but did not resume Claude Code";
     await settle(tab);
   }
@@ -294,7 +280,7 @@ async function send(a: { target: string; text: string; from?: string }) {
   notify(tab, "running", "");
   await invoke("agent_state", { id, state: "running", message: "" });
   await invoke("pty_write", { id, data: "\r" });
-  return { tab: id, workspace: hits[0].workspace, title: hits[0].title, woke };
+  return { tab: id, workspace: hits[0].workspace, title: hits[0].title, started };
 }
 
 let sweeping = false;
@@ -347,7 +333,6 @@ export function wireControl() {
       else if (p.op === "worktree") value = await worktree(p.args);
       else if (p.op === "worktree-remove") value = worktreeRemove(p.args);
       else if (p.op === "list") value = list(p.args);
-      else if (p.op === "wake") value = await wakeTabs(p.args);
       else if (p.op === "send") value = await send(p.args);
       else throw "unknown request";
     } catch (e) {

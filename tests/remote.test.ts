@@ -1,4 +1,4 @@
-// panex-cli list / wake / send helpers: which tabs a name means, and text safe to type into Claude Code.
+// panex-cli list / send helpers: which tabs a name means, and text safe to type into Claude Code.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

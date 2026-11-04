@@ -2,7 +2,7 @@
 //!
 //!   panex-cli notify [message]      (agent hooks)
 //!   panex-cli open … / wait …       (an agent starting other agents in new tabs; see HELP)
-//!   panex-cli list / wake … / send … (an agent, e.g. one reached from the phone, driving other tabs)
+//!   panex-cli list / send …         (an agent, e.g. one reached from the phone, driving other tabs)
 //!   panex-cli worktree-create       (Claude Code's WorktreeCreate hook; see worktree_create)
 //!   panex-cli worktree-remove       (Claude Code's WorktreeRemove hook; see worktree_remove)
 //!   panex-cli worktree-guard        (Claude Code's PreToolUse hook for EnterWorktree; see worktree_guard)
@@ -26,7 +26,6 @@ fn main() {
         Some("open") => std::process::exit(run(open_request(&args[1..]))),
         Some("wait") => std::process::exit(run(wait_request(&args[1..]))),
         Some("list") => std::process::exit(run(Ok(json!({ "op": "list" })))),
-        Some("wake") => std::process::exit(run(wake_request(&args[1..]))),
         Some("send") => std::process::exit(run(send_request(&args[1..]))),
         Some("worktree-create") => std::process::exit(worktree_create()),
         Some("worktree-remove") => std::process::exit(worktree_remove()),
@@ -81,23 +80,18 @@ Driving the tabs that are already open (e.g. when the user talks to you from the
 
 panex-cli list
     Prints {"tabs":[{"tab","workspace","title","cwd","shell","claude","message","self"}]}
-    in sidebar order. shell: running or stopped (not started since panex opened, or ended; wake or
-    send starts it). claude: none, idle, running
-    or needs-input. message: the agent's last finished reply or question, if any. self marks
+    in sidebar order. shell: running or stopped (not started since panex opened, or ended; send
+    starts it). claude: none, idle, running or needs-input. message: the agent's last finished reply or question, if any. self marks
     your own tab. Use the tab ids it prints in the commands below.
-
-panex-cli wake TAB...
-    Starts the given tabs without bringing them to the front. TAB is a tab id, or a workspace, tab or folder name (all tabs of a
-    workspace). Prints {"tabs":[{"tab","workspace","title","state"}]}, state woken or
-    already-running.
 
 panex-cli send TAB TEXT...
 panex-cli send TAB -          (TEXT from stdin, for long or multi-line messages)
-    Types TEXT into the Claude Code in TAB and presses Enter, as if the user had. A tab that
+    Types TEXT into the Claude Code in TAB and presses Enter, as if the user had. TAB is a tab
+    id, or a workspace, tab or folder name. A tab that
     is not running is started first and the message goes in once Claude Code is back (can take up to 45 s).
     Refused when the tab has no Claude Code (it never types into a plain shell), when its Claude
     is asking the user something, or when TAB is your own tab or matches several tabs.
-    Prints {"tab","workspace","title","woke"}. Then `panex-cli wait TAB` returns its reply.
+    Prints {"tab","workspace","title","started"}. Then `panex-cli wait TAB` returns its reply.
 "#;
 
 /// `panex-cli worktree-create`: Claude Code's WorktreeCreate hook, installed while panex's
@@ -289,7 +283,7 @@ fn run(req: Result<Value, String>) -> i32 {
             return Err("not inside a panex tab (PANEX_PIPE / PANEX_TOKEN not set)".into());
         };
         req["token"] = token.into();
-        // list / wake / send tell the caller's own tab apart.
+        // list / send tell the caller's own tab apart.
         if req.get("from").is_none() {
             req["from"] = std::env::var("PANEX_PANE_ID").unwrap_or_default().into();
         }
@@ -358,13 +352,6 @@ fn wait_request(args: &[String]) -> Result<Value, String> {
         return Err("give at least one tab id (from `panex-cli open`)".into());
     }
     Ok(json!({ "op": "wait", "tabs": tabs, "timeout": timeout }))
-}
-
-fn wake_request(args: &[String]) -> Result<Value, String> {
-    if args.is_empty() {
-        return Err("give at least one tab id or name (from `panex-cli list`)".into());
-    }
-    Ok(json!({ "op": "wake", "targets": args }))
 }
 
 /// `send TAB TEXT...`, or `send TAB -` to read the text from stdin.
@@ -551,9 +538,7 @@ mod tests {
     }
 
     #[test]
-    fn wake_and_send_parse() {
-        assert!(wake_request(&[]).is_err());
-        assert_eq!(wake_request(&["api".into(), "t1".into()]).unwrap()["targets"], json!(["api", "t1"]));
+    fn send_parse() {
         assert!(send_request(&["t1".into()]).is_err());
         assert!(send_request(&["t1".into(), " ".into()]).is_err());
         let req = send_request(&["t1".into(), "run".into(), "the tests".into()]).unwrap();

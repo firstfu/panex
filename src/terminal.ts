@@ -214,8 +214,8 @@ export function onInput(tab: Tab, data: string) {
 }
 
 /**
- * Starts a tab's shell without showing it, like on first view. `panex-cli wake` and `send`, and
- * the tab overview's start button.
+ * Starts a tab's shell without showing it, like on first view. `panex-cli send` and the tab
+ * overview's start button.
  * @returns false when the shell was already running
  */
 export async function startInBackground(tab: Tab) {

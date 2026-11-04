@@ -4,6 +4,18 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-04 — 移除 `panex-cli wake`
+
+**變更**
+- 刪除 `wake` 子命令、控制通道的 `wake` op、`wakeTabs`，以及 help、skill、`overview.md` 的相關說明。`send` 回傳的 `woke` 欄位改名為 `started`。
+- 保留 `startInBackground`：`send` 遇到沒在跑的分頁仍會先啟動，分頁總覽的「啟動」與 `usage.ts` 也在用。
+
+**為什麼**
+- 使用者認定 `wake` 也屬於休眠機制，決定刪除（回覆 0.7.13 留下的待決事項）。
+
+**下一步**
+- 尚未發版；是否另做新機制由使用者決定。
+
 ## 2026-11-04 — 發布 0.7.13（tag `v0.7.13`）
 
 **變更**

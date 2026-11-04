@@ -27,7 +27,7 @@ How to use it well:
   something: tell the user which tab, don't try to answer for them.
 - Collect results from git (`git diff <base>...<branch>`, `git log`), not from the screen.
 
-Driving tabs that are already open (`panex-cli list`, `wake`, `send`; the help has the details):
+Driving tabs that are already open (`panex-cli list`, `send`; the help has the details):
 start with `list` and use the tab ids it prints. To pass a message on, `send` it and then `wait`
 for that tab, and tell the user its answer. Never send what the user didn't ask for, and if a tab's
 Claude is asking the user something, tell them which tab instead of answering for them.

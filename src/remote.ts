@@ -1,4 +1,4 @@
-// Pure helpers for `panex-cli list` / `wake` / `send` and the tab overview (no DOM, no Tauri, so
+// Pure helpers for `panex-cli list` / `send` and the tab overview (no DOM, no Tauri, so
 // tests can load them): finding the tabs a name means, making text safe to type into Claude Code,
 // and which overview group a tab is in.
 
