@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-06 — 縮小 src-tauri/target 的 debug build 體積
+
+**變更**
+- `src-tauri/Cargo.toml` 新增 `[profile.dev]`（自己的程式碼只留 `debug = "line-tables-only"`）＋ `[profile.dev.package."*"]`（依賴 crate `debug = false`）。
+- `[profile.test-build]` 拿掉 `incremental = true`。
+- 同步更新 `docs/context/reference/operations.md` 第 13 行的 test-build 說明（原寫「有開增量」，改成「不開增量，免得 target/ 暴肥」）。
+
+**為什麼**
+- 使用者的 `src-tauri/target` 長到 63 GB。主因是沒設 `[profile.dev]`，MSVC 對每個依賴 crate 都產出完整 debug 符號；`test-build` 的 incremental 快取也會持續累積不回收。
+
+**下一步**
+- 使用者下次 build 後觀察 `target/` 實際縮小多少。
+- 定期用 `cargo clean` 或 `cargo sweep --time 14` 清理，不會自動維持在 1 GB 左右。
+
 ## 2026-11-04 — 發布 0.7.20（tag `v0.7.20`）
 
 **變更**

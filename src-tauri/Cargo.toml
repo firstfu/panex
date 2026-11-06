@@ -55,6 +55,14 @@ libc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 tauri = { version = "2", features = ["macos-private-api"] }
 
+# Keep target/ small: full debuginfo for every dependency made it grow to tens of GB on Windows.
+# Our own code keeps file:line in backtraces; set `debug = true` temporarily to step through in a debugger.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [profile.release]
 lto = true
 codegen-units = 1
@@ -69,4 +77,3 @@ lto = false
 codegen-units = 16
 strip = false
 opt-level = 1
-incremental = true

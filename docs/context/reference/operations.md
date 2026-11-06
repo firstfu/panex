@@ -10,7 +10,7 @@
 - 從零編譯時 rustc 可能在 `windows`／`tokio` crate 崩潰（`STATUS_STACK_BUFFER_OVERRUN`），設 `RUST_MIN_STACK=134217728` 後重跑即過；`CARGO_TARGET_DIR` 換新目錄就是從零編譯，會碰到這個。
 - 使用者的 panex 開著時 `target/release/panex.exe` 被鎖住，可設 `CARGO_TARGET_DIR` 到別處建置。
 - 測試實例還開著時再建置 `test-build`，會因 `panex.exe` 被鎖住而報 `存取被拒 (os error 5)`，但背景指令的 exit code 仍是 0，很容易誤以為建好了、拿舊版在測。建置前先關掉測試實例，建完用 `ls -la --time-style=full-iso` 確認 exe 時間戳。
-- release 設了 `lto = true`＋`codegen-units = 1`，每次建置要好幾分鐘。**驗證功能用 `[profile.test-build]`**（不 LTO、平行 codegen、增量）：`cargo tauri build --no-bundle --config '…' -- --profile test-build`，產物在 `target\test-build\panex.exe`；發布安裝檔仍用 release。
+- release 設了 `lto = true`＋`codegen-units = 1`，每次建置要好幾分鐘。**驗證功能用 `[profile.test-build]`**（不 LTO、平行 codegen；不開增量，免得 target/ 暴肥）：`cargo tauri build --no-bundle --config '…' -- --profile test-build`，產物在 `target\test-build\panex.exe`；發布安裝檔仍用 release。
 - **`cargo tauri build` 會改寫 `src-tauri/Cargo.toml`**：Windows 上 `tauri.conf.json` 沒開 macOS private API，CLI 會把 `[dependencies]` 的 `tauri = { …, features = ["macos-private-api"] }` 自動改成 `features = []`。建置完用 `git diff src-tauri/Cargo.toml` 檢查並改回，不要連同功能一起 commit。反過來，直接 `cargo check` 會因為 feature 和設定檔對不上而失敗（`The tauri dependency features … does not match the allowlist`），Rust 端建置走 `cargo tauri build`；單元測試的繞法見下方「單元測試」。
 - **PowerShell 5.1 會吃掉傳給原生程式的 `--`**：`cargo tauri build … -- --profile test-build` 在 PowerShell 裡跑，`--profile` 會被當成 tauri-cli 自己的參數，結果 panic 在 `Option::unwrap()`（2026-10-22 踩過）。這條指令一律用 Bash 跑。
 - **另一個程序正在 `rustup update` 時**，工具鏈會裝到一半（`rustc.exe` 暫時不存在），`cargo` 報 `binary … is not applicable to the toolchain`、tauri-cli 在讀 `rustc -vV` 時 panic。等它跑完再建，不要去砍那個程序。
