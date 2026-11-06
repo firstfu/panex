@@ -11,7 +11,8 @@ description: Crew mode (小隊模式) - start other coding agents in new panex t
 2. Run `panex-cli help` and follow it. The flags live in the binary, so don't use any that it doesn't list.
 
 Worktree requests are hand-offs: when the user wants work done in a worktree (however they word it),
-do not use the built-in EnterWorktree tool (panex blocks it). It would switch this conversation into
+do not use the built-in EnterWorktree tool and do not run `git worktree add` yourself (panex blocks both;
+a worktree made by plain git never shows up in its sidebar). EnterWorktree would switch this conversation into
 the worktree while panex opens a second, empty shell there. Instead start a new agent with
 `panex-cli open --worktree <branch> -- claude "<task>"`, where the branch is a short name taken from
 the task, then `panex-cli wait <tab>`. Tell the user which tab you opened and don't do the work yourself.

@@ -162,16 +162,131 @@ Tell the user which tab you opened. Do not repeat the work in this session.";
 /// 工作區反而是空 shell；使用者要的是任務交給 worktree 裡的新 agent。攔動作而不是靠 skill 猜措辭，
 /// 使用者怎麼說都一樣。放行：不在 panex 內（hook 是全域的）、cwd 已在 linked worktree（交棒出去的 agent
 /// 自己再呼叫時不能再轉一次）、子 agent。一律 exit 0，deny 靠 stdout 的 JSON。
+///
+/// 同一個 hook 也接 Bash／PowerShell（matcher `EnterWorktree|Bash|PowerShell`）：Claude 最常見的做法其實是
+/// 自己跑 `git worktree add`（2026-11 對話紀錄裡比 EnterWorktree 多得多），panex 看不到，側欄沒有工作區。
+/// 這條不放行子 agent 和 linked worktree：從哪裡建都一樣該走 panex。只放行建在暫存資料夾的（自己測試用）。
 fn worktree_guard() {
     let hook = read_stdin_json().unwrap_or(Value::Null);
-    let cwd = hook["cwd"].as_str().map(PathBuf::from).or_else(|| std::env::current_dir().ok()).unwrap_or_default();
-    if std::env::var_os("PANEX_PANE_ID").is_none() || hook.get("agent_id").is_some() || in_linked_worktree(&cwd) {
+    if std::env::var_os("PANEX_PANE_ID").is_none() {
         return;
     }
+    let reason = match hook["tool_name"].as_str() {
+        Some("Bash" | "PowerShell") => {
+            let cmd = hook["tool_input"]["command"].as_str().unwrap_or("");
+            if !adds_worktree(cmd) || mentions_temp_dir(cmd, &std::env::temp_dir()) {
+                return;
+            }
+            SHELL_GUARD_REASON
+        }
+        _ => {
+            let cwd = hook["cwd"].as_str().map(PathBuf::from).or_else(|| std::env::current_dir().ok()).unwrap_or_default();
+            if hook.get("agent_id").is_some() || in_linked_worktree(&cwd) {
+                return;
+            }
+            GUARD_REASON
+        }
+    };
     let out = json!({ "hookSpecificOutput": {
-        "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": GUARD_REASON,
+        "hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": reason,
     } });
     println!("{out}");
+}
+
+const SHELL_GUARD_REASON: &str = "This session runs inside panex, so do not create git worktrees with git directly: \
+panex would not show them in its sidebar. Run `panex-cli help`, then use `panex-cli open --worktree <branch> [--base <branch>]` \
+instead. To hand the work to a new agent, add `-- claude \"<task>\"` and then `panex-cli wait <tab>`; with no command it just \
+opens a workspace with a shell in the worktree and prints its path. Only the files in panex's worktree.copyFiles setting are \
+copied in, so copy any other untracked files the work needs (local config and the like) into the printed path yourself. \
+Worktrees under the system temp folder are not blocked.";
+
+/// 指令裡有沒有一段是 `git [-C 路徑 | -c 設定]... worktree add`。只認指令位置上的 git：
+/// 引號裡、heredoc 內文、`grep "git worktree add"` 這類都不算。
+fn adds_worktree(cmd: &str) -> bool {
+    shell_segments(&strip_heredocs(cmd)).iter().any(|seg| {
+        let mut words = seg.split_whitespace().map(|w| w.trim_matches(|c| c == '"' || c == '\''));
+        let Some(first) = words.next() else { return false };
+        let exe = first.rsplit(['/', '\\']).next().unwrap_or(first).to_ascii_lowercase();
+        if exe != "git" && exe != "git.exe" {
+            return false;
+        }
+        let mut words = words.peekable();
+        while let Some(w) = words.peek() {
+            if *w == "-C" || *w == "-c" {
+                words.next();
+                words.next();
+            } else if w.starts_with('-') {
+                words.next();
+            } else {
+                break;
+            }
+        }
+        words.next() == Some("worktree") && words.next() == Some("add")
+    })
+}
+
+/// 拿掉 heredoc 的內文（`<<EOF`、`<<'EOF'`、`<<-EOF` 之後到結束標記那行）。
+fn strip_heredocs(cmd: &str) -> String {
+    let mut out = String::new();
+    let mut end: Option<String> = None;
+    for line in cmd.lines() {
+        if let Some(tag) = &end {
+            if line.trim() == tag {
+                end = None;
+            }
+            continue;
+        }
+        if let Some(i) = line.find("<<") {
+            let tag: String = line[i + 2..].trim_start_matches(['-', '~']).trim_start()
+                .trim_start_matches(['\'', '"']).chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+            if !tag.is_empty() {
+                end = Some(tag);
+            }
+        }
+        out.push_str(line);
+        out.push('\n');
+    }
+    out
+}
+
+/// 依引號外的 `;` `&` `|` `(` `)` `{` `}` 換行切成一段段指令；引號裡的內容保留成同一個字（空白換成 \u{1}）。
+fn shell_segments(cmd: &str) -> Vec<String> {
+    let (mut segs, mut cur, mut quote) = (Vec::new(), String::new(), None::<char>);
+    for c in cmd.chars() {
+        match quote {
+            Some(q) if c == q => {
+                quote = None;
+                cur.push(c);
+            }
+            // 引號裡的空白換掉，整段引號才會是一個字，不會被當成另一個指令或參數。
+            Some(_) => cur.push(if c.is_whitespace() { '\u{1}' } else { c }),
+            None if c == '"' || c == '\'' => {
+                quote = Some(c);
+                cur.push(c);
+            }
+            None if matches!(c, ';' | '&' | '|' | '(' | ')' | '\n' | '{' | '}') => segs.push(std::mem::take(&mut cur)),
+            None => cur.push(c),
+        }
+    }
+    segs.push(cur);
+    segs
+}
+
+/// 指令有沒有提到系統暫存資料夾（Windows 路徑或 Git Bash 的 `/c/...` 寫法都算）。
+fn mentions_temp_dir(cmd: &str, temp: &Path) -> bool {
+    let norm = |s: &str| s.replace('\\', "/").to_lowercase();
+    let cmd = norm(cmd);
+    let temp = norm(&temp.to_string_lossy());
+    let temp = temp.trim_end_matches('/');
+    if temp.len() < 4 {
+        return false;
+    }
+    let bash = match temp.as_bytes() {
+        [d, b':', b'/', ..] => format!("/{}/{}", *d as char, &temp[3..]),
+        _ => temp.to_string(),
+    };
+    // 只認寫出來的路徑，不認 `$TEMP` 這類變數名：指令常為了別的檔案提到它（例如 `< "$TEMP/wr.json"`）。
+    cmd.contains(temp) || cmd.contains(&bash)
 }
 
 /// `panex-cli worktree-remove`：Claude Code 的 WorktreeRemove hook，跟 worktree-create 一起安裝。
@@ -549,6 +664,44 @@ mod tests {
         let req = wait_request(&["a".into(), "--timeout".into(), "5".into(), "b".into()]).unwrap();
         assert_eq!(req["tabs"], json!(["a", "b"]));
         assert_eq!(req["timeout"], 5);
+    }
+
+    #[test]
+    fn spots_git_worktree_add_only_as_a_command() {
+        for cmd in [
+            "git worktree add ../x feat/x",
+            "cd /d/repo && git worktree add -b feat/x ../x origin/main",
+            "cd D:\\repo; git fetch -q; git worktree add -q ../x b 2>&1 | tail -1",
+            "git -C \"D:\\my repo\" worktree add ../x b",
+            "git -c core.longpaths=true worktree add ../x b",
+            "set -e\nexport A=1\ngit worktree add ../x b",
+            "& 'C:\\Program Files\\Git\\cmd\\git.exe' worktree add ..\\x b",
+            "(cd repo && git worktree add ../x b)",
+        ] {
+            assert!(adds_worktree(cmd), "should block: {cmd}");
+        }
+        for cmd in [
+            "grep -n \"git worktree add\" docs/x.md",
+            "git commit -m \"note: git worktree add is wrapped\"",
+            "git commit -q -F - <<'EOF'\ngit worktree add ../x b\nEOF",
+            "echo git worktree add",
+            "git worktree list",
+            "git worktree remove --force ../x",
+            "panex-cli open --worktree feat/x -- claude \"do it\"",
+            "rg 'git worktree add' src",
+        ] {
+            assert!(!adds_worktree(cmd), "should allow: {cmd}");
+        }
+    }
+
+    #[test]
+    fn temp_folder_worktrees_are_allowed() {
+        let temp = Path::new(r"C:\Users\mis\AppData\Local\Temp");
+        assert!(mentions_temp_dir(r"git worktree add C:\Users\mis\AppData\Local\Temp\claude\x b", temp));
+        assert!(mentions_temp_dir("WT=/c/Users/mis/AppData/Local/Temp/claude/s; git worktree add \"$WT\" b", temp));
+        assert!(mentions_temp_dir("git worktree add /var/folders/ab/T/x b", Path::new("/var/folders/ab/T/")));
+        assert!(!mentions_temp_dir("git worktree add ../x b && panex-cli worktree-remove < \"$TEMP/wr.json\"", temp));
+        assert!(!mentions_temp_dir("git worktree add ../x b", temp));
     }
 
     #[test]

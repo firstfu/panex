@@ -8,7 +8,7 @@
 //! is added too, so worktrees Claude opens land next to the repo and in panex's sidebar. Unlike
 //! notify it changes what Claude Code does everywhere (the hook replaces its own `git worktree`
 //! step), so it is removed again when the setting is turned off.
-//! 同一個開關也控制 PreToolUse 的 `worktree-guard`（matcher `EnterWorktree`）：在 panex 分頁裡攔下 Claude Code
+//! 同一個開關也控制 PreToolUse 的 `worktree-guard`（matcher `EnterWorktree|Bash|PowerShell`，shell 只攔 `git worktree add`）：在 panex 分頁裡攔下 Claude Code
 //! 內建的原地切換，改叫它用 `panex-cli open --worktree` 把任務交給新 agent；不靠使用者的措辭，靠攔動作。
 //! WorktreeRemove（`panex-cli worktree-remove`）跟它成對裝、成對移除：有了 WorktreeCreate hook，Claude Code
 //! 刪 worktree 時要靠它刪資料夾，panex 也藉此關掉那個 worktree 的工作區。
@@ -23,7 +23,8 @@ const EVENTS: [&str; 5] = ["Notification", "Stop", "StopFailure", "UserPromptSub
 const WORKTREE_HOOKS: [(&str, &str); 2] = [("WorktreeCreate", "worktree-create"), ("WorktreeRemove", "worktree-remove")];
 
 /// 攔 `EnterWorktree` 的 PreToolUse hook：事件、matcher、panex-cli 子指令。跟 worktree hooks 同一個開關。
-const GUARD: (&str, &str, &str) = ("PreToolUse", "EnterWorktree", "worktree-guard");
+/// 也接 Bash／PowerShell：攔下 shell 裡直接跑的 `git worktree add`（見 panex-cli 的 worktree_guard）。
+const GUARD: (&str, &str, &str) = ("PreToolUse", "EnterWorktree|Bash|PowerShell", "worktree-guard");
 
 /// Shipped inside the binary, so the skill always matches this version's panex-cli.
 const SKILL: &str = include_str!("../../skills/panex/SKILL.md");
@@ -117,7 +118,8 @@ fn status_at(path: &Path, cli: &str, worktree: bool) -> bool {
     // 使用者自己的 worktree hook 優先：不在旁邊加我們的（見 install_at）。
     let worktree_ok = if worktree && !foreign_worktree_hook(&v["hooks"]) { WORKTREE_HOOKS.iter().all(|(e, _)| has(e)) } else { !any_panex };
     // guard 只看有沒有、跟開關是否一致；PreToolUse 裡使用者自己的條目不影響判斷。
-    let guard_has = v["hooks"][GUARD.0].as_array().is_some_and(|gs| gs.iter().any(|g| is_panex_group(g) && has_current(g, cli)));
+    // matcher 也要一致，舊版只攔 EnterWorktree 的條目才會被換掉。
+    let guard_has = v["hooks"][GUARD.0].as_array().is_some_and(|gs| gs.iter().any(|g| is_panex_group(g) && has_current(g, cli) && g["matcher"] == GUARD.1));
     let guard_any = v["hooks"][GUARD.0].as_array().is_some_and(|gs| gs.iter().any(is_panex_group));
     let guard_ok = if worktree { guard_has } else { !guard_any };
     EVENTS.iter().all(|e| has(e)) && worktree_ok && guard_ok
@@ -240,7 +242,7 @@ mod tests {
         let pre = v["hooks"]["PreToolUse"].as_array().unwrap();
         assert_eq!(pre.len(), 2);
         assert_eq!(pre[0], before["hooks"]["PreToolUse"][0]);
-        assert_eq!(pre[1]["matcher"], json!("EnterWorktree"));
+        assert_eq!(pre[1]["matcher"], json!("EnterWorktree|Bash|PowerShell"));
         assert_eq!(pre[1]["hooks"][0]["args"], json!(["worktree-guard"]));
         let stop = v["hooks"]["Stop"].as_array().unwrap();
         assert_eq!(stop.len(), 2, "the stale panex entry is replaced, not duplicated");
@@ -300,6 +302,17 @@ mod tests {
         let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
         assert_eq!(v["hooks"]["WorktreeCreate"].as_array().unwrap().len(), 1);
         assert_eq!(v["hooks"]["WorktreeRemove"][0]["hooks"][0]["args"], json!(["worktree-remove"]));
+        assert!(status_at(&p, CLI, true));
+
+        // A guard from before it watched the shell (matcher only EnterWorktree) is stale and gets replaced.
+        let mut v = v;
+        v["hooks"]["PreToolUse"][0]["matcher"] = json!("EnterWorktree");
+        fs::write(&p, v.to_string()).unwrap();
+        assert!(!status_at(&p, CLI, true), "old guard matcher must trigger a reinstall");
+        install_at(&p, CLI, true).unwrap();
+        let v: Value = serde_json::from_slice(&fs::read(&p).unwrap()).unwrap();
+        assert_eq!(v["hooks"]["PreToolUse"].as_array().unwrap().len(), 1);
+        assert_eq!(v["hooks"]["PreToolUse"][0]["matcher"], json!(GUARD.1));
         assert!(status_at(&p, CLI, true));
     }
 

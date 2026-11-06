@@ -4,6 +4,34 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-06 — worktree-guard 也攔 shell 裡的 `git worktree add`（未 commit、未發版）
+
+**變更**
+- `panex-cli worktree-guard` 接 Bash／PowerShell：指令位置上有 `git [-C 路徑|-c 設定]... worktree add` 就 deny，理由叫它改用 `panex-cli open --worktree <分支>`（交給新 agent 就加 `-- claude "<任務>"`；不帶命令只開工作區），並提醒 copyFiles 以外的未追蹤檔要自己複製。指令裡寫出系統暫存資料夾路徑的放行。新增 `adds_worktree`／`strip_heredocs`／`shell_segments`／`mentions_temp_dir` 與兩個測試。
+- `hooks.rs`：guard 的 matcher 改成 `EnterWorktree|Bash|PowerShell`；`status_at` 連 matcher 一起比，舊安裝啟動時會換新（新增測試）。
+- `SKILL.md`：加「不要自己跑 `git worktree add`」。`overview.md` hooks 那列同步。
+
+**為什麼**
+- 使用者反映 worktree「每次都很難成功」。查近 14 天的對話紀錄：約 10 個 session 直接用 shell `git worktree add`（ltc、pch_conversation_ai、refactor_mltc、oldpaw、julefu、panex），`EnterWorktree` 一次都沒出現，`panex-cli open --worktree` 只有 2 個 session 用、而且都成功。所以破口是 shell，不是 EnterWorktree。
+- 驗證：Rust 51＋6 全過；用 debug panex-cli 重放紀錄裡的真實指令，該擋的擋、heredoc／grep／暫存資料夾的放行；拋棄式 repo＋專案層級 hook 跑真的 `claude -p`（Haiku），`git worktree add` 被 deny、沒建出 worktree。
+
+**下一步**
+- 要發版、使用者重開 panex 才會生效（`ensure` 會把 matcher 換新）。
+- 沒用真的 Claude 驗「deny 後改走 `panex-cli open --worktree`」的完整交棒（測試環境沒有 panex 管道）。
+- 開工作區的 `worktree.copyFiles` 預設只有 `.env`／`.env.local`；像 ltc 的 `ConnectionProfile.json` 要加進設定，否則新 worktree 會缺檔。
+
+## 2026-11-06 — 拿掉「不用時零成本」原則
+
+**變更**
+- `boundaries.md` 刪掉「資源最小化是硬需求：閒置時不跑任何計時器…」那條，以及下一條「沒在用時成本要是零」的條件。
+- `overview.md`、`modules/updates.md`、`operations.md` 裡把零成本當理由或要求的字句拿掉，只保留實作事實（不輪詢、沒有計時器）。
+
+**為什麼**
+- 使用者裁定以後不再要求這條。下方舊紀錄裡「違反閒置零成本」的否決理由（背景常駐程式、CPU 取樣、側欄常駐數字、PR 狀態篩選等）都不再成立，要重新評估就照一般的成本效益看。
+
+**下一步**
+- 背景 daemon（參考 Orca 的 terminal daemon）可以重新評估。
+
 ## 2026-11-06 — 縮小 src-tauri/target 的 debug build 體積
 
 **變更**
