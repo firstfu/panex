@@ -6,7 +6,7 @@
 
 ## 機制
 - 後端 `updater.rs` 只有兩個指令：`update_check`（回 `{version, notes}` 或 null）與 `update_install`（**重新 check 一次**再下載、安裝、`app.restart()`，不在狀態裡留 `Update` 物件）。下載用 `tauri.conf.json` 的 minisign 公鑰驗簽；端點是 `releases/latest/download/latest.json`，由 CI 的 `manifest` job 產生（每平台一筆：Windows `windows-x86_64`＝NSIS 安裝檔本身、macOS `darwin-aarch64`＝`panex.app.tar.gz`）。
-- 前端 `update.ts` 決定時機：**啟動、視窗取回焦點且距上次檢查 ≥ 6 小時**才查，沒有計時器（閒置零成本的硬需求）。找到新版只在側欄 `#update-row` 顯示，**按下按鈕才安裝**；不像 Liftoff 閒置時自動重啟，因為重啟會結束所有分頁裡的 agent。有 agent 在工作時沿用 `openCloseAsk` 確認。
+- 前端 `update.ts` 決定時機：**啟動、視窗取回焦點且距上次檢查 ≥ 6 小時**才查，沒有計時器。找到新版只在側欄 `#update-row` 顯示，**按下按鈕才安裝**；不像 Liftoff 閒置時自動重啟，因為重啟會結束所有分頁裡的 agent。有 agent 在工作時沿用 `openCloseAsk` 確認。
 - 開關是 `app.checkForUpdates`（預設開）。只管背景檢查；設定頁「立即檢查」不受影響。
 - Windows 的 `installMode` 是 `passive`（只有小進度視窗、不問問題，裝完自動重開）；macOS 換掉 `.app` 後由 `restart()` 啟動新版。
 
