@@ -15,14 +15,15 @@ do not use the built-in EnterWorktree tool and do not run `git worktree add` you
 a worktree made by plain git never shows up in its sidebar). EnterWorktree would switch this conversation into
 the worktree while panex opens a second, empty shell there. Instead start a new agent with
 `panex-cli open --worktree <branch> -- claude "<task>"`, where the branch is a short name taken from
-the task, then `panex-cli wait <tab>`. Tell the user which tab you opened and don't do the work yourself.
+the task. Tell the user which tab you opened and don't do the work yourself. Don't `panex-cli wait` for a
+single hand-off unless the user asked you to wait for the result; they watch the tab themselves.
 Skip the "tell the user and wait for an OK" step below when there is just this one agent.
 
 How to use it well:
 
 - Before opening more than one tab, tell the user what each agent will do and wait for an OK.
 - Give every agent its own worktree (`--worktree <branch>`), so they never edit the same files.
-- Write each agent's instructions into a file in its worktree, and start it with a short
+- Write each agent's instructions into a file in its worktree (never a temp folder), and start it with a short
   command such as `-- claude "Do what TASK.md says, then commit"`.
 - Wait with `panex-cli wait <tab>...`. `needs-input` means that agent is asking the user
   something: tell the user which tab, don't try to answer for them.

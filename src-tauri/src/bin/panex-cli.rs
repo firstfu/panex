@@ -154,8 +154,9 @@ fn in_linked_worktree(cwd: &Path) -> bool {
 const GUARD_REASON: &str = "This session runs inside panex, so do not switch this conversation into a worktree. \
 Hand the task to a new agent instead: run `panex-cli help`, then start it with \
 `panex-cli open --worktree <branch> -- claude \"<task>\"` (pick a short branch name from the task; for a \
-long task write it to TASK.md in the worktree and tell the agent to follow it), then `panex-cli wait <tab>`. \
-Tell the user which tab you opened. Do not repeat the work in this session.";
+long task write it to TASK.md in the worktree, not in a temp folder, and tell the agent to follow it). \
+Tell the user which tab you opened. Do not run `panex-cli wait` unless the user asked you to wait for the result. \
+Do not repeat the work in this session.";
 
 /// `panex-cli worktree-guard`：PreToolUse hook（matcher `EnterWorktree`），在 panex 分頁裡攔下 Claude Code
 /// 內建的原地切換。原因：切換後 Claude 的 cwd 在 worktree、對話卻還掛在原工作區，panex 另開的 worktree
@@ -195,7 +196,7 @@ fn worktree_guard() {
 
 const SHELL_GUARD_REASON: &str = "This session runs inside panex, so do not create git worktrees with git directly: \
 panex would not show them in its sidebar. Run `panex-cli help`, then use `panex-cli open --worktree <branch> [--base <branch>]` \
-instead. To hand the work to a new agent, add `-- claude \"<task>\"` and then `panex-cli wait <tab>`; with no command it just \
+instead. To hand the work to a new agent, add `-- claude \"<task>\"` (no `panex-cli wait` unless the user asked you to wait); with no command it just \
 opens a workspace with a shell in the worktree and prints its path. Only the files in panex's worktree.copyFiles setting are \
 copied in, so copy any other untracked files the work needs (local config and the like) into the printed path yourself. \
 Worktrees under the system temp folder are not blocked.";
