@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-10 — 側欄群組改回扁平，發佈 v0.7.21
+
+**變更**
+- 退掉 `fe34cc5`（主工作區當群組最上層、worktree 縮在下面）：群組一律是標題列（點擊收合）加所有工作區平行排列。改 `render.ts`（`wsRow` 不再有 lead 參數）、`input.ts`（拿掉箭頭收合與主工作區拖曳特例）、`context-menu.ts`、`groups.ts`（`siblings` 只在組內排序）、`style.css`（移除 `.led`／`.lead`／`.ws-children`）。`groupLead` 仍用於群組命名、排序（主工作區排第一）與 `control.ts` 的 `moveHome`。
+- 版本號改到 0.7.21（同 0.7.20 那九個檔，`tokio-util` 的 0.7.20 不要動），內容是 `9df89cf`（擋 shell 的 `git worktree add`）與本次扁平化。發版前前端 54、Rust 51＋6 全過。CI 成功，release 已發布，兩個安裝檔與 `latest.json` 的 latest 轉址都指向 v0.7.21。
+
+**為什麼**
+- 使用者看到 worktree 縮在主工作區下面，要的是同一組內平行。
+
+**驗證與下一步**
+- 測試實例（合成的主工作區＋worktree）截圖確認兩列同一縮排、標題列收合有效；展開與拖曳沒驗證。
+- `cargo tauri build` 會改寫 `Cargo.toml` 的 `macos-private-api`，這次建完已還原。
+
 ## 2026-11-06 — worktree-guard 也攔 shell 裡的 `git worktree add`（未 commit、未發版）
 
 **變更**
