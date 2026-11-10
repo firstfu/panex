@@ -10,7 +10,7 @@ import { digitHint, keyLabel, withKey } from "./config";
 import { newWorkspace } from "./workspaces";
 import { openSshDialog } from "./ssh-dialog";
 import { gitBadges } from "./git-panel";
-import { groupLead, groupName, isCollapsed, repoName, units } from "./groups";
+import { groupName, isCollapsed, repoName, units } from "./groups";
 import { hiddenOrder, isHidden, visibleOrder } from "./hidden";
 import { fmtBytes, fmtMemShort, memOf } from "./mem";
 
@@ -97,9 +97,8 @@ function renderHidden() {
   );
 }
 
-// Groups (one repo's checkouts) render as a box: the main folder's workspace on top with a fold
-// caret and the worktrees indented below it, or, when that workspace isn't open, a header row
-// naming the repo. The rest render as plain rows.
+// Groups (one repo's checkouts) render as a box: a header row naming the repo (click to fold),
+// then all its workspaces (main folder and worktrees) side by side. The rest render as plain rows.
 function renderSidebar() {
   wsListEl.replaceChildren(
     ...units().flatMap((all) => {
@@ -110,15 +109,6 @@ function renderSidebar() {
       const box = document.createElement("div");
       const folded = isCollapsed(group);
       box.dataset.repo = group;
-      const lead = groupLead(group, run);
-      if (lead) {
-        box.className = `ws-group led${folded ? " folded" : ""}`;
-        const kids = document.createElement("div");
-        kids.className = "ws-children";
-        kids.append(...run.filter((id) => id !== lead).map((id) => wsRow(id)));
-        box.append(wsRow(lead, { folded, run }), ...(folded ? [] : [kids]));
-        return box;
-      }
       const status = folded ? loudest(run) : "idle";
       box.className = `ws-group${folded ? " folded" : ""}`;
       const head = document.createElement("div");
@@ -139,33 +129,26 @@ function renderSidebar() {
 /**
  * 側欄的一個工作區列。
  * @param wid 工作區 id
- * @param lead 這列是群組最上層（主工作區）時給：`folded` 決定箭頭方向；收合時這列代表整組，
- *   底色取組內最緊急的狀態、組內任何一個是目前的工作區就標成作用中，並顯示組內工作區數量
  */
-function wsRow(wid: string, lead?: { folded: boolean; run: string[] }) {
+function wsRow(wid: string) {
   const order = visibleOrder();
   const i = order.indexOf(wid);
   const ws = workspaces.get(wid)!;
   const cur = wsActiveTab(ws);
   const { status, tab: st } = wsStatus(ws);
-  const whole = lead?.folded ? lead.run : undefined;
-  const shown = whole ? loudest(whole) : status;
-  const active = whole ? whole.includes(S.activeWsId ?? "") : wid === S.activeWsId;
+  const active = wid === S.activeWsId;
   const d = document.createElement("div");
-  d.className = `tab ws st-${shown}${active ? " active" : ""}${lead ? " lead" : ""}`;
+  d.className = `tab ws st-${status}${active ? " active" : ""}`;
   d.dataset.ws = wid;
   const num = i < 8 ? i + 1 : i === order.length - 1 ? 9 : 0;
   const hint = num ? digitHint("selectWorkspaceByNumber", num) : "";
-  const caret = lead ? `<span class="grp-caret${lead.folded ? " folded" : ""}" data-caret title="${esc(tr(lead.folded ? "展開" : "收合"))}">${CARET}</span>` : "";
   const dot = ws.color ? `<span class="t-dot" style="background:${COLORS[ws.color] ?? ws.color}"></span>` : "";
-  const count = whole
-    ? `<span class="t-count" title="${esc(tr("{n} 個工作區", { n: whole.length }))}">${whole.length}</span>`
-    : ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
-  const mem = memTag(whole ? whole.flatMap((id) => workspaces.get(id)?.tabs ?? []) : ws.tabs, "t-mem");
+  const count = ws.tabs.length > 1 ? `<span class="t-count" title="${esc(tr("{n} 個分頁", { n: ws.tabs.length }))}">${ws.tabs.length}</span>` : "";
+  const mem = memTag(ws.tabs, "t-mem");
   const title =
     S.renaming?.kind === "ws" && S.renaming.id === wid
       ? renameInput
-      : `${caret}${dot}<span class="name">${esc(wsTitle(ws))}</span>${mem}${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
+      : `${dot}<span class="name">${esc(wsTitle(ws))}</span>${mem}${count}${hint ? `<span class="t-num">${hint}</span>` : ""}`;
   d.innerHTML =
     `<div class="t-title">${title}</div>` +
     (cur ? `<div class="t-meta"><span class="t-shell">${shellTag(cur.shell)}</span>${esc(cur.ssh ?? cur.cwd ?? "")}</div>` : "") +

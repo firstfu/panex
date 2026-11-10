@@ -1,6 +1,5 @@
 // Sidebar groups: the workspaces of one repo's checkouts (its main folder and its worktrees)
-// sit together in wsOrder. The main folder's workspace (groupLead) is the group's top row, with
-// the worktrees indented below it; with no such workspace open, a header row names the repo.
+// sit together in wsOrder under a header row naming the repo, side by side (no nesting).
 // A workspace's `group` is the main checkout's path; it is set when a worktree is opened (or
 // from the menu) and stays put when the shell cd's elsewhere, so a workspace never jumps
 // between groups on its own.
@@ -164,10 +163,7 @@ export function placeRun(run: string[], target: string[], after: boolean) {
 function siblings(id: string): string[][] {
   const g = workspaces.get(id)?.group;
   if (!g) return units();
-  // The main workspace stands for its whole group; the others move among themselves below it.
-  const members = groupMembers(g);
-  const lead = groupLead(g, members);
-  return id === lead ? units() : members.filter((m) => m !== lead).map((m) => [m]);
+  return groupMembers(g).map((m) => [m]);
 }
 const runIndex = (list: string[][], id: string) => list.findIndex((r) => r.includes(id));
 

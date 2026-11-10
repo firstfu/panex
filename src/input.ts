@@ -9,7 +9,7 @@ import { S, activeTab, tabs, workspaces } from "./state";
 import { setFontSize, updateSettings } from "./config";
 import { termsEl } from "./terminal";
 import { askCloseTab, askCloseWorkspaces, moveTab, newTab, newWorkspace, showTab, showWorkspace } from "./workspaces";
-import { groupLead, groupMembers, isCollapsed, placeRun, sameRepo, setCollapsed } from "./groups";
+import { groupMembers, isCollapsed, placeRun, sameRepo, setCollapsed } from "./groups";
 import { wtEl } from "./worktree-dialog";
 import { closeGitView, gitViewEl } from "./git-panel";
 import { closeSearch, searchEl } from "./search";
@@ -145,9 +145,6 @@ wsListEl.addEventListener("click", (e) => {
   if (group) return setCollapsed(group, !isCollapsed(group));
   const id = target.closest<HTMLElement>("[data-ws]")?.dataset.ws;
   if (!id) return;
-  // The caret on a group's main workspace folds the group; the rest of that row selects it.
-  const own = workspaces.get(id)?.group;
-  if (own && target.closest("[data-caret]")) return setCollapsed(own, !isCollapsed(own));
   if (target.closest(".t-close")) return askCloseWorkspaces([id]);
   if (isDoubleClick(id)) return startRename("ws", id);
   showWorkspace(id);
@@ -252,15 +249,13 @@ function pickWorkspace(t: HTMLElement): DragPick | undefined {
   const head = t.closest<HTMLElement>("[data-group]");
   const row = t.closest<HTMLElement>("[data-ws]");
   const group = !head && row ? workspaces.get(row.dataset.ws!)?.group : undefined;
-  // A group's main workspace is its top row: dragging it moves the whole group, like the header.
-  const lead = group ? groupLead(group, groupMembers(group)) : undefined;
-  if (row && group && row.dataset.ws !== lead) {
+  if (row && group) {
     return {
       el: row,
       run: [row.dataset.ws!],
       targetAt: (n) => {
         const o = (n as HTMLElement | null)?.closest?.<HTMLElement>("[data-ws]");
-        return o && o.dataset.ws !== lead && sameRepo(workspaces.get(o.dataset.ws!)?.group, group) ? { el: o, run: [o.dataset.ws!] } : undefined;
+        return o && sameRepo(workspaces.get(o.dataset.ws!)?.group, group) ? { el: o, run: [o.dataset.ws!] } : undefined;
       },
     };
   }

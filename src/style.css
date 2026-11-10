@@ -109,14 +109,6 @@ body.resizing-sidebar #sidebar-resizer { pointer-events: auto; }
 .grp-caret { width: 14px; height: 14px; flex: none; display: inline-flex; align-items: center; justify-content: center; }
 .grp-caret .ico { width: 12px; height: 12px; stroke-width: 1.8; transition: transform 0.12s; }
 .grp-caret.folded .ico { transform: rotate(-90deg); }
-/* Led by the main folder's workspace: it is the top row (caret before its name) and the
-   worktrees hang below it along the guide line. */
-.ws-group.led { background: none; }
-.ws-group.led > .tab { margin-left: 0; }
-.tab.lead .grp-caret { margin-left: -4px; color: var(--dim); cursor: pointer; border-radius: 3px; }
-.tab.lead .grp-caret:hover { color: var(--fg); background: var(--side-hover); }
-.ws-children { margin-left: 7px; padding-left: 10px; border-left: 1px solid rgba(255, 255, 255, 0.1); }
-.ws-children > .tab:last-child { margin-bottom: 0; }
 .t-wt { font-size: 10px; padding: 0 4px; margin-right: 4px; border: 1px solid rgba(168, 85, 247, 0.55); border-radius: 3px; color: #c4b5fd; }
 
 .t-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
