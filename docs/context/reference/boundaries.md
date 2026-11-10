@@ -16,6 +16,7 @@
 - **改 session／config 格式一定要寫遷移並備份**：`#[serde(default)]` 會把舊格式靜默讀成空的，下一次存檔就把使用者資料洗掉。
 
 ## 踩過的雷
+- **在 worktree 自己的對話裡刪 worktree → 資料夾刪不乾淨（Windows）**：那個對話的 shell、MCP 子行程（如 analytics-mcp 的 python）與背景 dev server（vite 另開在 pnpm／cmd 串裡）的 cwd 都在 worktree 裡，Windows 不能刪被當 cwd 的資料夾，結果 git 已不登記、資料夾與分支還在（`Device or resource busy`）；agent 自己跑 `git worktree remove` 還會繞過 panex，側欄那一項留著（2026-11-10 在 ltc 專案踩過）。處理：先關 worktree 的分頁與 dev server，再從主 checkout 跑 `panex-cli worktree-remove` 與 `git branch -D`。`skills/panex/SKILL.md` 已叫 agent 在 worktree 內只合併推送、不刪自己。要找誰佔住：讀各行程 PEB 的 CurrentDirectory（`NtQueryInformationProcess`），`CommandLine` 搜路徑只找得到 dev server，找不到 shell 與 MCP。
 - **公開 repo 裡混進使用者的私人路徑**：這是 public repo，設定面板的字型預覽曾寫死 `C:\Users\mis`，到發佈前掃描才發現（已改 `C:\Users\you`）。每次 commit 前、加截圖前都要掃過使用者名稱、院內網址、私人分頁名稱與金鑰；截圖一律用測試實例的示範資料拍（見 `operations.md`）。
 - **PTY 輸出在 Rust 端轉字串 → 中文亂碼**：多位元組字元會被切在兩次 read 之間。輸出一律以 raw bytes 傳給 `term.write(Uint8Array)`，由 xterm 解 UTF-8。
 - **ConPTY 開機會先問游標位置（portable-pty 開了 INHERIT_CURSOR）**：前端必須在 `pty_spawn` 回來之前就把 `running` 設 true，讓 xterm 的回覆送得進去，否則 console 卡住不出 prompt。

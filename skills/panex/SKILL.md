@@ -19,6 +19,13 @@ the task. Tell the user which tab you opened and don't do the work yourself. Don
 single hand-off unless the user asked you to wait for the result; they watch the tab themselves.
 Skip the "tell the user and wait for an OK" step below when there is just this one agent.
 
+Cleaning up a worktree: when the user asks you to merge and delete a worktree and you are running inside that
+worktree, merge and push, stop its dev servers, then stop. Don't delete the worktree you are standing in. Your
+own shell (and MCP servers) keep that folder as their cwd, and Windows can't delete it, so you would leave
+behind a folder that git no longer lists. Tell the user to finish from the main checkout with
+`panex-cli worktree-remove` (or the sidebar's "close workspace and delete worktree"), then `git branch -D <branch>`.
+Never run `git worktree remove` yourself in a panex tab: it skips panex, so the sidebar entry stays.
+
 How to use it well:
 
 - Before opening more than one tab, tell the user what each agent will do and wait for an OK.
