@@ -4,6 +4,19 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-10 — worktree 開好自動跑 `claude`，焦點留在原對話（未 commit、未發版）
+
+**變更**
+- `panex-cli open --worktree`（沒帶 `-- 命令` 時）與 Claude Code 的 `WorktreeCreate` hook，開完 worktree 工作區後自動在那個 shell 跑 `claude`（有 setupCommand 就先跑它再跑 `claude`），畫面與焦點仍留在原本的對話分頁，只是側欄多一列背景啟動好的工作區。改 `src/control.ts` 的 `open()` 與 `worktree()`。
+- 側邊欄選單手動「新增 worktree」（`worktree-dialog.ts`）沒有動：它建好仍會切過去且是空 shell，跟這次要的「不移焦點」不同，待確認要不要一併改。
+
+**為什麼**
+- 使用者要 worktree 建好就自動進入 Claude 對話框，但不要搶走目前畫面的焦點。
+
+**驗證與下一步**
+- 只過了 `tsc --noEmit`，沒有實機跑 panex 驗證自動 `claude` 真的會啟動、沒有切分頁。
+- 待定：`worktree-dialog.ts` 的手動新增流程是否也要改成同樣行為。
+
 ## 2026-11-10 — 側欄群組改回扁平，發佈 v0.7.21
 
 **變更**

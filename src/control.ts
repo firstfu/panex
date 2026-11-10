@@ -44,7 +44,9 @@ async function open(a: OpenArgs) {
     const setup = worktreeSetup();
     if (setup) input.push(setup);
   }
+  // A worktree without a command still gets a Claude Code session of its own; focus stays where it is.
   if (a.command) input.push(a.command);
+  else if (a.worktree) input.push("claude");
   const tab = await openWorkspace({ cwd, from: a.from ?? "", title: a.title || a.worktree, repo, copied, input });
   return { tab: tab.id, cwd };
 }
@@ -114,7 +116,7 @@ async function worktree(a: WorktreeArgs) {
   // Asked again for a worktree that already has a tab (Claude resuming a session in it): keep that one.
   if ([...tabs.values()].some((t) => inFolder(t.cwd, wt.path))) return { path: wt.path };
   const setup = worktreeSetup();
-  await openWorkspace({ cwd: wt.path, from: a.from, title: a.name, repo: wt.repo, copied: wt.copied, input: setup ? [setup] : [] });
+  await openWorkspace({ cwd: wt.path, from: a.from, title: a.name, repo: wt.repo, copied: wt.copied, input: setup ? [setup, "claude"] : ["claude"] });
   return { path: wt.path };
 }
 
