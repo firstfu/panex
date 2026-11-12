@@ -4,6 +4,20 @@
 >
 > **process-archive.md 的讀法**：預設不讀。要回溯時先 Grep 關鍵字（日期、功能名、表名）定位，再用 offset/limit 只讀那一筆，不得整份讀進來。
 
+## 2026-11-12 — worktree 裡自己的 claude 刪自己所在的 worktree 刪不掉，改成延後刪除，發佈 v0.7.24
+
+**變更**
+- `panex-cli worktree-remove`：在 panex 分頁裡刪 worktree 時，若 `git worktree remove` 因資料夾被目前程序（呼叫者自己的 shell／MCP）佔用而失敗，不再直接回 exit 1；改成起一個脫離程序樹的背景程序（`panex-cli worktree-remove-later`，Windows 用 `DETACHED_PROCESS` 旗標）每 2 秒重試、最多約 30 分鐘，自己先回 exit 0，stderr 註明「session 結束後才會刪除」。`remove_worktree` 加上可調的重試次數參數。改 `src-tauri/src/bin/panex-cli.rs`。
+- `skills/panex/SKILL.md`：agent 清理自己所在的 worktree 時，只呼叫一次 `panex-cli worktree-remove` 就停手，不要重試、不要自己跑 `git worktree remove`、不要另開分頁；分支留給使用者或下一個 session 刪。
+- 版本號改到 0.7.24（同慣例九個檔）。發版前前端 54、Rust 51＋6 全過。CI 成功，release 已發布，兩個安裝檔與 `latest.json` 的 latest 轉址都指向 v0.7.24。
+
+**為什麼**
+- 使用者在 panex 開 worktree、在裡面的 claude 下指令刪 worktree 和分支時出錯，而且 worktree 會卡在刪不掉的狀態。原因：那個 claude 自己的程序把資料夾當 cwd，Windows 刪不掉；舊版遇到這情況直接失敗，Claude 看到失敗後會自己想辦法（改跑 git、開新分頁），把情況弄得更亂。
+
+**驗證與下一步**
+- 只跑了 Rust／前端單元測試，沒有在真的 Windows panex 實機裡重現「worktree 裡的 claude 呼叫 worktree-remove」驗證延後刪除真的會生效、資料夾最終會消失。使用者之後若再踩到刪不掉或多開分頁，回來看這筆。
+- 「多開一個 tab」這個症狀的確切成因沒有完全定位，只知道可能跟 `moveHome` 把 Claude 所在分頁搬回主工作區有關；若再發生要請使用者描述當時 claude 跑了什麼指令、錯誤原文。
+
 ## 2026-11-10 — worktree 開好自動跑 `claude`，焦點留在原對話，發佈 v0.7.22
 
 **變更**
