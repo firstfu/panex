@@ -9,8 +9,6 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](../LICENSE)
 ![Windows 10/11](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4?logo=windows)
 ![macOS Apple Silicon](https://img.shields.io/badge/macOS-Apple%20Silicon-000000?logo=apple)
-![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri)
-![Rust](https://img.shields.io/badge/Rust-stable-orange?logo=rust)
 [![Latest release](https://img.shields.io/github/v/release/firstfu/panex)](https://github.com/firstfu/panex/releases/latest)
 
 [網站](https://firstfu.github.io/panex/zh/) · [下載](https://github.com/firstfu/panex/releases/latest) · [功能](#功能) · [安裝](#安裝) · [設定](#設定) · [常見問題](#常見問題)
