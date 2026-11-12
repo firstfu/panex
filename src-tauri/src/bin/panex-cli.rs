@@ -29,6 +29,7 @@ fn main() {
         Some("send") => std::process::exit(run(send_request(&args[1..]))),
         Some("worktree-create") => std::process::exit(worktree_create()),
         Some("worktree-remove") => std::process::exit(worktree_remove()),
+        Some("worktree-remove-later") => std::process::exit(args.get(1).map_or(1, |p| worktree_remove_later(Path::new(p)))),
         Some("worktree-guard") => worktree_guard(),
         #[cfg(feature = "e2e")]
         Some("e2e") => std::process::exit(e2e(&args[1..])),
@@ -312,8 +313,19 @@ fn worktree_remove() -> i32 {
             eprintln!("panex-cli: cannot reach panex ({e}); removing the worktree anyway");
         }
     }
-    match remove_worktree(&path) {
+    match remove_worktree(&path, 4) {
         Ok(()) => 0,
+        // 呼叫者（Claude 本身）就活在這個資料夾裡：它的程序佔著 cwd，現在刪不掉。留一個背景程序等它結束再刪，
+        // 先回報成功；否則 Claude 會看到失敗、改用別的辦法（例如自己跑 git、另開分頁）把事情弄得更亂。
+        Err(e) if path.exists() && std::env::var("PANEX_PANE_ID").is_ok() && e.contains("cannot remove") => {
+            if spawn_deferred_remove(&path) {
+                eprintln!("panex-cli: {} is still in use by this session; it will be removed once the session exits", path.display());
+                0
+            } else {
+                eprintln!("panex-cli: {e}");
+                1
+            }
+        }
         Err(e) => {
             eprintln!("panex-cli: {e}");
             1
@@ -321,10 +333,39 @@ fn worktree_remove() -> i32 {
     }
 }
 
+/// `panex-cli worktree-remove-later <path>`（內部用）：每 2 秒試一次 `git worktree remove`，最多約 30 分鐘，刪掉或資料夾消失就結束。
+fn worktree_remove_later(path: &Path) -> i32 {
+    for _ in 0..900 {
+        if remove_worktree(path, 1).is_ok() {
+            return 0;
+        }
+        std::thread::sleep(Duration::from_secs(2));
+    }
+    1
+}
+
+/// 起一個脫離目前程序樹的 `worktree-remove-later`（分頁關掉時 ConPTY 會一起帶走子程序，所以要脫離）。
+fn spawn_deferred_remove(path: &Path) -> bool {
+    let Ok(exe) = std::env::current_exe() else { return false };
+    let mut cmd = std::process::Command::new(exe);
+    cmd.arg("worktree-remove-later").arg(path).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB；不准脫離 job 時退一步不帶最後一個。
+        cmd.creation_flags(0x0000_0008 | 0x0000_0200 | 0x0100_0000);
+        if cmd.spawn().is_ok() {
+            return true;
+        }
+        cmd.creation_flags(0x0000_0008 | 0x0000_0200);
+    }
+    cmd.spawn().is_ok()
+}
+
 /// 從主 checkout 跑 `git worktree remove --force <path>`（git 不刪自己正在裡面的 worktree），
 /// `<repo>-worktrees` 因此空了就一併刪。資料夾已經不在算成功。panex 剛關掉的 shell 可能還沒結束，失敗會重試幾次。
 /// 錯誤：不是 git worktree（照 Claude Code 的做法留在原地）或重試後仍刪不掉。
-fn remove_worktree(path: &Path) -> Result<(), String> {
+fn remove_worktree(path: &Path, attempts: u32) -> Result<(), String> {
     if !path.exists() {
         return Ok(());
     }
@@ -335,7 +376,7 @@ fn remove_worktree(path: &Path) -> Result<(), String> {
     };
     let path_str = path.to_string_lossy().into_owned();
     let mut last = Ok(String::new());
-    for attempt in 0..4 {
+    for attempt in 0..attempts {
         if attempt > 0 {
             std::thread::sleep(Duration::from_millis(400));
         }
@@ -345,7 +386,7 @@ fn remove_worktree(path: &Path) -> Result<(), String> {
             break;
         }
     }
-    last?;
+    last.map_err(|e| format!("cannot remove {}: {e}", path.display()))?;
     if let Some(parent) = path.parent().filter(|p| p.file_name().is_some_and(|n| n.to_string_lossy().ends_with("-worktrees"))) {
         let _ = std::fs::remove_dir(parent);
     }
