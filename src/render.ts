@@ -66,6 +66,18 @@ export function render() {
   renderSidebar();
   renderHidden();
   renderTabbar();
+  renderGitToggleBadge();
+}
+
+/** Count of uncommitted changes on the git toggle (the tab the panel would show); hidden at 0 or outside a repo. */
+function renderGitToggleBadge() {
+  const n = (S.visibleTabId ? tabs.get(S.visibleTabId)?.git?.total : 0) ?? 0;
+  const el = $("git-toggle-badge");
+  el.hidden = !n;
+  el.textContent = n > 99 ? "99+" : String(n);
+  const label = tr("顯示 / 隱藏 Git 面板");
+  const btn = $("git-toggle");
+  btn.setAttribute("aria-label", n ? `${label}（${tr("{n} 個未提交的變更", { n })}）` : label);
 }
 
 /** The "已隱藏" row under the list: a count (with the loudest status inside), opening to the hidden workspaces. */

@@ -299,6 +299,13 @@ body.resizing-git #git-resizer { pointer-events: auto; }
   display: inline-flex; align-items: center; justify-content: center;
   border: 0; border-radius: 5px; background: none; color: var(--dim); cursor: pointer;
 }
+#git-toggle { position: relative; }
+#git-toggle-badge {
+  position: absolute; top: -3px; right: -3px; min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box;
+  border-radius: 7px; background: #f97316; color: #fff; font-size: 9px; font-weight: 600; line-height: 14px;
+  text-align: center; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+#git-toggle-badge[hidden] { display: none; }
 #git-toggle:hover { background: var(--side-hover); color: var(--fg); }
 #git-toggle.on { color: var(--fg); background: var(--side-active); }
 .g-head { display: flex; align-items: center; gap: 2px; height: 35px; flex: none; padding: 0 6px 0 12px; border-bottom: 1px solid var(--line); }
